@@ -1,0 +1,16 @@
+Go in /lib/modules/<kernelname>/source/arch/x86/include/ and do 
+cp generated/asm/unistd*.h ./asm/
+
+find /lib/modules/3.18.4-aufs/ -name '*.ko' -print0 | xargs -0 du -ch
+
+make prepare
+
+sudo /usr/bin/modprobed-db recall         <---- insert this line
+make localmodconfig              <---- insert this line
+
+# load configuration
+# Configure the kernel. Replace the line below with one of your
+# choice.
+#make menuconfig # CLI menu for configuration
+#make nconfig # new CLI menu for configuration
+#make xconfig # X-based configuration

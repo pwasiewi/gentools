@@ -1,0 +1,1 @@
+curl http://ix.io/$1 | tr -d "\015"  > $2

@@ -1,0 +1,1 @@
+for j in Raw_Read_Error_Rate  Reallocated_Sector_Ct Seek_Error_Rate Runtime_Bad_Block End-to-End_Error  Spin_Retry_Count Wear_Range_Delta Command_Timeout Current_Pending_Sector Offline_Uncorrectable Power_On_Hours; do for i in a b c d; do echo /dev/sd$i; smartctl -a /dev/sd$i | grep $j; done; done

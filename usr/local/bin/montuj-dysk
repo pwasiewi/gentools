@@ -1,0 +1,15 @@
+if [ $# -ne 0 ]; then
+mkfs.ext4 $1
+tune2fs -O has_journal -o journal_data_writeback $1
+mount $1 /mnt/gentoo
+if [ $? -ne 0 ]
+then
+    echo "mount $1 failure" 
+    exit 1
+else
+cd /mnt/gentoo
+msquash
+fi
+else
+echo Podaj partycję /dev/sdxx - OSTROŻNIE wybierz nie zajętą - jako argument
+fi

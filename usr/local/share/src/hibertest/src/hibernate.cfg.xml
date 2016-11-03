@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE hibernate-configuration PUBLIC
+          "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+          "http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd">
+
+<hibernate-configuration>
+  <session-factory>
+    <!--  PostgreSQL connection -->
+    <property name="connection.url">jdbc:postgresql://localhost:5432/postgres</property>
+    <property name="connection.username">postgres</property>
+    <property name="connection.password">""</property>
+    <property name="connection.driver_class">org.postgresql.Driver</property>
+    <property name="dialect">org.hibernate.dialect.PostgreSQLDialect</property>
+
+    <!--  MySQL connection 
+      <property name="connection.url">jdbc:mysql://localhost/dbaza1</property>
+      <property name="connection.username">root</property>
+      <property name="connection.driver_class">com.mysql.jdbc.Driver</property>
+      <property name="dialect">org.hibernate.dialect.MySQLDialect</property>
+      <property name="connection.password">""</property>
+    -->
+    <property name="transaction.factory_class">org.hibernate.transaction.JDBCTransactionFactory</property>
+    <!--  krótka nazwa dla
+      org.hibernate.context.ThreadLocalSessionContext
+      pozwala związać sesję z wątkiem
+    -->
+    <property name="current_session_context_class">thread</property>
+    <!-- sql -->
+    <property name="hibernate.show_sql">true</property>
+    <!-- tworzy tabele -->
+    <property name="hibernate.hbm2ddl.auto">create</property>
+    <mapping resource="pl/wit/przyklad/Klient.hbm.xml" />
+     <mapping resource="pl/wit/przyklad/Rodzaje.hbm.xml" />
+     <mapping resource="pl/wit/przyklad/Kategorie.hbm.xml" />
+     <mapping resource="pl/wit/przyklad/Klient_kat.hbm.xml" />
+     
+  </session-factory>
+
+</hibernate-configuration>

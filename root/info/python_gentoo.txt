@@ -1,0 +1,119 @@
+https://ksmanis.wordpress.com/
+https://wiki.gentoo.org/wiki/Equery
+
+Gentoo won't show up in the job listings. It's a metadistribution - a tool to
+create custom deployments using standard, well-tested packages as components.
+It requires in-depth knowledge (not necessarily the way it should be, but it
+is a reality) and such knowledge reflects your general knowledge of Linux and
+applies to all distributions.
+
+emerge -av1 $(qfile -q -S -C /usr/lib/udev)
+%s/-[0-9\.]*[-r0-9]* /-/
+
+vim /usr/share/genkernel/defaults/initrd.defaults
+MAKEOPTS="-j8 -l16" genkernel --makeopts=-j9 --lvm --luks --no-clean all;
+emerge ati-drivers
+grub2-mkconfig -o /boot/grub/grub.cfg
+cd /etc/X11
+cp xorg.conf.fglrxmulti xorg.conf
+eselect opengl list
+eselect opencl list
+
+http://negativesum.net/tech/linux/gentoo/maintenance/
+
+The  following, in no particular order, are things that require some additional administrative actions, related to maintaining a smooth-running Gentoo install.
+Did you emerge anything?
+
+    Let portage clean up lib dependencies.
+
+        emerge -avt1 @preserved-rebuild
+
+    Then let portage prune out old stuff.
+
+        emerge -avt1 --depclean
+
+GCC updated? (sys-devel/gcc)?
+
+    Activate the new profile:
+
+        gcc-config -l
+
+        gcc-config <num>
+
+        env-update && source /etc/profile
+
+        ...where <num> is the latest version.
+    libtool needs refreshed:
+
+        emerge -avt1 libtool
+
+    Review the Gentoo wiki page for further details.
+
+Python updated? (dev-lang/python)?
+
+    Verify that the active python version for each slot is updated.
+
+        eselect python list --python2
+        eselect python set --python2 <whatever number is the new one>
+
+        eselect python list --python3
+        eselect python set -python3 <whatever number is the new one>
+
+    Then allow all the python packages a chance to compile against the new version.
+
+        python-updater -v
+
+PHP updated? (dev-lang/php)?
+
+    Verify that the active php version for each slot is updated.
+
+        eselect php list cli
+        eselect php set cli <whatever number is the new one>
+
+        eselect php list apache2
+        eselect php set apache2 <whatever number is the new one>
+
+    Then edit /etc/make.conf and ensure PHP_TARGETS reflects the new version.
+
+        python-updater -v
+
+    Review the Gentoo docs page for further details.
+
+Perl updated (dev-lang/perl)?
+
+    Allow all the perl packages a chance to compile against the new version.
+
+        perl-cleaner --all
+
+X11 updated (x11-base/xorg-server)?
+
+    Let the x11 modules update.
+
+        emerge -avt1 @x11-module-rebuild
+
+ Kernel updated (sys-kernel/gentoo-sources)?
+
+    Follow the kernel upgrade guide.
+
+ 
+Stuck on emerge blockers
+
+Sometimes, if you've not been keeping up with @world and @system updates (or even if you have), things can get a little clogged with portage and it takes some finessing to get everything updated.
+
+If emerge refuses to do anything because it says multiple versions of a given package are being pulled in, try the following:
+
+    Try updating only that package.
+
+        emerge -uavt1 <pkg>
+
+    Try updating that package, but asking emerge to think harder about the dependency tree.
+
+        emerge -uavt1 --backtrack=30 <pkg>
+
+    Or try updating that package and a broader collection of things that depend on it.  Note that this will sometimes work when a simple '-uDavt1 <pkg>' won't.
+
+        equery -Cq depends <pkg> | xargs -d '\n' qlist -IC | xargs -d '\n' emerge -uvt1  <pkg>
+
+    And sometimes (as a last resort) it's possible to just unmerge a troublesome package and then immediately try another @system @world run and let it get pulled back in.
+
+ 

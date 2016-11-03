@@ -1,0 +1,5 @@
+#mkisofs -udf -o image123456 $1 
+#growisofs -speed 1 -Z /dev/sr0=$1
+growisofs -Z /dev/sr0=$1
+#dvdwrapper -v -dao dev=ATAPI:0,1,0   driveropts=burnfree  image123456 
+#rm image123456

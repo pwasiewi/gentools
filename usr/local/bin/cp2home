@@ -1,0 +1,7 @@
+WHERE="/$2/chroot"
+echo cp -a /var/tmp/iso$WHERE$1  `dirname $1` 
+if [ ! -d `dirname $1` ]; then 
+install -d `dirname $1`; 
+fi
+rm -rf $1
+cp -a /var/tmp/iso$WHERE$1 `dirname $1` 

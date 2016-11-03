@@ -1,0 +1,8 @@
+if [ -f $1 ]; then
+ j=`basename $1 .tex`
+ pdflatex $j.tex
+ evince $j.pdf
+else
+ pdflatex $1.tex
+ evince $1.pdf
+fi

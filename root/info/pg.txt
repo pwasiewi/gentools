@@ -1,0 +1,92 @@
+pgadmin3 postgresql-base postgresql-server slony1 pgpool2 dev-db/pg_top dev-db/pgagent dev-db/pgbouncer dev-db/pgtap dev-db/pgtune dev-db/pgxnclient dev-perl/pgperl dev-ruby/pg
+
+# vi /etc/modprobe.d/aliases
+Find the line:
+alias net-pf-10 ipv6
+
+Replace with:
+alias net-pf-10 off
+alias ipv6 off
+
+
+#disable ipv6
+net.ipv6.conf.all.disable_ipv6=1
+
+Alternatively, just run this command to disable ipv6 temporarily:
+
+echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6
+
+gedit /etc/default/grub
+GRUB_CMDLINE_LINUX_DEFAULT=”ipv6.disable=1 quiet splash”
+
+/etc/sysconfig/network and add the following:
+NETWORKING_IPV6=no
+IPV6INIT=no
+
+https://wiki.gentoo.org/wiki/Munin
+emerge --config net-analyzer/munin
+
+http://vibhorkumar.wordpress.com/2011/06/24/install-and-configure-nagios-for-postgresqlppas-on-linux/
+http://www.pablumfication.co.uk/2010/02/07/gentoo-nagios-configuration-for-basic-remote-host-monitoring/
+http://www.gentoo.org/doc/en/nagios-guide.xml
+http://postgresinfo.wordpress.com/category/monitoring-postgresql/
+http://negativesum.net/tech/tools/munin-install-guide
+https://wiki.archlinux.org/index.php/Munin
+http://serverfault.com/questions/211722/munin-on-localhost-telnet-only-displays-period
+
+createuser --no-superuser --no-createdb --no-createrole munin
+createuser --no-superuser --no-createdb --no-createrole nagios
+
+
+    emerge --config net-analyzer/munin
+
+    You can see the crontab that it establishes for the munin user via:
+
+        crontab -l -u munin
+
+    Edit /etc/munin/munin.conf.
+
+Configure Munin nodes
+
+    List the available plugins:
+
+        munin-node-configure
+
+    Check which plugins appear suitable for the system:
+
+        munin-node-configure --suggest
+
+    Now just link any of the plugins that you want to run on this node:
+
+        ln -s /usr/libexec/munin/plugins/<plugin name> /etc/munin/plugins/<plugin name>
+
+munin-run cpu
+http://munin-monitoring.org/wiki/Debugging_Munin_plugins
+
+munin-node-configure --shell | grep postgres | sh
+
+http://www.postgresql.org/docs/9.2/static/kernel-resources.html
+
+http://highperfpostgres.com/guides/postgresql-monitoring-with-munin/
+
+sysctl -a --pattern "kernel*"
+
+sysctl -w kernel.shmmax=17179869184
+sysctl -w kernel.shmall=4194304 #pages 4kB
+
+echo 17179869184 >/proc/sys/kernel/shmmax
+echo 4194304 >/proc/sys/kernel/shmall
+
+  /proc/sys/kernel/shmmax - The maximum size of a shared memory segment.
+  /proc/sys/kernel/shmmni - The maximum number of shared memory segments.
+  /proc/sys/kernel/shmall - The maximum amount of shared memory
+                              that can be allocated.
+  /proc/sys/kernel/sem    - The maximum number and size of semaphore sets
+                              that can be allocated.
+
+ SEMMSL - The maximum number of semaphores in a sempahore set
+ SEMMNS - The maximum number of sempahores in the system
+ SEMOPM - The maximum number of operations in a single semop call
+ SEMMNI - The maximum number of sempahore sets  
+
+ fs.file-max=65536

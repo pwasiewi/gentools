@@ -1,0 +1,180 @@
+http://pastebin.com/0Jvn3PyQ
+https://busybox.net/~aldot/mkfs_stride.html
+
+How to correctly partition and create ext4 fs on this SSD, taking care of the alignment based on Erase Block Size and Page Size.
+
+This is intended for a Linux install only on a BIOS system.
+
+----------------------
+Partitioning
+----------------------
+
+# gdisk /dev/sda 
+
+---
+GPT fdisk (gdisk) version 0.8.8
+
+Partition table scan:
+  MBR: not present
+  BSD: not present
+  APM: not present
+  GPT: not present
+
+Creating new GPT entries.
+
+Command (? for help): p
+Disk /dev/sda: 488397167 sectors, 232.9 GiB
+Logical sector size: 512 bytes
+Disk identifier (GUID): 9396D5CC-DBA4-4D65-986F-FF4AA6A7ADA4
+Partition table holds up to 128 entries
+First usable sector is 34, last usable sector is 488397133
+Partitions will be aligned on 2048-sector boundaries
+Total free space is 488397100 sectors (232.9 GiB)
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+---
+
+Command (? for help): x
+
+Expert command (? for help): L
+Enter the sector alignment value (1-65536, default = 2048): 3072
+
+Expert command (? for help): m
+
+-----
+
+Command (? for help): n
+Partition number (1-128, default 1): 
+First sector (34-488397133, default = 3072) or {+-}size{KMGTP}: 
+Last sector (3072-488397133, default = 488397133) or {+-}size{KMGTP}: +3M
+Current type is 'Linux filesystem'
+Hex code or GUID (L to show codes, Enter = 8300): ef02
+Changed type of partition to 'BIOS boot partition'
+
+----------------
+
+Command (? for help): n
+Partition number (2-128, default 2): 
+First sector (34-488397133, default = 9216) or {+-}size{KMGTP}: 
+Last sector (9216-488397133, default = 488397133) or {+-}size{KMGTP}: +45G
+Current type is 'Linux filesystem'
+Hex code or GUID (L to show codes, Enter = 8300): 8300
+Changed type of partition to 'Linux filesystem'
+
+------------------
+
+Command (? for help): n
+Partition number (3-128, default 3):  
+First sector (34-488397133, default = 94381056) or {+-}size{KMGTP}: 
+Last sector (94381056-488397133, default = 488397133) or {+-}size{KMGTP}: 
+Current type is 'Linux filesystem'
+Hex code or GUID (L to show codes, Enter = 8300): 8300
+Changed type of partition to 'Linux filesystem'
+
+---------------------
+
+Command (? for help): p
+Disk /dev/sda: 488397167 sectors, 232.9 GiB
+Logical sector size: 512 bytes
+Disk identifier (GUID): D0CED8E4-2665-481E-8568-B2C7456A878A
+Partition table holds up to 128 entries
+First usable sector is 34, last usable sector is 488397133
+Partitions will be aligned on 3072-sector boundaries
+Total free space is 3038 sectors (1.5 MiB)
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+   1            3072            9215   3.0 MiB     EF02  BIOS boot partition
+   2            9216        94381055   45.0 GiB    8300  Linux filesystem
+   3        94381056       488397133   187.9 GiB   8300  Linux filesystem
+
+
+--------------
+
+Command (? for help): w
+
+Final checks complete. About to write GPT data. THIS WILL OVERWRITE EXISTING
+PARTITIONS!!
+
+Do you want to proceed? (Y/N): Y
+OK; writing new GUID partition table (GPT) to /dev/sda.
+The operation has completed successfully.
+
+
+------------------------------------------------------------------
+FS creation
+------------------------------------------------------------------
+to format /dev/sda2 and /dev/sda3, will hold / and /home respectively.
+
+# mkfs.ext4 -b 4096 -E stride=2,stripe-width=384 /dev/sdXX
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+Details about the previous steps
+//////////////
+
+---------------------------------------------------
+Information about the Page and Erase Block Size
+----------------
+
+according to these posts, the EVO should share the same specs as the 840 non-pro, it's also a TLC.
+
+http://askubuntu.com/questions/314262/partition-alignment-confusion
+http://www.thessdreview.com/Forums/ssd-beginners-guide-discussion/3630.htm
+
+Series 840 250 GB (non-pro):
+NAND erase block size: 1536kb
+NAND page size: 8kb
+So 1536/8 = 192 pages per block.
+
+to get the correct alignment, the initial sector of each partition must be a multiple of 1536kb, according to this table
+
+Size	       Sectors
+512 bytes	1
+1 kb	        2
+512 kb	        1024
+1 MB	        2048
+1 GB	        2097152
+
+the minimum would be 3072 sectors.
+
+link for the table and further explanation.
+http://siduction.org/index.php?module=news&func=display&sid=78
+
+Edit 21/05/14
+New source confirming 1536 kiB EBS and 8 kiB page size.
+
+https://bbs.archlinux.org/viewtopic.php?pid=1385980#p1385980
+
+---------------------------------------------------
+Information about optimizing ext4 filesytem
+----------------
+to create the FS, ext4, we will take into account once again the Erase block size, 
+
+According to the recommendations here
+http://thelastmaimou.wordpress.com/2013/05/04/magic-soup-ext4-with-ssd-stripes-and-strides/
+https://raid.wiki.kernel.org/index.php/RAID_setup#ext2.2C_ext3.2C_and_ext4
+
+
+chunk size = 128kB (set by mdadm cmd, see chunk size advise above)
+block size = 4kB (recommended for large files, and most of time)
+stride = chunk / block = 128kB / 4k = 32
+stripe-width = stride * ( (n disks in raid5) - 1 ) = 32 * ( (3) - 1 ) = 32 * 2 = 64
+
+If the chunk-size is 128 kB, it means, that 128 kB of consecutive data will reside on one disk. If we want to build an ext2 filesystem with 4 kB block-size, we realize that there will be 32 filesystem blocks in one array chunk.
+stripe-width=64 is calculated by multiplying the stride=32 value with the number of data disks in the array.
+A raid5 with n disks has n-1 data disks, one being reserved for parity. (Note: the mke2fs man page incorrectly states n+1; this is a known bug in the man-page docs that is now fixed.) A raid10 (1+0) with n disks is actually a raid 0 of n/2 raid1 subarrays with 2 disks each.
+
+
+We'll use the setup of a "raid" with a single drive, making the chunk size equal to the EBS, and using the usual 4KB block size.
+
+NAND EBS: 1536 KB
+NAND Page size: 8KB
+
+chunk size = Page size = 8 KB
+block size = 4 KB
+stride = Page Size / block size = 2
+srtipe-width = EBS / block size = 384
+
+all this ends up in
+
+mkfs.ext4 -b 4096 -E stride=2,stripe-width=384 /dev/sdXX

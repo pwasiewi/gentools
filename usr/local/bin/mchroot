@@ -1,0 +1,7 @@
+mount -o bind /dev $1/dev
+mount -o bind /dev/pts $1/dev/pts
+mount -o bind /dev/shm $1/dev/shm
+mount -o bind -t proc /proc $1/proc
+mount -o bind /proc/bus/usb $1/proc/bus/usb
+mount -o bind -t sysfs /sys $1/sys
+chroot $1

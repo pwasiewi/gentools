@@ -1,0 +1,183 @@
+neth0=127.0.0.1;
+#neth0=`ifconfig | grep "inet addr:" | head --lines=1 - | awk '{print $2}' - | sed 's/addr://' -`;
+neth0=`ifconfig | grep "255.255.255.255" | head --lines=1 - | awk '{print $2}' - | sed 's/addr://' -`;
+echo Zak³adam maskeradê na $neth0...;
+echo 1 > /proc/sys/net/ipv4/ip_forward
+iptables -F
+iptables -t nat -F
+iptables -t mangle -F
+iptables -t filter -F
+iptables -t nat -X
+iptables -t mangle -X
+iptables -t filter -X
+
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT
+
+#lokalny ruch
+iptables -A INPUT -i lo -j ACCEPT
+
+# pakiety z  naszego i z sieci - NIEMOZLIWE
+iptables -A INPUT -i eth0 -s $neth0 -j DROP
+
+iptables -A INPUT -p tcp --dport telnet -i eth0 -j DROP
+iptables -A INPUT -i eth0 -p tcp --syn -j DROP
+
+#akceptowane www, ESTABLISHED, RELATED i cala SUBLAN
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 80 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 8080 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 9050 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 8118 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 53 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 5432 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 5433 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 5434 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 5435 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 22 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 23 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 1550 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 443 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 631 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW --dport 8074 -j ACCEPT
+
+#Gnutella
+iptables -A INPUT -p tcp -m state --state NEW --dport 6346 -j ACCEPT
+
+# MLDonkey Admin port
+iptables -A INPUT -p tcp -m state --state NEW  --dport 4080 -j ACCEPT
+#iptables -A INPUT -p tcp --dport 4080  -m state --state NEW -i eth0 -j DROP
+#iptables -A INPUT -p udp --dport 4080  -m state --state NEW -i eth0 -j DROP
+#iptables -A INPUT -p tcp --dport 4080  -m state --state NEW -i lo -j DROP
+#iptables -A INPUT -p udp --dport 4080  -m state --state NEW -i lo -j DROP
+#iptables -A INPUT -p tcp --dport 4080 -d $neth0 -i eth0 -j REJECT
+#iptables -A INPUT -p udp --dport 4080 -d $neth0 -i eth0 -j REJECT
+
+# MLDonkey TCP ports
+iptables -A INPUT -p tcp -m state --state NEW  --dport 4661 -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW  --dport 4662 -j ACCEPT
+
+# MLDonkey UDP ports
+iptables -A INPUT -p udp -m state --state NEW  --dport 4661 -j ACCEPT
+iptables -A INPUT -p udp -m state --state NEW  --dport 4662 -j ACCEPT
+iptables -A INPUT -p udp -m state --state NEW  --dport 4665 -j ACCEPT
+iptables -A INPUT -p udp -m state --state NEW  --dport 4666 -j ACCEPT
+iptables -A INPUT -p udp -m state --state NEW  --dport 4672 -j ACCEPT
+
+# UPnP TCP ports
+iptables -A INPUT -p tcp -m state --state NEW  --dport 31337 -j ACCEPT 
+
+#iptables -A OUTPUT -p tcp -m state --state NEW --dport 21 -j ACCEPT
+#iptables -A OUTPUT -p tcp -m state --state NEW --dport 1550 -j ACCEPT
+
+iptables -A FORWARD -i eth0 -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A FORWARD -i wlan0 -j ACCEPT
+
+#proxy
+iptables -A INPUT -p tcp -m state --state NEW  --dport 3128 -j ACCEPT 
+
+iptables -t nat -A PREROUTING -i eth0 -s $neth0 -p tcp --dport 80 -j REDIRECT --to-port 3128
+#iptables -t nat -A PREROUTING -p tcp -i eth0 -s 192.168.0.0/24 -d ! 192.168.0.1 --dport 80 -j REDIRECT --to-port 3128
+#iptables -t nat -A PREROUTING -i eth0 -s 192.168.0.0/24 -d ! 192.168.0.1 -p tcp --dport 80 -j REDIRECT --to-port 3128
+iptables -t nat -A PREROUTING -i eth0 -s 192.168.0.0/24  -p tcp --dport 80 -j REDIRECT --to-port 3128
+
+
+#iptables -A INPUT -p tcp -m state --state NEW  --dport 8080 -j ACCEPT 
+#iptables -t nat -A PREROUTING -i wlan0 -s 192.168.0.0/24 -d ! 192.168.0.1 -p tcp --dport 80 -j REDIRECT --to-port 8080
+#iptables -t nat -A PREROUTING -i eth0 -s $neth0 -p tcp --dport 80 -j REDIRECT --to-port 8080
+
+#tylko dozwolone 254 adresy podsieci
+iptables -A FORWARD -i wlan0 -o eth0 -s 192.168.0.0/24 -d 0/0 -j ACCEPT
+iptables -A FORWARD -i eth0 -o wlan0 -s 0/0 -d 192.168.0.0/24 -j ACCEPT
+#iptables -A FORWARD -s ! 192.168.0.0/24 -i eth0 -j DROP
+#iptables -A FORWARD -s ! 192.168.0.0/24 -i wlan0 -j DROP
+
+#zalozenie maskerady
+iptables -t nat -A POSTROUTING -o eth0 -j SNAT --to $neth0 
+iptables -t nat -A POSTROUTING -s 192.168.0.2 -o wlan0 -j MASQUERADE
+
+#iptables -t filter -A INPUT --match state --state RELATED,ESTABLISHED -j ACCEPT
+#iptables -t filter -P INPUT DROP
+
+#iptables -N macfilter
+#iptables -A macfilter -m mac --mac-source 45:14:55:25:26:15 -j RETURN
+#iptables -A macfilter -j REJECT
+#iptables -A FORWARD -m state --state NEW -j macfilter
+
+iptables -I FORWARD -p tcp -i eth0 --dport 80 -j ACCEPT
+iptables -I FORWARD -p tcp -i eth0 --dport 1000:4000 -j ACCEPT
+iptables -I FORWARD -p tcp -i eth0 --dport 3128 -j ACCEPT
+iptables -I FORWARD -p tcp -i eth0 --dport 1550 -j ACCEPT
+iptables -I FORWARD -p tcp -i eth0 --dport 8080 -j ACCEPT
+iptables -I FORWARD -p tcp -i eth0 --dport 22 -j ACCEPT
+iptables -I FORWARD -p tcp -i eth0 --dport 23 -j ACCEPT
+iptables -I FORWARD -p tcp -i eth0 --dport 53 -j ACCEPT
+iptables -I FORWARD -p tcp -i eth0 --dport 443 -j ACCEPT
+iptables -I FORWARD -p tcp -i eth0 --dport 8074 -j ACCEPT
+iptables -I FORWARD -p tcp -i eth0 --dport 8080 -j ACCEPT
+
+#iptables -t mangle  -A OUTPUT -j TTL --ttl-set 128
+#iptables -t mangle -A FORWARD -j TTL --ttl-set 128 
+
+#logowanie z telnetu na zewnatrz
+iptables -A OUTPUT -p tcp --dport 23 -j ULOG --ulog-prefix 'IPTELNET:'
+
+#logi z pakietów
+iptables -A INPUT -i eth0 -m limit -d $neth0  -j ULOG --limit 10/hour --ulog-prefix 'IPTINPUT:'
+
+#serwer odpowiada reject - nie jest gluchy
+iptables -A INPUT -i eth0 -p tcp -d $neth0 -j REJECT --reject-with tcp-reset
+iptables -A INPUT -i eth0 -p udp -d $neth0 -j REJECT --reject-with icmp-port-unreachable
+
+#limit na pingi
+iptables -A INPUT -p icmp --icmp-type echo-request -m limit --limit 12/minute -j ACCEPT
+iptables -A INPUT -p tcp --dport 113 -j REJECT --reject-with icmp-port-unreachable
+
+#portscan - ogranicz odpowiedzi na pakiety
+iptables -A FORWARD -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j ACCEPT
+
+#traceroute
+/sbin/iptables -A INPUT -p udp --dport 33435:33525 -j DROP 
+
+#synflood
+iptables -A FORWARD -p tcp --syn -m limit --limit 1/s -j ACCEPT 
+
+#Skaner protokó³ Furtive
+iptables -A FORWARD -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j ACCEPT
+
+#Skanowanie SYN
+iptables -A INPUT -m conntrack --ctstate NEW -p tcp --tcp-flags SYN,RST,ACK,FIN,URG,PSH SYN -j DROP
+
+#Skanowanie ACK
+iptables -A INPUT -m conntrack --ctstate NEW -p tcp --tcp-flags SYN,RST,ACK,FIN,URG,PSH ACK -j DROP
+
+#Skanowanie FIN
+iptables -A INPUT -m conntrack --ctstate NEW -p tcp --tcp-flags SYN,RST,ACK,FIN,URG,PSH FIN -j DROP
+
+#Skanowanie Xmas
+iptables -A INPUT -m conntrack --ctstate NEW -p tcp --tcp-flags SYN,RST,ACK,FIN,URG,PSH FIN,URG,PSH -j DROP
+
+#Skanowanie Null
+iptables -A INPUT -m conntrack --ctstate INVALID -p tcp --tcp-flags ! SYN,RST,ACK,FIN,PSH,URG SYN,RST,ACK,FIN,PSH,URG -j DROP
+
+#koniec pliku koniec pliku
+#iptables -t nat -A POSTROUTING -s 192.168.0.0/24 -j SNAT --to $neth0 
+#iptables -t nat -A POSTROUTING -s 192.168.0.0/24 -d 0/0 -j MASQUERADE
+
+#iptables -A INPUT -m state --state NEW -i ! eth0 -j ACCEPT
+#iptables -A FORWARD -i eth0 -o eth0 -j REJECT
+#iptables -I INPUT -i eth0 -p tcp --dport 4662 -j ACCEPT 
+#iptables -I FORWARD -p tcp -i eth0 --dport 4662 -j ACCEPT
+
+#iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+#iptables -t nat -A POSTROUTING -s 192.168.0.2/24 -j MASQUERADE
+
+#emule
+#$ipt -t filter -A INPUT -p tcp -s 0/0 --dport 4242 -j ACCEPT
+#$ipt -t filter -A INPUT -p tcp -s 0/0 --dport 4662 -j ACCEPT
+#$ipt -t filter -A INPUT -p tcp -s 0/0 --dport 4663 -j ACCEPT
+#$ipt -t filter -A INPUT -p tcp -s 0/0 --dport 4672 -j ACCEPT
+#$ipt -t filter -A INPUT -p udp -s 0/0 --dport 4252 -j ACCEPT
+#$ipt -t filter -A INPUT -p udp -s 0/0 --dport 4672 -j ACCEPT
+#$ipt -t filter -A INPUT -p tcp -s 0/0 --dport 6881:6882 -j ACCEPT

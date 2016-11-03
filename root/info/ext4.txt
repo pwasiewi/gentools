@@ -1,0 +1,53 @@
+http://kirneh.eu/gentoo-on-gpt-software-raid-lvm-with-grub-2-on-non-efi-system/
+mkfs.reiser4 -o create=ccreg40 /dev/xxx
+mkfs.reiser4 -o create=ccreg40,compress=gzip1 /dev/xxx
+-o noatime,nodiratime
+ionice -c2 -n7 nice -n 19 cp 
+
+mkfs.ext3 /dev/sdb1; tune2fs -O has_journal -o journal_data_writeback /dev/sdb1; 
+mount -t ext3 /dev/sdb1 /mnt/dc -o noatime,data=writeback <data=journal>
+/sbin/mkfs.ext3 -j -m 1 -O dir_index,filetype,sparse_super /dev/mapper/hda3
+tune2fs -Ohas_journal,extent,dir_index,filetype 
+
+mount -t ext4dev /dev/sdxx /mnt/dc -o noatime,extents
+
+#/etc/udev/rules.d/60-ssd-scheduler.rules
+
+#512M erase block
+mkfs.ext4 -E stripe_width=128,stride=128 /dev/sdxx
+tune2fs -O has_journal -o journal_data_writeback /dev/sdxx
+
+http://pastebin.com/0Jvn3PyQ
+#EVO 3x512M erase block
+#gdisk x L 3072 m n
+mkfs.ext4 -b 4096 -E stride=2,stripe-width=384  /dev/sdxx
+tune2fs -O has_journal -o journal_data_writeback /dev/sdxx
+#for f in /sys/block/sd?/queue/rotational; do printf "$f is "; cat $f; done
+
+
+pvcreate --dataalignment 512k /dev/sdxx
+pvcreate --dataalignment 1536k /dev/sdxx
+Make sure your /etc/lvm/lvm.conf contains the following options:
+    md_chunk_alignment = 1
+    data_alignment_detection = 1
+    data_alignment = 0
+    data_alignment_offset_detection = 1
+
+pvcreate /dev/sdb
+pvcreate /dev/sdc
+pvdisplay
+pvscan
+vgcreate my_volume_group /dev/sdb /dev/sdc
+vgdisplay
+lvcreate -L 5G -n 5gig my_volume_group
+lvdisplay
+mkfs.ext4 /dev/my_volume_group/5gig
+mount -t ext4 /dev/my_volume_group/5gig /home
+lvremove /dev/my_volume_group/5gig
+
+
+dd bs=440 count=1 conv=notrunc if=/usr/share/syslinux/mbr.bin of=/dev/sde
+mkfs.ext4 /dev/sde1 -L Gen8
+tune2fs /dev/sde1 -i0
+tune2fs /dev/sde1 -m0 -O sparse_super
+tune2fs -O ^has_journal /dev/sde1

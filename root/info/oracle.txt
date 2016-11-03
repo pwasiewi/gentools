@@ -1,0 +1,16 @@
+groupadd dba
+groupadd oinstall
+useradd -c "Oracle Software Owner" -g oinstall -G dba -d /home/oracle -m oracle
+mkdir -p /opt/oracle
+chown -R oracle:oinstall /opt/oracle
+chmod 755 /opt/oracle
+/sbin/sysctl -p
+ln -sf /usr/lib64/gcc/x86_64-pc-linux-gnu/4.4.6/libstdc++.so.6 /usr/lib/libstdc++.so.6
+touch /etc/oratab
+chown -R oracle:oinstall /etc/oratab
+xhost +
+passwd oracle
+#rm -rf /opt/oracle/*; rm -rf /home/oracle/ora*
+#cd /var/tmp/gentoo/oracle/database/; export DISPLAY=":0"; ./runInstaller -ignoreSysPrereqs 
+#vim /opt/oracle/product/11.2.0/lib/sysliblist
+

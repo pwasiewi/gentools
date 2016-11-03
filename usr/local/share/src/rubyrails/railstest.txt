@@ -1,0 +1,13 @@
+#MySQL, PostgreSQL, SQLite, SQL Server, Sybase, and Oracle (oprócz DB2)
+#http://www.napcs.com/howto/railsonwindows.html
+rails test
+cd test
+ruby script/server
+vim config/database.yml
+ruby script/generate model klientrb
+vim db/migrate/001_create_klientrbs.rb
+rake db:migrate
+ruby script/generate scaffold klientrbs
+ruby script/server # restart server
+
+

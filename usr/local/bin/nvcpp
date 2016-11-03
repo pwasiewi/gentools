@@ -1,0 +1,6 @@
+if [ -f $1 ]; then
+j=`basename $1 .cu`
+nvcc -o $j $j.cu
+else 
+nvcc -o $1 $1.cu
+fi

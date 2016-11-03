@@ -1,0 +1,372 @@
+https://forums.gentoo.org/viewtopic-p-7602608.html
+
+I. INSTALACJA Z OFICJALNEGO LIVEDVD/USB NA VIRTUALBOX
+##############################################################
+#1etap
+sudo su -
+wget -c https://goo.gl/zbNuuu  -O../config.txz
+#wget -c https://codeload.github.com/pwasiewi/gentools/tar.gz/v0.5  -O../config.txz
+cd / && tar Jxvf config.txz
+v a p #edytuj settings chroot na /dev/sda5 
+#UWAGA to dla dysku z wirtualboxa
+#uwaga na symbol /DEV/SDA
+#czy opisuje on wlasciwy dysk
+#------------------------------------------------------------
+#-POCZATEK-formatowanie dysku TYLKO w virtualboxie ----------
+parted -s /dev/sda mklabel gpt
+parted /dev/sda mkpart primary fat32 1MiB 5MiB
+parted /dev/sda mkpart primary fat32 5MiB 205MiB
+parted /dev/sda mkpart primary ext4 205MiB 405MiB
+parted /dev/sda mkpart primary linux-swap 405MiB 1405MiB
+parted /dev/sda mkpart primary ext4 1405MiB 100%
+parted /dev/sda set 1 bios on
+mkfs.ext4 /dev/sda3
+mkswap /dev/sda4
+swapon /dev/sda4
+mkfs.ext4 /dev/sda5
+#-KONIEC-----------------------------------------------------
+#------------------------------------------------------------
+v a f #sciagnij stage3/4
+v a 1 #rozpakuj stage3/4, portage i popraw make.conf, vim
+v a e #chroot na nowy system gentoo
+#------------------------------------------------------------
+#-POCZATEK po v a e wpisz komendy (VirtualBox)---------------
+#edytuj fstab
+#vim /etc/fstab
+mount /dev/sda3 /mnt #montuj partycje boot
+cp -a /boot/* /mnt   #i skopiuj do niej oryginalny /boot
+umount /mnt
+mount /boot
+grub-mkconfig -o /boot/grub/grub.cfg
+grub-install /dev/sda
+passwd #ZMIANA HASLA NA ROOTA NA WLASNE
+#-KONIEC - po v a e wpisz komendy (VirtualBox)---------------
+#------------------------------------------------------------
+#REBOOT i dalsza instalacja np. plasma-meta
+
+##############################################################
+#2etap podmiana gcc na nowsze i kompilacja boost
+v a 2host
+##kompilacja trwa 40min
+#vex sys-libs/glibc
+#vex sys-devel/gcc
+#vex dev-libs/boost
+#vex dev-util/boost-build
+#e gcc
+#gcc-config -l
+#gcc-config 2
+#. /etc/profile
+#fix_libtool_files.sh 4.9.3
+#e glibc
+#echo "dev-libs/boost empty" >> /etc/portage/package.env/moje.env
+#echo 'CFLAGS=""' > /etc/portage/env/empty
+#echo 'CXXFLAGS=""' >> /etc/portage/env/empty
+#echo 'LDFLAGS=""' >> /etc/portage/env/empty
+#e boost 
+
+##############################################################
+#3etap uaktualnienie systemu z odblokowanymi flagami USE
+v a 3host
+##kompilacja trwa 2h
+#veu "net-libs/libproxy -webkit"
+#veu "media-libs/harfbuzz -graphite"
+#veu "dev-util/cmake -qt5"
+#veu "app-arch/p7zip -wxwidgets"
+#veu "media-libs/mesa -vaapi"
+#veu "gnome-base/librsvg -tools"
+#sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
+#sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
+#sed -i 's/#USE="${USE} tools/USE="${USE} tools/g' /etc/portage/make.conf
+#sed -i 's/bindist/-bindist/g' /etc/portage/make.conf
+#e w #emerge -uND world  - upgrade world - 238 pakietow w ponad 2h
+
+##############################################################
+#4etap instalujemy git i laymana do dodatkowych pakietów
+v a 4host
+##kompilacja trwa 14min
+#e u gpm app-misc/mc ntp
+#/etc/init.d/ntp-client start
+#/etc/init.d/gpm start
+#rc-update add gpm default
+#veu "dev-libs/libgpg-error static-libs"
+#veu "dev-libs/lzo static-libs"
+#veu "dev-libs/libgcrypt static-libs"
+#vex sys-libs/readline
+#vex app-shells/bash
+#e n readline #emerge --nodeps readline 
+#emerge @preserved-rebuild
+#vex dev-python/ssl-fetch
+#e u layman #okolo 32 pakietow po etapie 3 aktualizacji 238 pakietow
+##e u dev-vcs/git #juz zainstalowany przez laymana
+
+##############################################################
+#5etap dodatkowe pakiety i update systemu po dodaniu overlayow
+v a 5host
+##kompilacja trwa 14min po etapie 3 aktualizacji
+#vex sys-fs/mdadm
+#vex sys-fs/squahsfs-tools
+#vex net-analyzer/xprobe
+#vex app-admin/pass
+#vex dev-python/pymountboot
+#vex app-admin/eclean-kernel
+#vex app-portage/diffmask
+#vex app-portage/install-mask
+## https://wiki.gentoo.org/wiki/Recommended_applications
+## https://wiki.gentoo.org/wiki/Recommended_tools
+## https://wiki.gentoo.org/wiki/Useful_Portage_tools
+#e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie install-mask portpeek smart-live-rebuild ufed gpytage net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo #suspend p7zip sg3_utils testdisk logrotate gentoolkit gentoolkit-dev f2fs-tools 
+#curl ix.io/client > /usr/local/bin/ix
+#chmod +x /usr/local/bin/ix
+#emaint -A sync
+#sed -i 's/^check_official : Yes/check_official : no/' /etc/layman/layman.cfg
+#layman -L
+#layman -a kde
+#layman -a x11
+#layman -a sabayon 
+#eix-update
+#e w #emerge -uND world  - upgrade world - kompilacja max 10min 
+
+##############################################################
+#6etap kompilacja pakietu qtwebkit na jednym rdzeniu 
+v a 6host
+##kompilacja trwa 1h
+#veu "net-dialup/ppp ipv6"
+#veu "kde-plasma/plasma-desktop legacy-systray"
+#veu "media-plugins/alsa-plugins pulseaudio"
+#echo 'CFLAGS=""' > /etc/portage/env/empty1core
+#echo 'CXXFLAGS=""' >> /etc/portage/env/empty1core
+#echo 'LDFLAGS=""' >> /etc/portage/env/empty1core
+#echo 'MAKEOPTS="-j1"' >> /etc/portage/env/empty1core
+#echo "dev-qt/qtwebkit empty1core" >> /etc/portage/package.env/moje.env
+#e qtwebkit #45 pakietow 60min
+#echo 'Jak nie skompiluje sie qtwebkit, uzyc kompilacji na jednym rdzeniu:'
+#echo 'MAKEOPTS="-j1" e qtwebkit'
+
+##############################################################
+#7etap caly desktop plasma min. 80min
+v a 7host
+##kompilacja trwa 85min
+#echo "kde-plasma/plasma-desktop empty1core" >> /etc/portage/package.env/moje.env
+#e u plasma-desktop #243 nowe pakiety 56min
+#e u plasma-meta    #54 pakiety 13min
+#e u konsole setxkbmap kde-apps/dolphin xdpyinfo xrandr xkill xterm alsamixergui media-video/plasma-mediacenter pavucontrol gparted freetype media-fonts/liberation-fonts           #42 pakietow 12min
+##infinality use flag
+#eselect infinality set infinality
+#eselect lcdfilter set infinality-sharpened
+
+##############################################################
+#8etap dodatkowe pakiety, x11 virtualbox, nowy uzytkownik
+v a 8host
+##kompilacja trwa 1h 
+##plus czas na upgrade po usunieciu zbednych flag use wstawionych veu
+##sieci
+#veu "dev-libs/nss utils"
+#e u x11-misc/bumblebee feh lm_sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn quagga #27 pakietow 4min
+#uzytkowe
+#vex www-client/firefox-bin
+#vex app-emulation/lxc
+#vex app-emulation/docker
+#vex sys-process/criu
+#vex app-emulation/containerd
+#vex app-emulation/runc
+#e u firefox-bin app-emulation/docker lxc #12 pakietow 5min
+#usermod -aG docker guest
+##e w #6 pakietow 15min
+#vex net-libs/nodejs
+#vex dev-libs/libuv
+#vex app-admin/mongo-tools 
+#vex dev-db/mongodb #na razie rezygnuje z kompilacji mongodb, gdyz trzeba na 1 rdzeniu
+#echo "dev-db/mongodb empty1core" >> /etc/portage/package.env/moje.env
+#e u cdrtools dvd+rw-tools libisoburn R octave nodejs opera #67 pakietow 30min
+#vex x11-drivers/xf86-video-virtualbox
+#e u =x11-drivers/xf86-video-virtualbox-5.1.6
+#echo "jesli blad kompilacji virtualbox drivera, to nalezy poprawic kod wykorzystujac ebuild wykonujacy instalacje etapami:"
+#echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild compile"
+#echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild install"
+#echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild qmerge"
+##po usunieciu za pomoca viu zbednych ograniczen z package.use/moje.use
+##kompilacja 14 pakietow trwa 1h, gdyz jest tam webkit-gtk
+##potem nalezy dodac uzytkownika
+#useradd -m -g users guest
+##passwd guest
+#echo 'exec startkde' > /home/guest/.xinitrc
+#chown -R guest:users /home/guest/
+#usermod -aG wheel guest
+#usermod -aG audio guest
+#usermod -aG video guest
+#echo Wykonaj: passwd guest
+##vex app-text/calibre
+##vex media-gfx/gimp
+##e u calibre gimp vlc mplayer
+##e u skype google-chrome steam-launcher ghc go blender 
+
+##############################################################
+#KONIEC INSTALACJI PODSTAWOWEJ
+#e openastromenace nvidia-drivers nvidia-cuda-toolkit 
+#e sqldeveloper 
+
+#zaawansowany kernel linuxa
+#e =liquorix-sources-4.8.2_p1
+#wget https://liquorix.net/sources/4.8/config.amd64 -O/usr/src/linux/.config
+
+#Systemd: http://elatov.github.io/2015/02/upgrade-gentoo-to-use-systemd/
+#systemctl enable lvm2-lvmetad
+#systemctl enable lvm2-monitor
+
+#ewentualny upgrade compilatora i interpreterow
+#vex dev-lang/perl
+#vex dev-lang/python
+#vex dev-lang/ruby
+#vex sys-devel/llvm
+#vex sys-devel/clang
+#vex media-libs/mesa
+#vex x11-libs/libdrm
+#vex sys-apps/systemd
+#update gcc, glibc, llvm, clang, mesa, python, ruby  i perl
+#emerge llvm perl --nodeps
+#perl-cleaner --all
+#vep dev-lang/python-3.5.2 
+#vep dev-lang/perl-5.22.2
+
+#nie na liveusb, gdyz ramdisk jest maly
+#[ -d /usr/portage ] && cd /usr && rmdir /usr/portage && ln -sfn ../var/tmp/.portage portage
+#[ -d /usr/src ] && cd /usr && rmdir /usr/src && ln -sfn ../var/tmp/.src64bit src
+#[ -d /var/lib/layman ] && cd /var/lib && rmdir /var/lib/layman && ln -sfn ../../var/tmp/.layman layman
+
+
+##cd / && tar Jxvf config.txz && cd #juz jest w komendzie : v a f
+#curl ix.io/client > /usr/local/bin/ix
+#chmod +x /usr/local/bin/ix
+##curl ix.io/KKKK | tr -d "\015"  > jakis.conf
+##get_ix KKKK jakis.conf
+#sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
+#sed -i 's/^#ABI/ABI/g' /etc/portage/make.conf
+#eselect profile set 8 #plasma 
+#eselect profile set 9 #plasma systemd
+
+##############################################################
+#KONIEC DODATKOWYCH OPCJI INSTALACJI
+##############################################################
+
+##############################################################
+#BACKUP
+##############################################################
+#for i in .SQLDeveloper .WebStorm .android-ndk .android-sdk-linux .android-studio .eclipse-4.5; do 8z opt160317$i $i; done;
+
+##############################################################
+https://www.thomas-krenn.com/pl/wiki/Optymalizacja_systemu_Windows_na_dysku_SSD
+
+##############################################################
+# https://hub.docker.com/r/gentoo/stage3-amd64/
+docker create -v /usr/portage --name portage gentoo/portage
+docker run --volumes-from portage --name gentoo -it gentoo/stage3-amd64 /bin/bash
+docker run -P -it gentoo/stage3-amd64 /bin/bash
+
+##############################################################
+echo -1 >   /proc/sys/fs/binfmt_misc/arm
+echo -1 >   /proc/sys/fs/binfmt_misc/armeb
+#najlepsza!
+#https://wiki.gentoo.org/wiki/Embedded_Handbook/General/Compiling_with_qemu_user_chroot
+#https://wiki.gentoo.org/wiki/Cross_Container_Support_Project
+#lxc.sh
+#https://wiki.gentoo.org/wiki/Crossdev_qemu-static-user-chroot
+echo ':arm:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/qemu-wrapper:' > /proc/sys/fs/binfmt_misc/register
+echo ':armeb:M::\x7fELF\x01\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff:/usr/bin/qemu-armeb:' > /proc/sys/fs/binfmt_misc/register
+systemctl restart systemd-binfmt
+ROOT=$PWD/ emerge --usepkgonly --oneshot --nodeps qemu
+mkdir -p usr/portage
+mount --bind /usr/portage usr/portage
+mount --bind /proc proc
+mount --bind /sys sys
+mount --bind /dev dev
+mount --bind /dev/pts dev/pts 
+gcc -static qemu-wrapper.c -O3 -s -o qemu-wrapper
+chroot . /bin/bash --login 
+
+##############################################################
+#https://wiki.gentoo.org/wiki/Cross_build_environment
+#http://processors.wiki.ti.com/index.php/Creating_a_Root_File_System_for_Linux_on_OMAP35x
+http://processors.wiki.ti.com/index.php/Kernel_-_Common_Problems_Booting_Linux
+time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 5.4.0 --libc ">=2.23" --kernel 4.8.2 -oS /usr/portage
+cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s /usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile
+armv7a-hardfloat-linux-gnueabi-emerge -uva --keep-going @system
+#vim /usr/armv7a-hardfloat-linux-gnueabi/etc/portage/make.conf
+armv7a-hardfloat-linux-gnueabi-emerge -uva1 --keep-going $(egrep '^[a-z]+' /usr/portage/profiles/default/linux/packages.build)
+QEMU_USER_TARGETS="arm" QEMU_SOFTMMU_TARGETS="arm" USE="static-user static-libs" emerge --ask --buildpkg --oneshot qemu
+cd /usr/armv7a-hardfloat-linux-gnueabi/
+ROOT=$PWD/ emerge --ask --usepkgonly --oneshot --nodeps qemu
+mkdir /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin -pv && gcc -static qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
+chroot-armv7a
+ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
+#nano /etc/locale.gen
+#locale-gen
+gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
+echo 'alias emerge-chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge-chroot && source /etc/profile
+emerge-chroot --ask --update -v --keep-going @system
+
+##############################################################
+#załączone make.arm i make.x86_64
+#http://mgalgs.github.io/2015/05/16/how-to-build-a-custom-linux-kernel-for-qemu-2015-edition.html
+#https://scholar.live/question/linux-on-qemu-versatile-solved
+#https://github.com/jinghuang/cross_container_support
+
+./lxc.sh create -i 192.168.0.222/24 -g 192.168.0.1 -n gentooarm7a -r rootfs -a arm
+umount rootfs/usr/portage rootfs/sys rootfs/proc rootfs/dev/pts rootfs/dev
+
+#http://sentryytech.blogspot.com/2013/02/faster-compiling-on-emulated-raspberry.html
+#https://github.com/bargees/barge-os/issues/20
+#https://github.com/dhruvvyas90/qemu-rpi-kernel
+
+kpartx -a -v 2016-09-23-raspbian-jessie.img
+mount /dev/mapper/loop0p2 os
+cp /usr/bin/qemu-arm os/usr/bin
+mountps os
+echo ':arm:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/usr/bin/qemu-arm:' > /proc/sys/fs/binfmt_misc/register
+chroot os /bin/bash --login
+umountps os
+kpartx -d -v 2016-09-23-raspbian-jessie.img 
+
+#zakomentuj ./etc/ld.so.preload oraz /etc/fstab bloki mm
+
+#http://suhu.dlinkddns.com/Howto-Install/Xvisor/EmulatingRaspbianViaQEMU.html
+#https://github.com/dhruvvyas90/qemu-rpi-kernel/wiki
+#https://github.com/bargees/barge-os/issues/20
+qemu-system-arm   -name "Raspberry Pi"   -machine versatilepb   -cpu arm1176 -m 256   -no-reboot   -serial stdio   -kernel kernel-qemu   -drive file=raspbian.img,index=0,media=disk,format=raw   -append "root=/dev/sda2 rootfstype=ext4 rw panic=1"   -net nic -net user,hostfwd=tcp::2222-:22,hostfwd=tcp::8080-:80
+
+#https://github.com/techniq/wiki/wiki/Docker-(ARM)
+systemctl start docker
+echo -1 > /proc/sys/fs/binfmt_misc/arm
+echo ':arm:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/usr/bin/qemu-arm-static:' > /proc/sys/fs/binfmt_misc/register
+docker run -it --rm resin/armv7hf-debian:jessie-20160903 bash
+
+#http://hackaday.com/2016/09/01/how-to-use-docker-to-cross-compile-for-raspberry-pi-and-more/
+#https://github.com/sdt/docker-raspberry-pi-cross-compiler
+sudo docker run sdthirlwall/raspberry-pi-cross-compiler:legacy-trusty >rpxc
+chmod +x rpxc
+rpxc rpxc-gcc -o hello-world hello-world.c
+rpxc make
+rpxc bash
+
+#http://elinux.org/RPi_U-Boot
+
+#http://www.openembedded.org/wiki/Main_Page
+#Yocto
+emerge -u --ask --verbose dev-vcs/git dev-util/diffstat app-arch/unzip sys-apps/texinfo app-admin/chrpath media-libs/libsdl2 sys-apps/iproute2 x11-terms/xterm net-nds/rpcbind 
+#http://www.cnx-software.com/2013/07/05/12mb-minimal-image-for-raspberry-pi-using-the-yocto-project/
+#http://www.jumpnowtek.com/rpi/Raspberry-Pi-Systems-with-Yocto.html
+
+
+#https://buildroot.org/
+
+#https://wiki.gentoo.org/wiki/Raspberry_Pi
+#http://blog.3mdeb.com/2015/12/30/emulate-rapberry-pi-2-in-qemu/
+#https://github.com/grbd/GBD.Rpi2.Gentoo
+#http://www.ukginger.net/Gentoo2/
+#http://www.funtoo.org/Raspberry_Pi_2
+
+#http://free-electrons.com/blog/embdebian-with-multistrap/
+
+#very small kernel
+#http://wiki.osdev.org/Raspberry_Pi_Bare_Bones
+#http://wiki.osdev.org/Bare_Bones
+

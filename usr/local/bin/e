@@ -1,0 +1,124 @@
+#!/bin/bash
+
+if [ "$#" == "0" ]; then
+            echo "$0 [u:Update] [q:Quiet] [a:Ask|p:Print] [t:Tree] [f:Fetch] [n:noDeps] [c:Remove] [g:keepGoing] [w:World|s:System|e:reCompile] [m:Sync|r:CleanAll|d:Config|k:Kernel]"
+	    echo "np. e a w  --> <emerge -vaNDu world>"
+	    echo "e m  --> <emaint -A sync; layman -s ALL; eix-update"
+	    echo "e a s --> <emerge -vaNDu system>"
+	    echo "e a libreoffice nodejs --> <emerge -va libreoffice nodejs>"
+	    echo ""
+	exit 1
+fi
+
+RECOMP="" 
+NODEPS=""
+REMOVE=""
+NOWORLD=""
+UPDATE=""
+VERBOSE="-v"
+ASK=""
+TREE=""
+FETCH=""
+KEEP_GOING="" #moze byc dodane w /etc/portage/make.conf jako domyslny parametr
+LINE=""
+
+while [ "$1" ]
+do
+    CMD=$1
+    shift
+    case $CMD in
+        "")
+            echo "$0 [u:Update] [q:Quiet] [a:Ask|p:Print] [t:Tree] [f:Fetch] [n:noDeps] [c:Remove] [g:keepGoing] [w:World|s:System|e:reCompile] [m:Sync|r:CleanAll|d:Config|k:Kernel]"
+            ;;
+        m|M)
+            echo emaint -A sync; eix-update
+            emaint -A sync && eix-update
+            #emaint -A sync && layman -s ALL && eix-update
+            exit $?
+            ;;
+        c|C)
+            REMOVE="-C"
+            ;;
+        d|D)
+            echo dispatch-conf
+            dispatch-conf
+            exit $?
+            ;;
+        e|E)
+            RECOMP="-e" 
+            ;;
+        n|N)
+            NODEPS="--nodeps"
+            ;;
+        u)
+            UPDATE="-u"
+            ;;
+        U)
+            UPDATE="-uND"
+            ;;
+        q|Q)
+            VERBOSE="-1"
+            ;;
+        a|A)
+            ASK="-a"
+            ;;
+        p|P)
+            ASK="-p"
+            ;;
+        t|T)
+            TREE="-t"
+            ;;
+        f|F)
+            FETCH="-f"
+            ;;
+        g|G)
+            KEEP_GOING="--keep-going"
+            ;;
+        w|W)
+	    if [ "$RECOMP" == "-e" ]; then
+	       echo emerge $ASK -e @world
+	       time emerge $ASK -e @world
+	    else
+               echo emerge -uND $VERBOSE $ASK $KEEP_GOING $TREE $FETCH $NODEPS @world
+               time emerge -uND $VERBOSE $ASK $KEEP_GOING $TREE $FETCH $NODEPS @world
+	    fi
+            exit $?
+            ;;
+        s|S)
+	    if [ "$RECOMP" == "-e" ]; then
+	       echo emerge $ASK -e @world
+	       time emerge $ASK -e @world
+	    else
+               echo emerge -uND $VERBOSE $ASK $KEEP_GOING $TREE $FETCH $NODEPS @system
+               time emerge -uND $VERBOSE $ASK $KEEP_GOING $TREE $FETCH $NODEPS @system
+	    fi
+            exit $?
+            ;;
+        k|K)
+            #export CCACHE_DIR=/usr/src/.ccache
+            #export PATH=/usr/src/ccache_bin:$PATH
+            #[ -f .config ] && make -j8 && make modules_install install
+	    echo MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --lvm --no-clean all
+	    cd /usr/src/linux && make oldconfig
+	    time MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --lvm --no-clean all
+            exit $?
+            ;;
+        r)
+            #emerge -a --depclean && eclean-pkg -d && eclean-dist -d && eclean-kernel -a
+            echo emerge -a --depclean && eclean-pkg -d && eclean-dist -d
+            time emerge -a --depclean && eclean-pkg -d && eclean-dist -d
+            exit $?
+            ;;
+	*)
+            export LINE="$LINE $CMD"
+	    ;;
+
+    esac
+done
+if [ "$REMOVE" == "-C" ]; then
+    echo emerge $REMOVE $LINE
+    time emerge $REMOVE $LINE
+else
+    echo "emerge $UPDATE $VERBOSE $ASK $KEEP_GOING $TREE $FETCH $NODEPS $LINE"
+    time emerge $UPDATE $VERBOSE $ASK $KEEP_GOING $TREE $FETCH $NODEPS $LINE
+fi

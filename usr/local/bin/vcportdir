@@ -1,0 +1,75 @@
+
+for i in keywords use mask env; do 
+[ -f /etc/portage/package.$i ] && mv /etc/portage/package.$i /etc/portage/package.$i.backup
+[ ! -e /etc/portage/package.$i ] && mkdir /etc/portage/package.$i
+[ -f /etc/portage/package.$i.backup ] && mv /etc/portage/package.$i.backup /etc/portage/package.$i/systemowe.$i
+[ ! -e /etc/portage/package.$i/moje.$i ] && touch /etc/portage/package.$i/moje.$i
+[ ! -e /etc/portage/package.$i/systemowe.$i ] && touch /etc/portage/package.$i/systemowe.$i
+done
+
+[ ! -e /etc/portage/env ] && mkdir /etc/portage/env
+[ ! -e /etc/portage/profile ] && mkdir /etc/portage/profile
+[ ! -e /etc/portage/profile/package.provided ] && touch /etc/portage/profile/package.provided;
+[ ! -e /usr/local/portage ] && mkdir -p /usr/local/portage/metadata/
+echo "masters = gentoo" > /usr/local/portage/metadata/layout.conf
+
+echo "echo \"\$1\" >> /etc/portage/package.keywords/moje.keywords" > /usr/local/bin/vex
+echo "vim /etc/portage/package.keywords/moje.keywords /etc/portage/package.keywords/systemowe.keywords" > /usr/local/bin/vix
+echo "echo \"\$1\" >> /etc/portage/package.use/moje.use" > /usr/local/bin/veu
+echo "vim /etc/portage/package.use/moje.use /etc/portage/package.use/systemowe.use" > /usr/local/bin/viu
+echo "echo \"\$1\" >> /etc/portage/package.mask/moje.mask" > /usr/local/bin/ves
+echo "vim /etc/portage/package.mask/moje.mask /etc/portage/package.mask/systemowe.mask" > /usr/local/bin/vis
+echo "echo \"\$1\" >> /etc/portage/profile/package.provided" > /usr/local/bin/vep
+echo "vim /etc/portage/profile/package.provided" > /usr/local/bin/vip
+echo "echo \"\$1\" >> /etc/portage/make.conf" > /usr/local/bin/vec
+echo "vim /etc/portage/make.conf" > /usr/local/bin/vic
+chmod 755 /usr/local/bin/v*
+
+[ -d /usr/portage ] && rm -rf /usr/portage
+[ -d /var/lib/layman ] && rm -rf /var/lib/layman
+[ ! -e /usr/portage ] && ln -sfn /var/tmp/.portage /usr/portage
+[ ! -e /var/lib/layman ] && ln -sfn /var/tmp/.layman /var/lib/layman
+
+
+cat >> /etc/portage/make.conf << 'EOF'
+
+
+ACCEPT_LICENSE="*" 
+#ABI_X86="64 32"  
+RUBY_TARGETS="ruby20 ruby23" 
+GRUB_PLATFORMS="emu pc" 
+USE_PYTHON='2.7 3.4' 
+PYTHON_SINGLE_TARGET="python2_7" 
+PYTHON_TARGETS="python2_7 python3_4" 
+PYTHON_ABIS="2.7 3.4" 
+MAKEOPTS="-j8 -l16" 
+EMERGE_DEFAULT_OPTS="--jobs 8 --load-average 16 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=0" 
+PORTAGE_NICENESS="20" 
+FEATURES="sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
+CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3"
+
+PORTAGE_TMPDIR="/var/tmp/portage" 
+USE="${USE} -X -java -systemd branding experimental extras -doc -acl -systemtap"
+USE="${USE} -kde plasma gnome gnome-keyring nautilus grub mediacenter"
+USE="${USE} -cryptsetup reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay"
+USE="${USE} device-mapper udev openrc kernel-patch -systemtap -pax_kernel acpi icu kvm fuse threads usb bluetooth network consolekit ssl wifi pcap -ipv6 -automount -gnutls -hal"
+USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost"
+
+#USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l"
+#USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype qrcode devil gegl introspection imagemagick"
+#USE="${USE} nvidia uvm -cuda gpu egl -wayland osmesa xa vdpau vulkan opencl"
+#USE="${USE} tools xnest xvfb tslib kms libkms dmx xcb dbus xrandr xorg sna vaapi uxa gbm glamor lcdfilter kdrive infinality xkb"
+#USE="${USE} lua llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic -hardened"
+#USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot"
+
+VIDEO_CARDS="nvidia intel radeon fglrx nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu" 
+PORTDIR_OVERLAY="/usr/local/portage $PORTDIR_OVERLAY" 
+APACHE2_MODULES="actions alias auth_basic authn_alias authn_anon authn_core authn_dbm authn_file authz_core authz_dbm authz_groupfile authz_host authz_owner authz_user autoindex cache cgi cgid dav dav_fs dav_lock deflate dir env expires ext_filter file_cache filter headers include info log_config logio mime mime_magic negotiation rewrite setenvif socache_shmcb speling status unique_id unixd userdir usertrack vhost_alias access_compat asis auth_digest authn_dbd cache_disk dbd dumpio ident imagemap" 
+PORTAGE_ECLASS_WARNING_ENABLE="0" 
+PORT_LOGDIR="/var/log/portage" 
+#source /var/lib/layman/make.conf 
+QEMU_SOFTMMU_TARGETS="arm i386 x86_64" 
+QEMU_USER_TARGETS="arm armeb i386 x86_64" 
+JAVA_HOME="/etc/java-config-2/current-system-vm" 
+
+EOF

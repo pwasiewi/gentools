@@ -1,0 +1,46 @@
+Najlepiej repozytoria trzymać sobie w jednym katalogu
+
+mkdir repozytoria
+cd repozytoria
+
+zakładanie nowego repozytorium sprowadza się do wydania komendy:
+
+svnadmin create projekt
+
+W katalogu repozytoria zostanie założony katalog projekt, w którym nie będzie
+można zmieniać nic ręcznie. Każda manipulacja musi się odbywać za pomocą
+klienta svna i poniższych komend.
+
+svn co
+svn+ssh://TwójLogin@TwójLogin.megiteam.pl/home/TwójLogin/www/repozytoria/projekt
+
+komenda ta zgra nam lokalnie strukturę katalogów zawartą w repozytorium,
+oraz zapamięta ścieżkę do serwera, tak żeby za każdym razem nie trzeba było
+wpisywać
+
+    * svn add [sciezka] - dodajemy nowe rzeczy do svn (można używać gwiazdek
+    * itd.)
+    * svn rm [sciezka] - usuwanie wszelakich rzeczy (zmiast zwyklego rm)
+    * svn mv [sciezka_stara] [sciezka_nowa] - jesli chcemy przeniesc
+    * plik/katalog z jednego miejsca do drugiego
+    * svn up - pobiera najnowsze dane z svn
+    * svn commit plik - dodaje nam zmieniony plik do
+    * repozytorium
+    * svn diff - pokazuje nam zmiany od ostatniej
+    * aktualizacji
+    * svn lock plik - blokuje plik
+    * svn ci -m "komentarz" - svn sprawdzi
+    * wszystkie katalogi od aktualnego i doda
+    * wszelkie zmiany jakie zrobiłeś do
+    * repozytorium (konieczne jest dodanie
+    * komentarza - to później ułatwi przeglądanie
+				* wersji).
+
+				Jeżeli używamy eclipse wszystkie te rzeczy
+				odbywają się automatycznie: Kurs krok po kroku
+				jak zainstalować plugin
+
+http://subclipse.tigris.org/update_1.2.x
+http://www.wickedshell.net/updatesite
+http://download.eclipse.org/technology/dltk/updates
+http://ftp.debian.org/debian/pool/main

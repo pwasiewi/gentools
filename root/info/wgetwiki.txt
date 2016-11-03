@@ -1,0 +1,2 @@
+wget -r -k -np -p -l 0 http://example.org/wiki
+

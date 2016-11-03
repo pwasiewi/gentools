@@ -1,0 +1,44 @@
+Polecenia:
+apt-get update
+apt-get dist-upgrade
+vim
+apt-get install vim
+dpkg-query -p vim
+dpkg-query -s vim
+dpkg-query -L vim
+vim /etc/apt/sources.list
+apt-get update
+#vim  /etc/apt/apt.conf.d/01autoremove
+apt-get autoremove
+apt-get install node -s
+apt-get install node
+apt-get remove node
+#apt-get purge node
+apt-get autoremove
+#apt-get install -f (sam rozwi¹¿e)
+#apt-get install -m (bez zale¿noœci)
+#apt-get install -y (sama odpowie)
+apt-get install vim --reinstall
+#apt-get clean
+apt-get autoclean (usuwa te, których nie mo¿na pobraæ)
+apt-get install mplayer
+apt-get remove mplayer
+apt-get source -b mplayer
+apt-get install dpkg-dev
+apt-get build-dep mplayer
+apt-get source -b mplayer
+dpkg -i ./mplayer-...-.deb
+apt-cache
+apt-cache dump
+apt-cache stats
+add-apt-repository ppa:atareao/sunflower
+apt-get update
+apt-get install sunflower
+
+Bibliografia:
+http://taat.pl/article/ubuntu/index.php
+http://czytelnia.ubuntu.pl/index.php/2009/12/02/apt-get-bez-tajemnic/
+http://404.g-net.pl/2013/09/sunflower-0-1a56/
+
+apt-get install aptitude
+aptitude full-upgrade -sV

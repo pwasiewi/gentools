@@ -1,0 +1,11 @@
+ARCH=arm #check your target architecture
+FEATURES=buildpkg #remove buildpkg if you don't want all binary packages in $ROOT/packages
+USE="${ARCH} -pam -acl" #disable acl to build the base system (essential packages will fail cross compilation otherwise),enable it later if it's needed
+#set your CFLAGS, you can't use -march=native here if the target has a different cpu
+#for the raspberry-pi it could be
+#CFLAGS="-Ofast -mfpu=vfp -mfloat-abi=hard -march=armv6zk -mtune=arm1176jzf-s -fomit-frame-pointer -pipe -fno-stack-protector -U_FORTIFY_SOURCE"
+#CFLAGS="-Ofast -mfpu=vfp -mfloat-abi=hard -march=armv6zk -mtune=arm1176jzf-s -fomit-frame-pointer -pipe -fno-stack-protector -U_FORTIFY_SOURCE"
+#for Allwinner A20 cpu it could be
+#CFLAGS="-Ofast -fomit-frame-pointer -pipe -fno-stack-protector -U_FORTIFY_SOURCE -march=armv7ve -mtune=cortex-a7 -mfloat-abi=hard -mfpu=neon-vfpv4 -funsafe-math-optimizations"
+#set the build jobs aproppriate to the number of cpu cores
+MAKEOPTS="-j8"

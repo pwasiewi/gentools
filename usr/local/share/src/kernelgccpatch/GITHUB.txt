@@ -1,0 +1,1 @@
+https://github.com/graysky2/kernel_gcc_patch.git

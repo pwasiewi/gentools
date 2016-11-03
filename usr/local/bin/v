@@ -1,0 +1,760 @@
+#!/bin/bash
+# Piotr Wasiewicz 2005-2016
+# Fragments were taken from Gentoo official and unofficial scripts
+# Distributed under the GNU Public License version 2
+# Released under the GNU General Public License version 2
+
+
+#####################################
+## POMOC I OPIS ARGUMENTOW POLECENIA
+
+usage() {
+  cat <<EOF
+v: Gentoo Linux LiveCD generation
+Syntax: v <profil> <komenda> ...
+
+Komendy:
+ e      wejdz (Enter) na chroot z zamontowanymi z hosta: /dev,/proc,/sys itd. 
+        aby zmodyfikowac system
+ k      skompiluj jadro linuxa dla usb live 
+ s      skompresuj system za pomoca squashfs dla usb live 
+ i      wygeneruj LiveDVD ISO obraz
+ a      wykonaj etapy: s, i
+ c      wypal obraz na plycie dvd
+ f      sciagnij gentoo stage3
+ u      odmontuj /dev,/proc,/sys itd. z chroota
+ eb     uruchomiono vv <profil> e, to wejdz bez montowania z drugiej konsoli
+ p      przejdz do plikow konfiguracyjnych vv zwykle w /etc i uruchom mc
+ r      przejdz do katalogu chroota i uruchom mc
+ 2 	uruchom etap 2/8 instalacji - chroot z hosta 
+ 2host 	uruchom etap 2/8 instalacji juz po zbootowaniu lub w chroocie
+ -h|--help	Wyswietl ten ekran
+
+Piotr Wasiewicz 2005-2016
+Distributed under the GNU Public License version 2
+EOF
+}
+
+
+#####################################
+## WYRZUCANIE W RAZIE BLEDU
+#####################################
+
+die() {
+	if [ -n "$1" ]
+	then
+		echo "<${0}> ERROR: $1"
+	else
+		echo "<${0}> QUITTING."
+	fi
+	exit 1
+}
+
+
+#####################################
+## ${LIVECONF}/profiles/global/settings
+#####################################
+
+#DIST=/var/tmp     # where to build iso (need ~1GB)
+
+
+#####################################
+## ${LIVECONF}/profiles/${CD_PROFILE}/settings
+#####################################
+
+#DEVCHROOT="/dev/sda5"
+#CD_STAGEFILE="stage3-amd64-20161013.tar.bz2"
+#CD_STAGETARBALL="http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/"$CD_STAGEFILE
+#####################################
+#Czy instalujemy z RAM dysku np. z liveusb/dvd?
+#RAMDISK=1
+
+#####################################
+## PARAMETRY WEJSCIOWE
+## WCZYTANIE ~/.livecd-pw 
+## oraz ${LIVECONF}/profiles/${CD_PROFILE}/settings
+#####################################
+
+
+PROG=${0}
+CD_PROFILE=${1}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && usage &&  exit 1
+
+[ "`whoami`" != "root" ] && die "Zaloguj sie na roota"
+
+[ -z "$LIVECONF" ] && echo "CHROOT: konfigi na /etc/liveusb" && export LIVECONF=/etc/liveusb
+
+[ -z "$1" ] && die "Please specify a profile to use e.g. livecd-pw fxdoo" 
+[ ! -d "${LIVECONF}/profiles/$CD_PROFILE" ] && die "Cannot find profile directory: ${LIVECONF}/profiles/$CD_PROFILE"
+
+#[ ! -e "${HOME}/.livecd-pw" ] && die "Cannot find ~/.livecd-pw settings."
+#source ~/.livecd-pw || die "Couldn't find local settings in ~/.livecd-pw." 
+[ ! -e "${LIVECONF}/profiles/global/settings" ] && die "Cannot find global settings."
+source ${LIVECONF}/profiles/global/settings || die "Couldn't find global settings." 
+CDLOC=$DIST/iso
+[ ! -e $CDLOC ] && mkdir -pv $CDLOC
+
+[ ! -e "${LIVECONF}/profiles/${CD_PROFILE}/settings" ] && die "Profile \"${CD_PROFILE}\" missing \"settings\" file."
+source ${LIVECONF}/profiles/${CD_PROFILE}/settings
+
+PROFILE=${CDLOC}/${CD_PROFILE}
+PROFILETMP=${PROFILE}/tmp
+[ ! -e $PROFILETMP ] && mkdir -pv $PROFILETMP/kernel
+CHROOT=${PROFILE}/chroot
+[ ! -e $CHROOT ] && mkdir -pv $CHROOT
+ISO=${PROFILE}/iso
+[ ! -e $ISO ] && mkdir -pv $ISO
+CLOOP_FILE=${ISO}/livecd.squashfs
+CD_DISTDIR=$DIST/distfiles 	# pliki zrodlowe
+CD_PORTDIR=$DIST/.portage  	# portage drzewo pakietow do pobrania
+[ ! -e $CD_PORTDIR ] && mkdir -pv $CD_PORTDIR
+CD_LAYMDIR=$DIST/.layman  	# layman drzewo pakietow do pobrania
+[ ! -e $CD_LAYMDIR ] && mkdir -pv $CD_LAYMDIR
+HOST=""
+
+mount_all() {
+	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT 
+	[ ! -e "$CHROOT$DIST/distfiles" ] && mkdir -pv $CHROOT$DIST/distfiles
+	[ ! -e "$CHROOT$DIST/portage" ] && mkdir -pv $CHROOT$DIST/portage
+	[ ! -e "$DIST/portage/$CD_PROFILE" ] && mkdir -pv $DIST/portage/$CD_PROFILE
+	[ ! -e $CHROOT/tmp/livecd ] && mkdir -pv $CHROOT/tmp/livecd
+	local x
+
+	#nie na liveusb, gdyz ramdisk jest maly
+	if [ "$RAMDISK" == "0" ]; then
+	   mount -o bind $DIST/portage/$CD_PROFILE $CHROOT$DIST/portage || chroot_die
+	   for x in $DIST/distfiles 
+	   do	
+		[ ! -e ${x} ] && mkdir -pv ${x}
+		[ ! -e ${CHROOT}${x} ] && mkdir -pv ${CHROOT}${x}
+		mount -o bind ${x} ${CHROOT}${x} || chroot_die
+	   done
+	fi
+
+	for x in /dev /proc /sys /dev/pts $DIST/.portage $DIST/.src64bit $DIST/.layman $DIST/.packages ${CCACHEDIR}
+	do	
+		[ ! -e ${x} ] && mkdir -pv ${x}
+		[ ! -e ${CHROOT}${x} ] && mkdir -pv ${CHROOT}${x}
+		mount -o bind ${x} ${CHROOT}${x} || chroot_die
+	done
+	#echo mount -o bind $PROFILETMP $CHROOT/tmp/livecd
+	mount -o bind $PROFILETMP $CHROOT/tmp/livecd || chroot_die
+}
+
+umount_all() {
+	#echo umount $CHROOT$DIST/portage $CHROOT/tmp/livecd
+	umount $CHROOT$DIST/portage $CHROOT/tmp/livecd 2>/dev/null || true
+	local x
+	for x in /dev/pts ${CCACHEDIR} $DIST/.packages $DIST/.layman $DIST/.src64bit $DIST/distfiles $DIST/.portage /sys /proc /dev 
+	do
+		#echo umount ${CHROOT}${x}
+		umount ${CHROOT}${x} 2>/dev/null || true
+	done
+}
+
+chroot_die() {
+	umount_all
+	if [ -n "$1" ]
+	then
+		echo "chroot_generate: error: $1"
+	else
+		echo "chroot_generate: aborting."
+	fi
+	exit 1
+}
+
+#jak przerwanie, tez wyczysc 
+trap "chroot_die" SIGINT SIGQUIT
+
+fetch() {
+	echo Przeladowuje stage3 $CD_STAGEFILE
+	cd $CDLOC;
+	[ ! -e "$CD_STAGEFILE" ] && wget -c $CD_STAGETARBALL
+}
+
+1etap() {
+	umount_all
+	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
+	[ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
+	echo ">>> Rozpakowuje Gentoo stage3..."
+	[ ! -e "$CHROOT/home" ] && tar xjpf "$CDLOC/$CD_STAGEFILE" -C $CHROOT || die "stage tarball extraction error"
+        #mv "$CDLOC/$CD_STAGEFILE" $CHROOT
+	# aby siec dzialala
+	cp /etc/resolv.conf ${CHROOT}/etc
+	cp2konfig /config.txz $CD_PROFILE #trzeba miec /usr/local/bin/cp2konfig
+
+	cat > $PROFILETMP/vcportdir << 'EOF'
+for i in keywords use mask env; do 
+[ -f /etc/portage/package.$i ] && mv /etc/portage/package.$i /etc/portage/package.$i.backup
+[ ! -e /etc/portage/package.$i ] && mkdir /etc/portage/package.$i
+[ -f /etc/portage/package.$i.backup ] && mv /etc/portage/package.$i.backup /etc/portage/package.$i/systemowe.$i
+[ ! -e /etc/portage/package.$i/moje.$i ] && touch /etc/portage/package.$i/moje.$i
+[ ! -e /etc/portage/package.$i/systemowe.$i ] && touch /etc/portage/package.$i/systemowe.$i
+done
+
+[ ! -e /etc/portage/env ] && mkdir /etc/portage/env
+[ ! -e /etc/portage/profile ] && mkdir /etc/portage/profile
+[ ! -e /etc/portage/profile/package.provided ] && touch /etc/portage/profile/package.provided;
+[ ! -e /usr/local/portage ] && mkdir -p /usr/local/portage/metadata/
+echo "masters = gentoo" > /usr/local/portage/metadata/layout.conf
+
+echo "echo \"\$1\" >> /etc/portage/package.keywords/moje.keywords" > /usr/local/bin/vex
+echo "vim /etc/portage/package.keywords/moje.keywords /etc/portage/package.keywords/systemowe.keywords" > /usr/local/bin/vix
+echo "echo \"\$1\" >> /etc/portage/package.use/moje.use" > /usr/local/bin/veu
+echo "vim /etc/portage/package.use/moje.use /etc/portage/package.use/systemowe.use" > /usr/local/bin/viu
+echo "echo \"\$1\" >> /etc/portage/package.mask/moje.mask" > /usr/local/bin/ves
+echo "vim /etc/portage/package.mask/moje.mask /etc/portage/package.mask/systemowe.mask" > /usr/local/bin/vis
+echo "echo \"\$1\" >> /etc/portage/profile/package.provided" > /usr/local/bin/vep
+echo "vim /etc/portage/profile/package.provided" > /usr/local/bin/vip
+echo "echo \"\$1\" >> /etc/portage/make.conf" > /usr/local/bin/vec
+echo "vim /etc/portage/make.conf" > /usr/local/bin/vic
+chmod 755 /usr/local/bin/v*
+
+cat >> /etc/portage/make.conf << 'EOF'
+
+ACCEPT_LICENSE="*" 
+#ABI_X86="64 32"  
+RUBY_TARGETS="ruby21 ruby23" 
+GRUB_PLATFORMS="emu pc" 
+USE_PYTHON='2.7 3.4' 
+PYTHON_SINGLE_TARGET="python2_7" 
+PYTHON_TARGETS="python2_7 python3_4" 
+PYTHON_ABIS="2.7 3.4" 
+MAKEOPTS="-j4 -l8" 
+EMERGE_DEFAULT_OPTS="--jobs 4 --load-average 8 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=0" 
+PORTAGE_NICENESS="20" 
+FEATURES="sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
+CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3"
+
+PORTAGE_TMPDIR="/var/tmp/portage" 
+USE="${USE} -X -java -systemd -hardened -pic branding experimental extras -doc -acl -systemtap"
+USE="${USE} -kde plasma gnome gnome-keyring nautilus grub mediacenter"
+USE="${USE} -cryptsetup reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay"
+USE="${USE} device-mapper udev openrc kernel-patch -systemtap -pax_kernel acpi icu kvm fuse threads usb bluetooth network consolekit ssl wifi pcap -ipv6 -automount -gnutls -hal"
+USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost"
+
+#USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l"
+#USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype qrcode devil gegl introspection imagemagick"
+#USE="${USE} tools xnest xvfb tslib kms libkms dmx xcb dbus xrandr xorg sna vaapi uxa gbm glamor lcdfilter kdrive infinality xkb"
+#USE="${USE} nvidia uvm -cuda gpu egl -wayland osmesa xa vdpau vulkan opencl"
+#USE="${USE} lua llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic"
+#USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot"
+
+VIDEO_CARDS="nvidia intel radeon fglrx nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu" 
+PORTDIR_OVERLAY="/usr/local/portage $PORTDIR_OVERLAY" 
+APACHE2_MODULES="actions alias auth_basic authn_alias authn_anon authn_core authn_dbm authn_file authz_core authz_dbm authz_groupfile authz_host authz_owner authz_user autoindex cache cgi cgid dav dav_fs dav_lock deflate dir env expires ext_filter file_cache filter headers include info log_config logio mime mime_magic negotiation rewrite setenvif socache_shmcb speling status unique_id unixd userdir usertrack vhost_alias access_compat asis auth_digest authn_dbd cache_disk dbd dumpio ident imagemap" 
+PORTAGE_ECLASS_WARNING_ENABLE="0" 
+PORT_LOGDIR="/var/log/portage" 
+#source /var/lib/layman/make.conf 
+QEMU_SOFTMMU_TARGETS="arm i386 x86_64" 
+QEMU_USER_TARGETS="arm armeb i386 x86_64" 
+JAVA_HOME="/etc/java-config-2/current-system-vm" 
+EOF
+	echo EOF >> $PROFILETMP/vcportdir
+	if [ "$RAMDISK" == "0" ]; then
+	    cat >> $PROFILETMP/vcportdir << 'EOF'
+
+echo "nie na LIVEDVD, gdyz ramdisk jest maly"
+ls -l /usr
+[ -d /usr/portage ] && rmdir /usr/portage
+ls -l /usr
+[ ! -e /usr/portage ] && cd /usr && ln -sfn ../var/tmp/.portage portage
+ls -l /usr
+[ -d /usr/src ] && rmdir /usr/src 
+[ ! -e /usr/src ] && cd /usr && ln -sfn ../var/tmp/.src64bit src
+[ -d /var/lib/layman ] && rmdir /var/lib/layman
+[ ! -e /var/lib/layman ] && cd /var/lib && ln -sfn ../../var/tmp/.layman layman
+EOF
+	else
+	    cat >> $PROFILETMP/vcportdir << 'EOF'
+cd /usr
+wget -c http://gentoo.prz.rzeszow.pl/snapshots/portage-latest.tar.xz
+tar Jxf portage-latest.tar.xz
+rmdir /usr/portage/distfiles
+mkdir /var/tmp/distfiles
+ln -sfn /var/tmp/distfiles /usr/portage/distfiles
+EOF
+	fi
+
+	cat >> $PROFILETMP/vcportdir << 'EOF'
+echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
+echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
+locale-gen
+eselect profile set 8 #plasma 
+#eselect profile set 9 #plasma systemd
+env-update
+. /etc/profile
+cd /
+#wget -c $CONFIGFILE -Oconfig.txz
+tar Jxf config.txz
+e vim
+ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+ln -sf /proc/self/mounts /etc/mtab
+
+sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
+sed -i 's/^#ABI/ABI/g' /etc/portage/make.conf
+
+vex sys-kernel/genkernel #musi byc na razie USE="-cryptsetup"
+vex app-portage/repoman
+vex sys-apps/portage
+vex app-portage/genlop 
+vex app-portage/layman 
+vex sys-boot/os-prober
+vex sys-kernel/linux-firmware
+veu "sys-libs/ncurses -gpm"
+
+e genkernel repoman portage genlop euses eix os-prober linux-firmware dhcpcd
+
+vex sys-kernel/gentoo-sources
+e gentoo-sources
+cd /usr/src/linux
+make defconfig
+make kvmconfig
+./scripts/config --enable  CONFIG_E1000
+./scripts/config --disable DM_DEBUG_BLOCK_STACK_TRACING
+make olddefconfig
+sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
+e k
+e k #drugi raz oldconfig czasami potrzebny dwa razy i ENTER z klawiatury
+umount /boot
+EOF
+	chmod +x $PROFILETMP/vcportdir
+        mount_all
+	chroot $CHROOT /tmp/livecd/vcportdir
+	umount_all
+}
+
+2etap(){
+	ETAP=2etap
+	cat > $PROFILETMP/$ETAP << 'EOF'
+#kompilacja trwa 40min
+vex sys-libs/glibc
+vex sys-devel/gcc
+vex dev-libs/boost
+vex dev-util/boost-build
+e gcc
+gcc-config -l
+gcc-config 2
+. /etc/profile
+fix_libtool_files.sh 4.9.3
+e glibc
+echo "dev-libs/boost empty" >> /etc/portage/package.env/moje.env
+echo 'CFLAGS=""' > /etc/portage/env/empty
+echo 'CXXFLAGS=""' >> /etc/portage/env/empty
+echo 'LDFLAGS=""' >> /etc/portage/env/empty
+e boost 
+EOF
+	chmod +x $PROFILETMP/$ETAP
+	if [ "$HOST" == "1" ]; then
+		$PROFILETMP/$ETAP
+	else
+        	mount_all
+		chroot $CHROOT /tmp/livecd/$ETAP
+		umount_all
+	fi
+}
+
+3etap(){
+	ETAP=3etap
+	cat > $PROFILETMP/$ETAP << 'EOF'
+#kompilacja trwa 2h
+veu "net-libs/libproxy -webkit"
+veu "media-libs/harfbuzz -graphite"
+veu "dev-util/cmake -qt5"
+veu "app-arch/p7zip -wxwidgets"
+veu "media-libs/mesa -vaapi"
+veu "gnome-base/librsvg -tools"
+sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
+sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
+sed -i 's/#USE="${USE} tools/USE="${USE} tools/g' /etc/portage/make.conf
+sed -i 's/bindist/-bindist/g' /etc/portage/make.conf
+e w #emerge -uND world  - upgrade world - 238 pakietow w ponad 2h
+EOF
+	chmod +x $PROFILETMP/$ETAP
+	if [ "$HOST" == "1" ]; then
+		$PROFILETMP/$ETAP
+	else
+        	mount_all
+		chroot $CHROOT /tmp/livecd/$ETAP
+		umount_all
+	fi
+}
+
+4etap(){
+	ETAP=4etap
+	cat > $PROFILETMP/$ETAP << 'EOF'
+#kompilacja trwa 14min
+e u gpm app-misc/mc ntp
+/etc/init.d/ntp-client start
+/etc/init.d/gpm start
+rc-update add gpm default
+veu "dev-libs/libgpg-error static-libs"
+veu "dev-libs/lzo static-libs"
+veu "dev-libs/libgcrypt static-libs"
+vex sys-libs/readline
+vex app-shells/bash
+e n readline #emerge --nodeps readline 
+emerge @preserved-rebuild
+vex dev-python/ssl-fetch
+e u layman #okolo 32 pakietow po etapie 3 aktualizacji 238 pakietow
+#e u dev-vcs/git #juz zainstalowany przez laymana
+EOF
+	chmod +x $PROFILETMP/$ETAP
+	if [ "$HOST" == "1" ]; then
+		$PROFILETMP/$ETAP
+	else
+        	mount_all
+		chroot $CHROOT /tmp/livecd/$ETAP
+		umount_all
+	fi
+}
+
+5etap(){
+	ETAP=5etap
+	cat > $PROFILETMP/$ETAP << 'EOF'
+#kompilacja trwa 14min po etapie 3 aktualizacji
+vex sys-fs/mdadm
+vex sys-fs/squahsfs-tools
+vex net-analyzer/xprobe
+vex app-admin/pass
+vex dev-python/pymountboot
+vex app-admin/eclean-kernel
+vex app-portage/diffmask
+vex app-portage/install-mask
+# https://wiki.gentoo.org/wiki/Recommended_applications
+# https://wiki.gentoo.org/wiki/Recommended_tools
+# https://wiki.gentoo.org/wiki/Useful_Portage_tools
+e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie install-mask portpeek smart-live-rebuild ufed gpytage net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit gentoolkit-dev f2fs-tools 
+curl ix.io/client > /usr/local/bin/ix
+chmod +x /usr/local/bin/ix
+emaint -A sync
+sed -i 's/^check_official : Yes/check_official : no/' /etc/layman/layman.cfg
+layman -L
+layman -a kde
+layman -a x11
+layman -a sabayon 
+eix-update
+e w #emerge -uND world  - upgrade world - kompilacja max 10min 
+EOF
+	chmod +x $PROFILETMP/$ETAP
+	if [ "$HOST" == "1" ]; then
+		$PROFILETMP/$ETAP
+	else
+        	mount_all
+		chroot $CHROOT /tmp/livecd/$ETAP
+		umount_all
+	fi
+}
+
+6etap(){
+	ETAP=6etap
+	cat > $PROFILETMP/$ETAP << 'EOF'
+#kompilacja trwa 1h
+veu "net-dialup/ppp ipv6"
+veu "kde-plasma/plasma-desktop legacy-systray"
+veu "media-plugins/alsa-plugins pulseaudio"
+echo 'CFLAGS=""' > /etc/portage/env/empty1core
+echo 'CXXFLAGS=""' >> /etc/portage/env/empty1core
+echo 'LDFLAGS=""' >> /etc/portage/env/empty1core
+echo 'MAKEOPTS="-j1"' >> /etc/portage/env/empty1core
+echo "dev-qt/qtwebkit empty1core" >> /etc/portage/package.env/moje.env
+e qtwebkit #45 pakietow 60min
+echo 'Jak nie skompiluje sie qtwebkit, uzyc kompilacji na jednym rdzeniu:'
+echo 'MAKEOPTS="-j1" e qtwebkit'
+EOF
+	chmod +x $PROFILETMP/$ETAP
+	if [ "$HOST" == "1" ]; then
+		$PROFILETMP/$ETAP
+	else
+        	mount_all
+		chroot $CHROOT /tmp/livecd/$ETAP
+		umount_all
+	fi
+}
+
+7etap(){
+	ETAP=7etap
+	cat > $PROFILETMP/$ETAP << 'EOF'
+#kompilacja trwa 85min
+echo "kde-plasma/plasma-desktop empty1core" >> /etc/portage/package.env/moje.env
+e u plasma-desktop #243 nowe pakiety 56min
+e u plasma-meta    #54 pakiety 13min
+e u konsole setxkbmap kde-apps/dolphin xdpyinfo xrandr xkill xterm alsamixergui media-video/plasma-mediacenter pavucontrol gparted freetype media-fonts/liberation-fonts           #42 pakietow 12min
+#infinality use flag
+eselect infinality set infinality
+eselect lcdfilter set infinality-sharpened
+EOF
+	chmod +x $PROFILETMP/$ETAP
+	if [ "$HOST" == "1" ]; then
+		$PROFILETMP/$ETAP
+	else
+        	mount_all
+		chroot $CHROOT /tmp/livecd/$ETAP
+		umount_all
+	fi
+}
+
+8etap(){
+	ETAP=8etap
+	cat > $PROFILETMP/$ETAP << 'EOF'
+#kompilacja trwa 1h plus 1h upgrade po usunieciu flag use wstawionych veu
+#sieci
+veu "dev-libs/nss utils"
+e u x11-misc/bumblebee feh lm_sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn quagga #27 pakietow 4min
+#uzytkowe
+vex www-client/firefox-bin
+vex app-emulation/lxc
+vex app-emulation/docker
+vex sys-process/criu
+vex app-emulation/containerd
+vex app-emulation/runc
+e u firefox-bin app-emulation/docker lxc #12 pakietow 5min
+usermod -aG docker guest
+#e w #6 pakietow 15min
+vex net-libs/nodejs
+vex dev-libs/libuv
+vex app-admin/mongo-tools 
+vex dev-db/mongodb #na razie rezygnuje z kompilacji mongodb, gdyz trzeba na 1 rdzeniu
+echo "dev-db/mongodb empty1core" >> /etc/portage/package.env/moje.env
+e u cdrtools dvd+rw-tools libisoburn R octave nodejs opera #67 pakietow 30min
+vex x11-drivers/xf86-video-virtualbox
+e u =x11-drivers/xf86-video-virtualbox-5.1.6
+echo "jesli blad kompilacji virtualbox drivera, to nalezy poprawic kod wykorzystujac ebuild wykonujacy instalacje etapami:"
+echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild compile"
+echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild install"
+echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild qmerge"
+#po usunieciu za pomoca viu zbednych ograniczen z package.use/moje.use
+#kompilacja 14 pakietow trwa 1h, gdyz jest tam webkit-gtk
+#potem nalezy dodac uzytkownika
+useradd -m -g users guest
+#passwd guest
+echo 'exec startkde' > /home/guest/.xinitrc
+chown -R guest:users /home/guest/
+usermod -aG wheel guest
+usermod -aG audio guest
+usermod -aG video guest
+echo Wykonaj: passwd guest
+#vex app-text/calibre
+#vex media-gfx/gimp
+#e u calibre gimp vlc mplayer
+#e u skype google-chrome steam-launcher ghc go blender 
+EOF
+	chmod +x $PROFILETMP/$ETAP
+	if [ "$HOST" == "1" ]; then
+		$PROFILETMP/$ETAP
+	else
+        	mount_all
+		chroot $CHROOT /tmp/livecd/$ETAP
+		umount_all
+	fi
+}
+
+genkernel() {
+	cat > $PROFILETMP/genkernel-build << EOF
+sed -i "s/CDROOT='0'/CDROOT='1'/g" /usr/share/genkernel/defaults/initrd.defaults
+time MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --lvm --no-clean all
+ls
+sed -i "s/CDROOT='1'/CDROOT='0'/g" /usr/share/genkernel/defaults/initrd.defaults
+EOF
+	chmod +x $PROFILETMP/genkernel-build
+        mount_all
+	chroot $CHROOT /tmp/livecd/genkernel-build 
+	umount_all
+	mv ${CHROOT}/boot/initr*-genkernel* ${PROFILE}/initrd
+	if [ ! -e "$PROFILE/tmp" ] 
+	then
+		mkdir $PROFILE/tmp
+	fi
+	if [ ! -e "$PROFILE/tmp/kernel" ] 
+	then
+		mkdir $PROFILE/tmp/kernel
+	fi
+	mv ${CHROOT}/boot/kernel-genkernel* ${PROFILE}/tmp/kernel/bzImage
+	cd ${PROFILE}
+	install -d ${ISO} || die
+	install -d ${ISO}/isolinux || die
+	cp ${LIVECONF}/profiles/global/isolinux.bin ${ISO}/isolinux || die
+	cp ${LIVECONF}/profiles/global/isolinux.cfg ${ISO}/isolinux || die
+	cp ${LIVECONF}/profiles/global/{*.lss,*.msg} ${ISO}/isolinux || die
+	cp ${PROFILE}/initrd ${ISO}/isolinux/initrd || die
+	cp ${PROFILETMP}/kernel/bzImage ${ISO}/isolinux/gentoo || die
+	touch ${ISO}/livecd || die
+}
+
+
+squashfs_create() {
+	cp ${LIVECONF}/profiles/${CD_PROFILE}/.bash_history ${CHROOT}/root || die
+	cat > $PROFILETMP/moveandlink << EOF
+env-update
+source /etc/profile
+cd /var
+[ ! -e /usr/cache ] && mkdir /usr/cache
+[ -d cache/genkernel ] && mv cache/genkernel /usr/cache && ln -sfn ../../usr/cache/genkernel cache/genkernel
+[ -d cache/edb ] && mv cache/edb /usr/cache && ln -sfn ../../usr/cache/edb cache/edb
+[ -d db ] && mv db /usr && ln -sfn ../usr/db db
+cd /usr/share
+[ -d X11 ] && mv X11 /var && ln -sfn ../../var/X11 X11
+cd /etc
+[ -d gconf ] && mv gconf /usr && ln -sfn ../usr/gconf gconf
+cd /var/lib
+[ -d texmf ] && mv texmf /usr && ln -sfn ../../usr/texmf texmf
+chown -R hadoop:hadoop /hadoop/
+chown -R guest:users /home/guest/
+EOF
+	chmod +x $PROFILETMP/moveandlink
+        mount_all
+	chroot $CHROOT /tmp/livecd/moveandlink
+	umount_all
+	[ ! -e "$CHROOT/../iso" ] && mkdir $CHROOT/../iso
+	echo /usr/bin/mksquashfs ${CHROOT}/* ${CLOOP_FILE} -comp xz -noappend  -always-use-fragments -mem 5G -b 1048576  -Xdict-size 100%
+	if [ "$RAMDISK" == "0" ]; then
+	   time /usr/bin/mksquashfs ${CHROOT}/* ${CLOOP_FILE} -comp xz -noappend  -always-use-fragments -mem 5G -b 1048576 -Xdict-size 100% || chroot_die
+	else
+	   time /usr/bin/mksquashfs ${CHROOT}/* ${CLOOP_FILE} -comp xz -noappend  -always-use-fragments || chroot_die
+	fi
+}
+
+iso_create() {
+	install -d ${ISO} || die
+	install -d ${ISO}/isolinux || die
+	cp ${LIVECONF}/profiles/global/isolinux.bin ${ISO}/isolinux || die
+	cp ${LIVECONF}/profiles/global/isolinux.cfg ${ISO}/isolinux || die
+	cp ${LIVECONF}/profiles/global/{*.lss,*.msg} ${ISO}/isolinux || die
+	cp ${PROFILE}/initrd ${ISO}/isolinux/initrd || die
+	cp ${PROFILETMP}/kernel/bzImage ${ISO}/isolinux/gentoo || die
+	touch ${ISO}/livecd || die
+	echo mkisofs -J -R -l -o ${PROFILE}/livecd.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table ${ISO}
+	if [ "$RAMDISK" == "0" ]; then
+	   time mkisofs -J -R -l -o ${PROFILE}/livecd.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table ${ISO}
+	else 
+	   time mkisofs -J -R -l -o ${CHROOT}/livecd.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table ${ISO}
+	fi
+}
+
+
+make_isocd() {
+growisofs -Z /dev/sr0=${PROFILE}/livecd.iso 
+}
+
+chroot_mc() {
+cd ${PROFILE}
+mc
+}
+
+profile_mc() {
+cd ${LIVECONF}/profiles/${CD_PROFILE}
+mc
+}
+
+
+cleanall() {
+rm -rf $CHROOT/var/log/portage/*
+rm $CHROOT/var/log/*
+rm -rf $CHROOT/var/cache/revdep-rebuild/*
+rm -rf $CHROOT/var/tmp/genkernel/*
+rm -rf $CHROOT/usr/share/doc/groff*
+rm -rf $CHROOT/usr/share/doc/freetds*
+rm -rf $CHROOT/usr/share/doc/docbook-xsl-stylesheets*
+cd $CHROOT/usr/share/locale
+rm -rf af am ang ar az be be@latin bg bn bn_IN br bs ca cs cs_CZ cy da dz el eo es es_AR et et_EE eu fa fi ga gl gr gu gu_IN he hi hr hy id is it it_IT ja ka kn ko ku ky li lt lv mg mi mk ml mn mr ms nb nb_NO ne nn no nso oc or pa pt pt_BR pt_PT ro ru rw si sk sl sq sr sr@Latn sr@ije sv sv_FI sv_SE ta te th tk tr tr_TR ug uz uz@cyrillic vi wa wo xh yi zh zh_CN zh_HK zh_TW zu
+cd $CHROOT/usr/share/doc
+mkdir /tmp/sharedoc
+mv R* gtk* slony* pg* postgres* phppg* octave* docker* lxc* /tmp/sharedoc 
+rm -rf $CHROOT/usr/share/doc/*
+mv /tmp/sharedoc/* .
+ls
+cd
+}
+
+chroot_e() {
+	umount_all
+	mount_all
+	cat > $PROFILETMP/chroot-e << EOF
+cd /root
+export TERM=xterm
+/bin/bash
+export PS1='`pwd`:#>'
+EOF
+	chmod +x $PROFILETMP/chroot-e
+	chroot $CHROOT /tmp/livecd/chroot-e
+	umount_all
+}
+
+chroot_bis() {
+	chroot $CHROOT
+}
+
+case "$2" in
+    f)	
+    	fetch		;;
+    k) 
+	genkernel 	;;
+    a)
+	cleanall
+	squashfs_create
+    	iso_create
+	;;
+    s)
+	squashfs_create ;;
+    i) 
+    	iso_create      ;;
+    c)  
+    	make_isocd      ;;
+    e)  
+    	chroot_e        ;;
+    r)  
+    	chroot_mc       ;;
+    p)  
+    	profile_mc      ;;
+    eb)  
+    	chroot_bis      ;;
+    u)	
+    	umount_all      ;;
+    1)	
+    	1etap           ;;
+    2)	
+    	2etap           ;;
+    3)	
+    	3etap           ;;
+    4)	
+    	4etap           ;;
+    5)	
+    	5etap           ;;
+    6)	
+    	6etap           ;;
+    7)	
+    	7etap           ;;
+    8)	
+    	8etap           ;;
+    1host)	
+    	(( HOST = 1 ))
+    	1etap           ;;
+    2host)	
+    	(( HOST = 1 ))
+    	2etap           ;;
+    3host)	
+    	(( HOST = 1 ))
+    	3etap           ;;
+    4host)	
+    	(( HOST = 1 ))
+    	4etap           ;;
+    5host)	
+    	(( HOST = 1 ))
+    	5etap           ;;
+    6host)	
+    	(( HOST = 1 ))
+    	6etap           ;;
+    7host)	
+    	(( HOST = 1 ))
+    	7etap           ;;
+    8host)	
+    	(( HOST = 1 ))
+    	8etap           ;;
+    *) 
+	usage 
+	exit 1
+	;;
+esac
+exit 0
+

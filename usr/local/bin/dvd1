@@ -1,0 +1,10 @@
+export MKISOFS="xorrisofs"
+#mkisofs -udf -jcharset iso8859-2 -output-charset cp1250 $1
+#mkisofs -udf -r -jcharset cp1250 -output-charset cp1250 -o image123456
+#mkisofs -r -J -joliet-long -D -o image123456 $1 
+#mkisofs -udf -r -o image123456 $1 
+xorriso -as mkisofs -iso-level 3  -r -J -joliet-long -rock -input-charset utf-8 $1 -o /mnt/db4/image123456
+#growisofs -speed 2 -Z /dev/sr0=image123456
+growisofs -Z /dev/sr0=/mnt/db4/image123456
+#dvdwrapper -v -dao dev=ATAPI:0,1,0   driveropts=burnfree  -multi image123456 
+#rm /mnt/db4/image123456

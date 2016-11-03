@@ -1,0 +1,18 @@
+if [ -f $1 ]; then
+ j=`basename $1 .tex`
+ latex $j.tex
+ bibtex $j
+ latex $j.tex
+ latex $j.tex
+ dvips $j.dvi -o $j.ps
+ ps2pdf -sPAPERSIZE=a4 $j.ps $j.pdf
+ evince $j.pdf
+else
+ latex $1.tex
+ bibtex $1
+ latex $1.tex
+ latex $1.tex
+ dvips $1.dvi -o $1.ps
+ ps2pdf -sPAPERSIZE=a4 $1.ps $1.pdf
+ evince $1.pdf
+fi

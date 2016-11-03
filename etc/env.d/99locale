@@ -1,0 +1,12 @@
+PATH="/opt/android-sdk-linux/platform-tools"
+ROOTPATH="/opt/android-sdk-linux/platform-tools"
+LANG="pl_PL.utf8"
+LC_ALL="pl_PL.utf8"
+LINGUAS="pl"
+DISPLAY=":0"
+LESSCHARSET=utf-8
+KBCHARSET=iso-8859-2
+KEYBOARD=pl
+KEYTABLE=pl
+PORTDIR=/usr/portage
+SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"

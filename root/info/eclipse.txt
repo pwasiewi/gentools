@@ -1,0 +1,50 @@
+JUNO - http://download.eclipse.org/releases/juno
+PlantUML - http://basar.idi.ntnu.no/svn/tdt4100/anonymous/trunk/updatesite/
+http://download.eclipse.org/releases/indigo
+http://download.eclipse.org/releases/helios
+ADT - https://dl-ssl.google.com/android/eclipse/
+General Purpose -> Marketplace Client
+Find: Subclipse
+Find: Egit
+Find: Pydev
+Find: Clojure
+http://m2eclipse.sonatype.org/sites/m2e
+R - http://download.walware.de/eclipse-4.3
+For RJ 1.1 (StatET 3.0-3.1):
+install.packages(c("rj", "rj.gd"), repos="http://download.walware.de/rj-1.1")
+For 3.4
+install.packages(c("rj", "rj.gd"), repos="http://download.walware.de/rj-2.0")
+http://download.eclipse.org/eclipse/pde/visualization/updates
+
+cd /usr/lib64
+chown -R root:root eclipse
+chmod -R g-w eclipse
+
+#Dodatkowe nieu¿ywane linki
+http://download.eclipse.org/egit/updates
+http://pydev.org/updates
+http://pydev.org/nightly
+http://updatesite.counterclockwise.googlecode.com/hg/
+http://download.eclipse.org/modeling/emf/updates/releases/
+http://download.aptana.com/tools/radrails/plugin/install/radrails-bundle
+
+# Grab labrepl from git via EGit
+
+    * Menu File > Import ... > Git > Git Repository ; Hit Next
+    * URI: git://github.com/relevance/labrepl.git ; Hit Next ; Hit Next ;
+    * Uncheck "Import Existing Projects"; Hit Finish
+
+# Import existing maven projects
+
+# Run as > Clojure REPL
+# In the REPL Console:
+
+    * (require 'labrepl)
+    * (labrepl/-main)
+
+# Browse to localhost:8080
+
+svn co http://svn.apache.org/repos/asf/mahout/trunk
+
+ANDROID STUDIO
+http://tools.android.com/download/studio/canary/latest

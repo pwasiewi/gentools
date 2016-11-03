@@ -1,0 +1,2 @@
+cp /etc/portage/make.conf /etc/portage/make.conf.host
+cp /etc/portage/make.conf.arm /etc/portage/make.conf

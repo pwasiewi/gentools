@@ -1,0 +1,637 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"><!-- InstanceBegin template="/Templates/two_column.dwt" codeOutsideHTMLIsLocked="false" -->
+<head>
+<!-- InstanceBeginEditable name="doctitle" -->
+<title>New Auburn Personal Computer Services - Resources - Setting up a Rails Development Environment on Windows Using Eclipse</title>
+<!-- InstanceEndEditable -->
+<link rel="stylesheet" href="../stylesheets/style.css" />
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />  
+<!-- InstanceBeginEditable name="head" -->
+
+
+
+<link rel="stylesheet" href="../style/style.css" media="screen" type="text/css" />
+<style type="text/css">
+   #fullmiddle{
+      width:98%;
+	  margin-left:1%;
+	  margin-right:1%;
+   }
+</style>
+<!-- InstanceEndEditable -->
+</head>
+ <body>
+ <div id="page">
+	<div id="banner">
+		<a href="../index.html"><img src="../images/napcs_logo.jpg" border="0" alt="New Auburn Personal Computer Services" height="80" width="377" /></a>	</div>
+	
+	<div id="navbar">
+		<ul>
+
+			<li><a href="../development/index.html">Development Services</a></li>
+			<li><a href="../training.html">Training</a></li>
+			<li><a href="../products/index.html">Products</a></li>
+			<li><a href="../resources.html">Resources</a></li>
+			<li><a href="../about.html">About</a></li>
+			<li><a href="http://www.napcsweb.com/blog/">Blog</a></li>
+			<li><a href="../support/index.html">Contact and Support</a></li>
+
+	    </ul>
+	</div>
+	
+	<div id="middle">
+		<div id="main_wide">
+			<div id="content">
+				<!-- InstanceBeginEditable name="content" -->
+<div id="fullmiddle">
+  <h1><b> Setting up a Rails Development Environment on Windows Using Eclipse</b></h1>
+  <p>By Brian Hogan</p>
+  <p>Last updated on
+    <!-- #BeginDate format:Am1a -->September 7, 2006 1:33 PM<!-- #EndDate -->
+    &nbsp;&nbsp; </p>
+  <p><strong>I've updated all of the broken links and tested this against the new Eclipse 3.2 and Web Tools 1.5. This is the most stable, most responsive version ever! </strong></p>
+  <p><b>This latest updated goes hand in hand with the release of <a href="../products/rails/Eclipse/index.htm" target="_blank">Eclipse for Rails</a>, a pre-packaged version for developers looking to try Eclipse. If you're already using Eclipse for development in other areas such as Flex or Java, then you should follow the steps in this tutorial. </b></p>
+  <p>I also added a Downloads section where I'll be placing some templates and helper files to speed up the process. </p>
+  <p><b>Please, as always, provide some  feedback. I can't answer emails about issues not directly related to the setup of this plugin.</b> </p>
+  <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+    <input type="hidden" name="cmd" value="_xclick"/>
+    <input type="hidden" name="bn" value="webassist.dreamweaver.4_0_1"/>
+    <input type="hidden" name="business" value="brianhogan@napcs.com"/>
+    <input type="hidden" name="item_name" value="Rails Development in Eclipse"/>
+    <input type="hidden" name="item_number" value="railsdev"/>
+    <input type="hidden" name="currency_code" value="USD"/>
+    <input type="hidden" name="receiver_email" value="brianhogan@napcs.com"/>
+    <input type="hidden" name="mrb" value="R-3WH47588B4505740X"/>
+    <input type="hidden" name="pal" value="ANNSXSLJLYR2A"/>
+    <input type="hidden" name="no_shipping" value="1"/>
+    <input type="hidden" name="no_note" value="0"/>
+    <input type="image" name="submit" src="http://images.paypal.com/images/x-click-but21.gif" border="0" alt="Make payments with PayPal, it's fast, free, and secure!"/>
+    If you feel so inclined, a small donation would be much appreciated to help cover bandwidth costs.
+    Thanks for the donations so far.
+  </form>
+  </p>
+  <hr />
+  <p>This is a quick yet detailed guide on how to set up a very easy-to-use development environment for Ruby On Rails. This guide is for Windows users but there's no reason that it couldn't be adapted for Linux users as well.  The guide assumes that you already have a<b> working database installed or available </b>and that you have Ruby installed to <b>c:\ruby</b>.</p>
+  <p>Lastly, <b>this is not a guide on how to get started with Ruby on Rails!</b> This is simply one method to create a useful IDE for Rails development. </p>
+  <ul>
+    <li><a href="#_Toc111133459">Download and install Ruby and Rails </a></li>
+    <li><a href="#_Toc111133460"><b>Install Eclipse</b></a></li>
+    <li><a href="#_Toc111133461">Configure Eclipse for Rails</a>
+        <ul>
+          <li><a href="#_Toc111133462">Install the Ruby Developer Tools package</a></li>
+          <li><a href="#_Toc111133463">Configure the RDT plugin</a></li>
+        </ul>
+    </li>
+    <li><a href="#_Toc111133464">Launching External Rails Scripts within Eclipse </a>(<b>Now with downloadable goodness! )</b>
+        <ul>
+          <li><a href="#_Toc111133466">Configure Eclipse to Create Rails Projects</a> </li>
+        </ul>
+    </li>
+    <ul>
+      <li><a href="#_Toc111133465">Configure Eclipse to Launch WEBrick server</a></li>
+      <li><a href="#_Toc111133467">Configure Eclipse to Create Rails Models</a></li>
+      <li><a href="#_Toc111133468">Configure Eclipse to Create Rails Controllers</a></li>
+      <li><a href="#_Toc111133469">Configure Eclipse to Generate Scaffold for Controllers and Views</a></li>
+      <li><a href="#setupfavorites">Setting up the Favorites </a></li>
+    </ul>
+    <li><a href="#_Toc111133470">Working with Rails Projects in Eclipse</a>
+        <ul>
+          <li><a href="#webrickoutput">Configure WEBrick's Output for Eclipse</a> </li>
+        </ul>
+    </li>
+    <ul>
+      <li><a href="#_Toc111133471">Create a new Rails Project</a></li>
+      <li><a href="#_Toc111133472">Show All Files</a></li>
+    </ul>
+    <li><a href="#_Toc111133473">Install the DBEdit Eclipse plugin</a>
+        <ul>
+          <li><a href="#_Toc111133474">Connect to a Database</a> </li>
+        </ul>
+    </li>
+    <li><a href="#wtpsetup">Configure Eclipse to handle you View files </a> </li>
+    <li><a href="#viewtemplates">Add code hints for the views</a></li>
+    <li><a href="#debugging">Debugging within Eclipse</a>
+        <ul>
+          <li><a href="#setupbreakpointer">Setting up Breakpointer</a></li>
+          <li><a href="#usebreakpointer">Using Breakpointer</a></li>
+        </ul>
+    </li>
+    <li><a href="#subclipse">Installing SubClipse</a></li>
+    <li><b><a href="#troubleshooting">Troubleshooting</a> (Updated!)</b></li>
+    <li><b><a href="#downloads">Downloads</a></b> (New!) </li>
+    <li><a href="railsonwindows-screens.html">Screenshots</a></li>
+  </ul>
+  <hr />
+  <h2><a name="_Toc111133459" id="_Toc111133459"> Download and install Ruby and Rails</a> </h2>
+  <p>I am operating under the assumption that you're going to use the One-Click Ruby Installer created by Curt Hibbs. If you don't, then you're going to have to modify these instructions yourself. </p>
+  <ul>
+    <li> Download and install the One-Click Ruby Installer for Windows
+      <ul>
+          <li><a href="http://rubyforge.org/projects/rubyinstaller/">http://rubyforge.org/projects/rubyinstaller/</a></li>
+        <li>Grab <strong> 1.8.4-20 stable</strong> (<a href="http://rubyforge.org/frs/download.php/11926/ruby184-20.exe">Direct download</a>) </li>
+        <li><b>These instructions assume you have installed this to c:\ruby (the default location) </b></li>
+      </ul>
+    </li>
+    <li> Open a command prompt and type
+      <ul>
+          <li><b> gem install rails --include-dependencies</b></li>
+      </ul>
+    </li>
+  </ul>
+  <hr />
+  <h2><a name="_Toc111133460" id="_Toc111133460"> Install Eclipse</a></h2>
+  <p>Eclipse is going to need the Sun Java JRE in order to run. A lot of developers already have this. However, if you are one of the few that doesn't have this installed already, you need to grab it from <a href="http://javashoplm.sun.com/ECom/docs/Welcome.jsp?StoreId=22&amp;PartDetailId=jdk-1.5.0_06-oth-JPR&amp;SiteId=JSC&amp;TransactionId=noreg">here</a>. Install it with all of the defaults and then continue with this guide. </p>
+  <ul>
+    <li> Download Eclipse 3.2.0 with the Web Tools Plugin 1.5 already installed from <a href="http://www.eclipse.org/downloads/download.php?file=/webtools/downloads/drops/R1.5/R-1.5.0-200606281455/wtp-all-in-one-sdk-R-1.5.0-200606281455-win32.zip">this page</a>.
+      <ul>
+          <li><a href="http://www.eclipse.org/downloads/download.php?file=/webtools/downloads/drops/R1.5/R-1.5.0-200606281455/wtp-all-in-one-sdk-R-1.5.0-200606281455-win32.zip&amp;url=http://www.gtlib.gatech.edu/pub/eclipse/webtools/downloads/drops/R1.5/R-1.5.0-200606281455/wtp-all-in-one-sdk-R-1.5.0-200606281455-win32.zip&amp;mirror_id=337" target="_blank">Direct Download </a></li>
+      </ul>
+    </li>
+    <li> Unzip the files to <b>C:\java\eclipse</b> </li>
+    <li> Make a shortcut to <b>C:\java\eclipse\eclipse.exe</b></li>
+    <li>Start Eclipse and set the workspace to <b>C:\java\workspace</b>
+        <ul>
+          <li>One user had trouble with using the default workspace location for Eclipse, and setting it to a simple path with no spaces solved the problem</li>
+        </ul>
+    </li>
+  </ul>
+  <hr />
+  <h2><a name="_Toc111133461" id="_Toc111133461"> Configure Eclipse for Rails</a></h2>
+  <blockquote>
+    <h3><a name="_Toc111133462" id="_Toc111133462"> Install the Ruby Developer Tools package</a></h3>
+    <blockquote>
+      <p>The Ruby Developer Tools plugin is a great set of tools that turn Eclipse into a nice Ruby IDE. The current version (0.6.0 as of this writing) now supports Eclipse 3.1. However, I will continue to use the nightly build for this tutorial. </p>
+    </blockquote>
+    <ul>
+      <li> Launch Eclipse </li>
+      <li> Choose Help-&gt;Software Updates-&gt;Find and Install </li>
+      <li> Choose <b>&quot;Search for new features to install&quot;</b> and select <b>Next</b> </li>
+      <li> Select<b> &quot;New Remote Site&quot;</b>,
+        <ul>
+            <li> Use the name &ldquo;<b>Ruby Developer Tools</b>&rdquo; </li>
+          <li><b> Use </b><a href="http://updatesite.rubypeople.org/release" target="_blank">http://updatesite.rubypeople.org/release</a> for the URL
+            <ul>
+                  <li>You can use <a href="http://updatesite.rubypeople.org/nightly" target="_self">http://updatesite.rubypeople.org/nightly</a> if you wish to use the most current nightly build. </li>
+            </ul>
+          </li>
+          <!--
+		<li> Use the URL: <a href="http://rubyeclipse.sourceforge.net/nightlyBuild/updateSite/">http://rubyeclipse.sourceforge.net/nightlyBuild/updateSite/</a>
+          <ul>
+            <li><b>There's a chance you will get an error on this. If you do, it means that the nightly build failed. Use the stable version.</b></li>
+            </ul>
+        </li>-->
+            <li>Press <b>OK</b></li>
+        </ul>
+      </li>
+      <li> Check <b>RDT</b> and push <b>Next</b></li>
+      <li> Select the feature <b>RDT</b> and push <b>Next</b>. You should confirm any messages relating to installing unsigned plugins. RDT will be installed and be available after restart. </li>
+    </ul>
+  </blockquote>
+  <blockquote>
+    <h3><a name="_Toc111133463" id="_Toc111133463"> Configure the RDT plugin</a></h3>
+    <ul>
+      <li> Select Windows &gt; Prefrences &gt; Ruby </li>
+      <li> Select <b>Installed Interpreters</b></li>
+      <li> Click <b>Add</b></li>
+      <li> Enter <b>Ruby</b> as the interpreter name (You might want to include the version number if you know it) </li>
+      <li> Enter the path to your ruby.exe file (usually <b>c:\ruby\bin\rubyw.exe</b>) </li>
+      <li> Select <b>OK</b></li>
+      <li> Configure the rest of your Ruby settings and then select <b>OK</b> to save the settings. </li>
+    </ul>
+    <p>&nbsp;</p>
+  </blockquote>
+  <hr />
+  <h3><a name="_Toc111133464" id="_Toc111133464"> Launching External Rails Scripts Within Eclipse</a> </h3>
+  <p>You should know that hese settings are tied to your workspace. If you change workspaces then you will need to reconfigure these options. Hopefully the fine developers of RDT will build these into the plugin at some point so they appear on the context menus. </p>
+  <p>At this point, you're going to want to open the Ruby perspective. To do this, go to <b>Window -&gt; Open Perspective -&gt; Other</b> and choose <b>Ruby</b></p>
+  <p>If you don't want to go through the trouble of creating these external tools, you can <a href="/howto/railsonwindows/externals.zip">download this file</a> and unzip it to<b> the root of your c: drive.</b> The files should&nbsp; then extact to <b>c:\java\workspace\.metadata\.plugins\org.eclipse.debug.core\.launches </b>(assuming you've followed along so far). Be sure to <a href="#setupfavorites">set up the favorites</a> once you import these settings! </p>
+  <blockquote>
+    <h4>&nbsp;</h4>
+    <h4><a name="_Toc111133466" id="_Toc111133466"> Configure Eclipse to Create Rails Projects</a></h4>
+    <ul>
+      <li> Select <b>Run -&gt; External Tools -&gt; External Tools</b> </li>
+      <li><b>Select &quot;Program&quot; </b>from the<b> configuration</b> tree </li>
+      <li> Select <b>New</b> to create a new program </li>
+      <li> Enter &ldquo;<b>Create Rails Application in Project</b>&rdquo; as the name </li>
+      <li> Enter <b>C:\ruby\bin\rails.cmd</b> for the Location </li>
+      <li> Enter <b>${project_loc}</b> for the Working Directory </li>
+      <li> Enter <b>../</b><b>${project_name} </b>for the Arguments </li>
+      <li> Select the <b>refresh</b> tab and check <b>Refresh Resources Upon Completion</b></li>
+      <li> Select the <b>Common</b> tab
+        <ul>
+            <li> Find the section for <b>Display in Favorites Menu</b></li>
+          <li> Check the box next to <b>External Tools</b></li>
+        </ul>
+      </li>
+      <li> Select <b>Apply</b></li>
+    </ul>
+    <h4><a name="_Toc111133465" id="_Toc111133465"> Configure Eclipse to Launch WEBrick server</a></h4>
+    <ul>
+      <li> Select<b> Run -&gt; External Tools -&gt; External Tools </b></li>
+      <li><b>Select &quot;Program&quot; </b>from the<b> configuration</b> tree </li>
+      <li> Select <b>New</b> to create a new program </li>
+      <li> Enter &ldquo;<b>Start WEBrick</b>&rdquo; as the name </li>
+      <li> Enter <b>C:\ruby\bin\ruby.exe</b> for the Location </li>
+      <li> For the Working Directory, use<br />
+          <b>${project_loc}</b></li>
+      <li> Enter <b>script\server </b>for the <b>Arguments</b></li>
+      <li> Select the <b>refresh</b> tab and check <b>Refresh Resources Upon Completion</b></li>
+      <li> Select the <b>Common</b> tab
+        <ul>
+            <li> Find the section for <b>Display in Favorites Menu</b></li>
+          <li> Check the box next to <b>External Tools</b></li>
+        </ul>
+      </li>
+      <li> Select <b>Apply</b></li>
+    </ul>
+    <h4>&nbsp;</h4>
+    <h4><a name="_Toc111133467" id="_Toc111133467"> Configure Eclipse to Create Rails Models</a></h4>
+    <ul>
+      <li> Select <b>Run -&gt; External Tools -&gt; External Tools</b></li>
+      <li><b>Select &quot;Program&quot; </b>from the<b> configuration</b> tree </li>
+      <li> Select <b>New</b> to create a new program </li>
+      <li> Enter &ldquo;<b>Generate Model</b>&rdquo; as the name </li>
+      <li> Enter <b>C:\ruby\bin\ruby.exe</b> for the Location </li>
+      <li> For the Working Directory, use<br />
+          <b>${project_loc}</b></li>
+      <li> Enter for the arguments
+        <ul>
+            <li><b> script/generate model ${string_prompt:Model name} -f </b></li>
+        </ul>
+      </li>
+      <li> Select the <b>refresh</b> tab and check <b>Refresh Resources Upon Completion</b></li>
+      <li> Select the <b>Common</b> tab
+        <ul>
+            <li> Find the section for <b>Display in Favorites Menu</b></li>
+          <li> Check the box next to <b>External Tools</b></li>
+        </ul>
+      </li>
+      <li> Select <b>Apply</b></li>
+    </ul>
+    <h4><a name="_Toc111133468" id="_Toc111133468"> Configure Eclipse to Create Rails Controllers</a></h4>
+    <p>As many have noted, you could simply duplicate the previous entry and simply change the arguments </p>
+    <ul>
+      <li> Select <b>Run -&gt; External Tools -&gt; External Tools</b></li>
+      <li><b>Select &quot;Program&quot; </b>from the<b> configuration</b> tree </li>
+      <li> Select <b>New</b> to create a new program </li>
+      <li> Enter &ldquo;<b>Generate Controller</b>&rdquo; as the name </li>
+      <li> Enter <b>C:\ruby\bin\ruby.exe</b> for the Location </li>
+      <li> For the Working Directory, use<br />
+          <b>${project_loc}</b></li>
+      <li> Enter for the arguments
+        <ul>
+            <li><b> script/generate controller ${string_prompt:Controller name} -f </b></li>
+        </ul>
+      </li>
+      <li> Select the <b>refresh</b> tab and check <b>Refresh Resources Upon Completion</b></li>
+      <li> Select the <b>Common</b> tab
+        <ul>
+            <li> Find the section for <b>Display in Favorites Menu</b></li>
+          <li> Check the box next to <b>External Tools</b></li>
+        </ul>
+      </li>
+      <li> Select <b>Apply</b></li>
+      <li>(You could just copy the &quot;generate model&quot; example above and change the argument).</li>
+    </ul>
+    <h4><a name="_Toc111133469" id="_Toc111133469"> Configure Eclipse to Generate Scaffold for Controllers and Views</a></h4>
+    <p>As many have noted, you could simply duplicate the previous entry and simply change the arguments </p>
+    <ul>
+      <li> Select <b>Run -&gt; External Tools -&gt; External Tools</b></li>
+      <li><b>Select &quot;Program&quot; </b>from the<b> configuration</b> tree </li>
+      <li> Select <b>New</b> to create a new program </li>
+      <li> Enter &ldquo;<b>Generate Scaffold</b>&rdquo; as the name </li>
+      <li> Enter <b>C:\ruby\bin\ruby.exe</b> for the Location </li>
+      <li> For the <b>Working Directory,</b> use<br />
+          <b>${project_loc}</b></li>
+      <li> Enter for the arguments
+        <blockquote>
+            <p><b> script/generate scaffold ${string_prompt:Model name} ${string_prompt:Controller name} ${string_prompt:Actions separated with spaces}  -f </b></p>
+        </blockquote>
+      </li>
+      <li> Select the <b>refresh</b> tab and check <b>Refresh Resources Upon Completion</b></li>
+      <li> Select the <b>Common</b> tab
+        <ul>
+            <li> Find the section for <b>Display in Favorites Menu</b></li>
+          <li> Check the box next to <b>External Tools</b></li>
+        </ul>
+      </li>
+      <li> Select <b>Apply</b></li>
+    </ul>
+    <h3><a name="setupfavorites" id="setupfavorites">Setting Up the Favorites</a> </h3>
+    <blockquote>
+      <p>Sometimes, all of these external commands won't show up under the External Commands icon. We can fix that by making them &quot;Favorites&quot;.</p>
+    </blockquote>
+    <ul>
+      <li>Select <b>Run &gt; External Tools &gt; Organize Favorites</b></li>
+      <li>Add each external tool that you want to appear on your menu of External Tools
+        <ul>
+            <li>Select <b>Add...</b></li>
+          <li>Select the tools you wish to add to your menu and press <b>OK</b></li>
+          <li>Use the <b>Up </b>and<b> Down</b> buttons to change the order of the items in the menu</li>
+        </ul>
+      </li>
+      <li>Select <b>OK</b> to save the items </li>
+    </ul>
+  </blockquote>
+  <hr />
+  <h2><a name="_Toc111133470" id="_Toc111133470"> Working with Rails Projects in Eclipse</a></h2>
+  <blockquote>
+    <h3><b><a name="webrickoutput" id="webrickoutput"></a>Configure WEBrick's Output for Eclipse</b></h3>
+    <p>For some strange reason, WEBrick's output doesn't always get piped to Eclipse's console. We can hack this a bit to make this work for us. We need to add these two lines to the Rails <b>server</b> script:</p>
+    <p>Provided that you've installed Ruby to <b>c:\ruby</b> as instructed above, you can navigate to </p>
+    <blockquote>
+      <p><b> C:\ruby\lib\ruby\gems\1.8\gems\rails-1.1.6\bin</b></p>
+    </blockquote>
+    <p>and edit the <b>server</b> file with a good text editor (anything except for <b>notepad or wordpad</b>).</p>
+    <p>Add this to the <b>second line of the script:</b></p>
+    <blockquote>
+      <p><b>$stdout.sync=true<br />
+        $stderr.sync=true</b></p>
+    </blockquote>
+    <p>Alternatively, you could just add these two lines to WEBrick once you've created your Rails project by modifying the <b>server</b> file under <b>/scripts</b> in your Rails project.</p>
+    <h3><a name="_Toc111133471" id="_Toc111133471"> Create a new Rails Project</a></h3>
+    <ul>
+      <li>Select <b>File &gt; New &gt; Other : Ruby &gt; Ruby Project </b></li>
+      <li> Enter a name for your project.
+        <ul>
+            <li>This name will be the name you'll use for your Rails project name when you generate the Rails application files </li>
+        </ul>
+      </li>
+      <li> Make sure to use the Eclipse Workspace for the project contents! </li>
+      <li> Select the project in the Ruby Resources view </li>
+      <li> Go to <b>Run -&gt; External Tools</b> and choose <b>Create Rails Project. </b>A few seconds later, your Eclipse Console should show the results of the file creation and your file project tree should be populated with your ruby files.</li>
+      <li>At this point, you'll want to edit your <b>config/database.yml</b> file with your database properties. </li>
+    </ul>
+    <h3><a name="_Toc111133472" id="_Toc111133472"> Show All Files</a></h3>
+    <blockquote>
+      <p> Under <b>Ruby Resources</b>, select the down arrow icon and deselect <b>Show Ruby Files Only </b>so you can see all the files in your project and not just the <b>.rb files (</b>If you don't see <b>Ruby Resources</b>, it's most likely because you didn't change to the Ruby perspective. (Eclipse defaults to the Java perspective!) </p>
+    </blockquote>
+  </blockquote>
+  <hr />
+  <h2><a name="_Toc111133473" id="_Toc111133473"> Install the DBEdit Eclipse plugin</a></h2>
+  <p> The DBEdit plugin for Eclipse will allow you to view and edit your database tables from Eclipse as well as run various SQL statements against your database. </p>
+  <ul>
+    <li> Shut down Eclipse </li>
+    <li> Download the DBEdit plugin version 1.0.3_1 from <a href="http://prdownloads.sourceforge.net/dbedit/dbedit_1.0.3_1.bin.dist_3.X.zip?download" target="_blank">http://prdownloads.sourceforge.net/dbedit/dbedit_1.0.3_1.bin.dist_3.X.zip?download</a></li>
+    <li> Unzip the file to your <b>c:\java\eclipse</b> folder. The file should place new files in your <b>features</b> and <b>plugins</b> folder. </li>
+    <li> Download and the appropriate driver for your database
+      <ul>
+          <ul>
+            <li> <b>MySQL</b><br />
+              <a href="http://dev.mysql.com/downloads/connector/j/3.1.html" target="_blank"> http://www.mysql.com/products/connector/j/</a></li>
+            <li><b>Microsoft SQL Server</b><br />
+                <a href="http://www.microsoft.com/downloads/details.aspx?familyid=9F1874B6-F8E1-4BD6-947C-0FC5BF05BF71&amp;displaylang=en" target="_blank">http://www.microsoft.com/downloads/details.aspx?familyid=9F1874B6-F8E1-4BD6-947C-0FC5BF05BF71&amp;displaylang=en</a><br />
+            </li>
+            <li><b>SQLite:</b><br />
+              If anyone gets this to work for Windows, please send me instructions! </li>
+          </ul>
+      </ul>
+    </li>
+    <li>Extract the contents of this driver to <b>c:\java\drivers</b></li>
+    <li> Launch Eclipse </li>
+    <li> Select <b>Window -&gt; Show View -&gt; Other </b>
+        <ul>
+          <li> Select <b>DBEdit</b> and choose <b>Tables</b></li>
+        </ul>
+    </li>
+  </ul>
+  <h2><a name="_Toc111133474" id="_Toc111133474"> Connect to a Database</a></h2>
+  <blockquote>
+    <p>Connecting to a database is pretty straight-forward.
+      <!-- The most important thing to note here is that if you are using MySQL 4.1, there is a new password hashing algorithm that is used. Rails understands tis algorithm, but the DBEdit plugin does not. Therefore, you will need to create a user for your database that uses the <b>old password</b> algorithm in order to use this plugin. You can assign a user an <b>old password</b> by using the MySQL command line and entering this command as the root user</p>
+  </blockquote>
+<ul>
+    <blockquote> 
+      <p><b>use mysql; </b><br />
+        <b>update user set password = old_password('passwordhere') where user = 'usernamehere'; flush privileges;</b></p>
+      </blockquote>
+    </ul>
+
+	<blockquote>
+	  <p>A sepearate user for management isn't a bad idea anyway as you can give this administrative user elevated privileges so you can create and drop tables through Eclipse.</p>
+	 
+	 	-->
+      I'll	use MySQL for an example. In this article, I assume you're using MySQL 4.1 and that you have installed the appropriate driver. </p>
+  </blockquote>
+  <ul>
+    <li>Right-click anywhere in the whitespace of the <b>Tables</b> pallette and select <b>Connection -&gt; Configure</b> from the popup menu</li>
+    <li>Select <b>New</b></li>
+    <li>Enter a name for the connection in the <b>Name</b> field</li>
+    <li>Select the <b>Classpath</b> tab and press <b>Add to Archive.</b> Navigate to your drivers folder and select the appropriate driver jar file.
+      <ul>
+          <li>For MySQL, choose <b>mysql-connector-java-3.1.12-bin.jar</b></li>
+      </ul>
+    </li>
+    <li>Select the <b>Commom</b> tab</li>
+    <li>Select <b>com.mysql.jdbc.Driver</b> for the <b>Driver</b> </li>
+    <li>Enter jdbc:mysql://host/dbname for your database </li>
+    <li>Enter your database username
+      <ul>
+          <li>For <b>MySql, remove the entry in the Schema field!</b></li>
+      </ul>
+    </li>
+    <li> Enter your passwod and select<b> Save Password</b></li>
+    <li>Press <b>Connect</b> to save and connect to the database.</li>
+    <li>You can go to <b>Window -&gt; Show View -&gt; Other -&gt;DBEdit -&gt;Instant SQL</b> to bring up a SQL editor panel. Here you can execute statements against your database! </li>
+  </ul>
+  <hr />
+  <h2><a name="wtpsetup" id="wtpsetup">Configure Eclipse to handle your Rails Presentation files </a> </h2>
+  <p>Eclipse can handle your <b>rhtml</b> files with syntax highlighting! All you have to do is associate the .rhtml extention with the JSP editor. Once you do that, you can add templates for all of the ActionView helper functions to make development even easier.</p>
+  <ul>
+    <li>Select <b>Window -&gt; Preferences</b></li>
+    <li>Expand the <b>General</b> section</li>
+    <li>Select the <b>Content Types</b> option </li>
+    <li>Expand <b>Text</b></li>
+    <li>Select <b>JSP</b></li>
+    <li>Select <b>Add</b></li>
+    <li>Enter *.rhtml and press <b>OK</b></li>
+    <li>Select <b>Add</b></li>
+    <li>Enter *.rxml and press <b>OK</b> </li>
+    <li>Press <b>OK</b> to save the changes</li>
+  </ul>
+  <h3><a name="viewtemplates" id="viewtemplates"></a>Add Code Hints for the Views </h3>
+  <p>Now, let's add the Rails Link_to tag to the templates library</p>
+  <ul>
+    <li>Selct <b>Window -&gt; Preferences</b></li>
+    <li>Expand the <b>Web and XM</b>L section</li>
+    <li>Expand the <b>JSP Files</b> section</li>
+    <li>Select <b>JSP Templates</b></li>
+    <li>Select <b>New</b></li>
+    <li>Enter <b>link_to</b> for the name
+      <ul>
+          <li>The <b>context</b> should be <b>ALL JSP</b></li>
+        <li><b>Automatically Inser</b>t should be <b>checked</b></li>
+      </ul>
+    </li>
+    <li>Enter the following for the <b>pattern</b>:<br />
+        <b>&lt;%= link_to &quot;${url}&quot;, :controller=&gt;&quot;${controller}&quot;, :action=&gt;&quot;${action}&quot;, :id=&gt;&quot;${id}&quot; %&gt;</b><br />
+    </li>
+  </ul>
+  <p>Create a new .rhtml file and press <b>CTRL+Spacebar</b></p>
+  <p>Your Link_to tag should be in that list. When you type the <b>&lt;</b> character, your list of options should appear. Type <b>link</b> to filter the list of results. </p>
+  <p>When the template is first inserted, the cursor is placed at the url variable, if you hit tab, it will cycle to the next variable in the list. </p>
+  <p>You can repeat these steps with other helper tags to speed up development. To get you started, I've provided this <a href="railsonwindows/rails-rhtml.xml">starter template</a>. Import this into the JSP Templates section via the <b>Import</b> button.</p>
+  <p>&nbsp; </p>
+  <h3><a name="debugging" id="debugging">Debugging in Eclipse</a></h3>
+  <p>Ruby on Rails has some interesting techniques to debug projects. One technique is the <b>Breakpointer</b> script. The Breakpointer connects an <b>IRB </b>session to your running web application. </p>
+  <h3><a name="setupbreakpointer" id="setupbreakpointer"></a>Setting up Breakpointer</h3>
+  <ul>
+    <li> Select Run -&gt; External Tools -&gt; External Tools </li>
+    <li> Select <b>New</b> to create a new program </li>
+    <li> Enter &ldquo;<b>Start Breakpointer</b> &rdquo; as the name </li>
+    <li> Enter <b>C:\ruby\bin\ruby.exe</b> for the Location </li>
+    <li> For the Working Directory, use<br />
+        <b>${project_loc}</b></li>
+    <li> Enter <b>script\breakpointer </b>for the <b>Arguments</b></li>
+    <li> Select the <b>refresh</b> tab and check <b>Refresh Resources Upon Completion</b></li>
+    <li> Select the <b>Common</b> tab
+      <ul>
+          <li> Find the section for <b>Display in Favorites Menu</b></li>
+        <li> Check the box next to <b>External Tools</b></li>
+      </ul>
+    </li>
+    <li> Select <b>Apply</b></li>
+  </ul>
+  <h3><a name="usebreakpointer" id="usebreakpointer"></a>Using Breakpointer</h3>
+  <ul>
+    <li>In your project, place the following line of code in any method where you want to stop code execution:</li>
+    <li><b>breakpoint</b></li>
+    <li>Start up WEBrick:
+      <ul>
+          <li> Go to <b>Run -&gt; External Tools -&gt;Start WEBrick </b></li>
+      </ul>
+    </li>
+    <li>Start up Breakpointer
+      <ul>
+          <li> Go to <b>Run -&gt; External Tools -&gt;Start Breakpointer</b></li>
+      </ul>
+    </li>
+    <li>Open a browser and navigate to your project (should be at port 3000)</li>
+    <li>Once you hit your breakpoint, return to Eclipse and you should see an <b>IRB console</b> that you can use to inspect your local variables, objects, request data and session data. </li>
+    <li>To stop processing the breakpoint and allow the application to continue, type <b>exit</b> in the console. Breakpointer will begin waiting for a new breakpoint. </li>
+  </ul>
+  <hr />
+  <h3><a name="subclipse" id="subclipse">Installing SubClipse</a></h3>
+  <p>If you use Subversion (and you should if you're serious about Rails development) then you can install the SubClipse SubVersion client plugin.</p>
+  <p>Visit <a href="http://subclipse.tigris.org/install.html" target="_blank">http://subclipse.tigris.org/install.html </a>and follow their directions, or simply follow the same process as <b>RDT </b>and use their update site at <a href="http://subclipse.tigris.org/update%09">http://subclipse.tigris.org/update </a></p>
+  <ul>
+    <li> Choose Help-&gt;Software Updates-&gt;Find and Install </li>
+    <li> Choose <b>&quot;Search for new features to install&quot;</b> and select <b>Next</b> </li>
+    <li> Select<b> &quot;New Remote Site &quot;</b>,
+      <ul>
+          <li> Use the name &ldquo;<b>SubClipse</b>&rdquo; </li>
+        <li> Use the URL: <a href="http://subclipse.tigris.org/update%09">http://subclipse.tigris.org/update</a> </li>
+        <li>Press <b>OK</b></li>
+      </ul>
+    </li>
+    <li> Check <b>SubClipse </b> and push <b>Next</b></li>
+    <li> Select the feature <b>RDT</b> and push <b>Next</b>. You should confirm any messages relating to installing unsigned plugins. RDT will be installed and be available after restart. </li>
+  </ul>
+  <hr />
+  <p>&nbsp;</p>
+  <h3><a name="troubleshooting" id="troubleshooting"></a>Troubleshooting</h3>
+  <ul>
+    <li><b>DBEdit gives me errors when I attempt to connect to MySQL</b>
+        <ul>
+          <li>&quot;Fetching children of MySQL&quot; is a common error that I've seen.&nbsp; It seems to be related to the version of DBEdit that you use. SourceForge isn't very helpful with the proper version; sometimes you get lucky. If you get this error, uninstall DBEdit and redownload a new version. </li>
+        </ul>
+    </li>
+    <li><b>I used Cygwin and all the paths in your tutoral arewrong. You should change them or make a note about this.</b>
+        <ul>
+          <li>You're on your own. This guide uses a specific method. It can easily be adapted for other uses, such as Cygwin or even Linux. However, please understand that I can't support all of those configurations. Compared to developing useful web applications, configuring these plugins should be pretty easy. </li>
+        </ul>
+    </li>
+    <li><b>When I try to run one of the external programs, I get an error stating something about &quot;not valid in prolog&quot;</b>
+        <ul>
+          <li>You probably set up all of your external apps as <b>Ant Buids</b> instead of <b>programs</b>.<br />
+          </li>
+        </ul>
+    </li>
+    <li><b>The breakpointer hangs up on me... I can't exit out</b>
+        <ul>
+          <li>Just hit the red <b>stop</b> button on the console to kill the breakpointer. Do the same for the console that contains WEBrick.<br />
+          </li>
+        </ul>
+    </li>
+    <li><b> When	I run one of the external programs, the message says &quot;variable references empty selection&quot;</b>
+        <ul>
+          <li>It usually means that the project isn't selected. Just click on the project name before you run one of the programs.<br />
+          </li>
+        </ul>
+    </li>
+    <li><b> I've set up SubClipse but whenever I try to open one of the SubClipse views, it says my workspace path is invalid and needs to be changed. The suggested path for the change is the same path I'm currently using!</b>
+        <ul>
+          <li>SubClipse is picky. It wants the drive letter to be capitalized. Change your workspace path from <b>c:\java\workspace</b> to <b>C:\java\workspace</b> and restart Eclipse</li>
+        </ul>
+    </li>
+  </ul>
+  <h3><a name="downloads" id="downloads">Downloads</a></h3>
+  <ul>
+    <li><a href="http://javashoplm.sun.com/ECom/docs/Welcome.jsp?StoreId=22&amp;PartDetailId=jdk-1.5.0_06-oth-JPR&amp;SiteId=JSC&amp;TransactionId=noreg" target="_blank">Sun Java SDK</a></li>
+    <li><a href="http://rubyforge.org/frs/download.php/11926/ruby184-20.exe">One Click Ruby Installer </a></li>
+    <li><a href="http://www.eclipse.org/downloads/download.php?file=/webtools/downloads/drops/R1.5/R-1.5.0-200606281455/wtp-all-in-one-sdk-R-1.5.0-200606281455-win32.zip&amp;url=http://www.gtlib.gatech.edu/pub/eclipse/webtools/downloads/drops/R1.5/R-1.5.0-200606281455/wtp-all-in-one-sdk-R-1.5.0-200606281455-win32.zip&amp;mirror_id=337" target="_blank">Eclipse with Web Tools</a> </li>
+    <li><a href="railsonwindows/externals.zip">externals.zip</a><br />
+      External Programs launchers for
+      <ul>
+          <li>Create Rails Structure in Project</li>
+        <li>Generate Model</li>
+        <li>Generate Controller</li>
+        <li>Generate Scaffold for Model and Controller</li>
+        <li>Generate Migration</li>
+        <li>Install Plugin via SVN </li>
+        <li>Rake</li>
+        <li>Rake - Migrate </li>
+        <li>Rake - Migrate to Version </li>
+        <li>Rake - Run Functional Tests</li>
+        <li>Rake - Run Unit Tests </li>
+        <li>Start Breakpointer </li>
+        <li>Start Webrick Server</li>
+        <li>Open Explorer in Project Folder</li>
+        <li>Command Prompt</li>
+        <li>Start Console </li>
+      </ul>
+    </li>
+    <li><a href="railsonwindows/rails-model-controller.xml">rails-model-controller.xm</a>l<br />
+      Contains code templates for various Ruby on Rails code methods.&nbsp; Import this into Ruby Templates. (Remove existing Ruby templates or you may get duplicates.) </li>
+    <li><a href="railsonwindows/rails-rhtml.xml">rails-rhtml.xml</a><br />
+      Contains code templates for various Rails helpers used in views. Import into JSP Templates <br />
+    </li>
+  </ul>
+  <hr />
+  <p>That about does it. I'll keep looking for other things to add to this procedure since this is the method I am now using for 
+    my development environment.  If anyone has any feedback that I should add, please send it to <strong>ror_dev (at) napcs.com</strong> </p>
+  <p>Thanks to Tom Davies for his comments regarding project locations and his tips about the Rails templates.</p>
+  <p>Thanks to Chris Williams for the information about WEBrick's output.</p>
+  <p>Thanks to everyone on the RDT team for working so hard on a great plugin. </p>
+  <hr />
+  <p><i>Brian Hogan is the owner of New Auburn Personal Computer Services, a small web design company that specializes in standards-based design and accessibility for the disabled. He has been developing web sites for ten years. He also works at the University of Wisconsin-Eau Claire where he oversees development of various web-based applications.</i></p>
+</div>
+<!-- InstanceEndEditable -->		
+			</div>
+		</div>
+		
+		<div id="left">
+			<div class="box">
+		    	<!-- InstanceBeginEditable name="sidebar" -->
+				<h3>Related Items </h3>
+					<h4>Windows Software </h4>
+					<ul>
+						<li><a href="../products/rails/Eclipse/index.htm">Eclipse for Rails</a></li>
+					</ul>
+					<h4>&nbsp;</h4>
+			  <!-- InstanceEndEditable -->	
+			</div>
+  	 	</div>
+		
+
+		
+
+
+	</div>
+	
+	<div id="footer">
+	<p>Copyright © 2006 Brian P. Hogan / New Auburn Personal Computer Services</p>
+	</div>
+</div>
+</body>
+<!-- InstanceEnd --></html>

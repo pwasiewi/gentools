@@ -1,0 +1,18 @@
+emerge libdrm; emerge xorg-server; emerge -1 $(qlist -IC x11-drivers)
+emerge -1a @x11-module-rebuild
+cd /var/tmp/portage/media-libs/mesa-9999
+vim src/gallium/drivers/nv50/codegen/nv50_ir.cpp
+ebuild /var/tmp/.layman/x11/media-libs/mesa/mesa-9999.ebuild install
+ebuild /var/tmp/.layman/x11/media-libs/mesa/mesa-9999.ebuild qmerge
+ebuild /usr/portage/media-libs/mesa/mesa-9.0_pre20120918.ebuild install
+ebuild /usr/portage/media-libs/mesa/mesa-9.0_pre20120918.ebuild qmerge
+
+
+Section "InputDevice"
+    Option         "XkbOptions"    "terminate:ctrl_alt_bksp"
+EndSection
+
+Section "ServerFlags"
+    Option "DontZap" "False"
+EndSection
+

@@ -1,0 +1,2 @@
+emerge greycstoration gimp gimp-gmic gimp-texturize-plugin dcraw ufraw
+gimp-lqr

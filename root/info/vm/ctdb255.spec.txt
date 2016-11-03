@@ -1,0 +1,264 @@
+%global _hardened_build 1
+
+%define initdir %{_sysconfdir}/rc.d/init.d
+%define with_systemd 1
+
+Summary: A Clustered Database based on Samba's Trivial Database (TDB)
+Name: ctdb
+Version: 2.5.5
+Release: 2%{?dist}
+License: GPLv3+
+Group: System Environment/Daemons
+URL: http://ctdb.samba.org/
+
+Source0: https://ftp.samba.org/pub/ctdb/%{name}-%{version}.tar.gz
+
+Requires: chkconfig coreutils psmisc
+Requires: fileutils sed
+Requires: tdb-tools
+%if %{with_systemd}
+Requires(post): systemd-units
+Requires(preun): systemd-units
+Requires(postun): systemd-units
+%else
+Requires(preun): chkconfig initscripts
+Requires(post): chkconfig
+Requires(postun): initscripts
+%endif
+
+BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+BuildRequires: autoconf net-tools popt-devel
+# For make check
+BuildRequires: procps iproute
+
+# Always use the bundled versions of these libraries.
+%define with_included_talloc 0
+%define with_included_tdb 0
+%define with_included_tevent 0
+
+# If the above options are changed then mandate minimum system
+# versions.
+%define libtalloc_version 2.0.8
+%define libtdb_version 1.2.11
+%define libtevent_version 0.9.18
+
+%if ! %with_included_talloc
+BuildRequires: libtalloc-devel >= %{libtalloc_version}
+%endif
+%if ! %with_included_tdb
+BuildRequires: libtdb-devel >= %{libtdb_version}
+%endif
+%if ! %with_included_tevent
+BuildRequires: libtevent-devel >= %{libtevent_version}
+%endif
+
+
+%description
+CTDB is a cluster implementation of the TDB database used by Samba and other
+projects to store temporary data. If an application is already using TDB for
+temporary data it is very easy to convert that application to be cluster aware
+and use CTDB instead.
+
+%package devel
+Group: Development/Libraries
+Summary: CTDB clustered database development package
+Requires: ctdb = %{version}-%{release}
+Provides: ctdb-static = %{version}-%{release}
+%description devel
+Libraries, include files, etc you can use to develop CTDB applications.
+CTDB is a cluster implementation of the TDB database used by Samba and other
+projects to store temporary data. If an application is already using TDB for
+temporary data it is very easy to convert that application to be cluster aware
+and use CTDB instead.
+
+%package tests
+Summary: CTDB clustered database test suite
+Group: Development/Tools
+Requires: ctdb = %{version}
+Requires: nc
+
+%description tests
+Test suite for CTDB.
+CTDB is a cluster implementation of the TDB database used by Samba and other
+projects to store temporary data. If an application is already using TDB for
+temporary data it is very easy to convert that application to be cluster aware
+and use CTDB instead.
+
+#######################################################################
+
+%prep
+%setup -q
+# setup the init script and sysconfig file
+%setup -T -D -n ctdb-%{version} -q
+
+%build
+
+CC="gcc"
+
+## always run autogen.sh
+./autogen.sh
+
+CFLAGS="$(echo '%{optflags}') $EXTRA -D_GNU_SOURCE -DCTDB_VERS=\"%{version}-%{release}\"" %configure \
+%if %with_included_talloc
+        --with-included-talloc \
+%endif
+%if %with_included_tdb
+        --with-included-tdb \
+%endif
+%if %with_included_tevent
+        --with-included-tevent
+%endif
+
+make showflags
+make %{_smp_mflags}
+
+# make test does not work in koji
+#%check
+#make test
+
+%install
+# Clean up in case there is trash left from a previous build
+rm -rf %{buildroot}
+
+# Create the target build directory hierarchy
+mkdir -p %{buildroot}%{_sysconfdir}/sysconfig
+mkdir -p %{buildroot}%{_sysconfdir}/sudoers.d
+mkdir -p %{buildroot}%{initdir}
+
+make DESTDIR=%{buildroot} install
+
+make DESTDIR=%{buildroot} docdir=%{_docdir} install install_tests
+
+install -m644 config/ctdb.sysconfig %{buildroot}%{_sysconfdir}/sysconfig/ctdb
+
+%if %{with_systemd}
+mkdir -p %{buildroot}%{_unitdir}
+install -m 755 config/ctdb.service %{buildroot}%{_unitdir}
+%else
+mkdir -p %{buildroot}%{initdir}
+install -m755 config/ctdb.init %{buildroot}%{initdir}/ctdb
+%endif
+
+# create /run/ctdbd
+mkdir -p %{buildroot}%{_tmpfilesdir}
+echo "d /run/ctdb  755 root root" >> %{buildroot}%{_tmpfilesdir}/%{name}.conf
+
+mkdir -p %{buildroot}/run
+install -d -m 0755 %{buildroot}/run/ctdb/
+
+install -d -m 0755 %{buildroot}%{_localstatedir}/lib/ctdb/
+
+mkdir -p %{buildroot}%{_docdir}/ctdb/tests/bin
+install -m755 tests/bin/ctdb_transaction %{buildroot}%{_docdir}/ctdb/tests/bin
+
+
+# Remove "*.old" files
+find %{buildroot} -name "*.old" -exec rm -f {} \;
+
+cp -r COPYING web %{buildroot}%{_docdir}/ctdb
+
+%clean
+rm -rf %{buildroot}
+
+%if %{with_systemd}
+%post
+%systemd_post ctdb.service
+
+%preun
+%systemd_preun ctdb.service
+
+%postun
+%systemd_postun_with_restart ctdb.service
+%else
+%post
+/sbin/chkconfig --add ctdb
+
+%preun
+if [ "$1" -eq "0" ] ; then
+ /sbin/service ctdb stop > /dev/null 2>&1
+ /sbin/chkconfig --del ctdb
+fi
+
+%postun
+if [ "$1" -ge "1" ]; then
+ /sbin/service ctdb condrestart >/dev/null 2>&1 || true
+fi
+%endif
+
+# Files section
+
+%files
+%defattr(-,root,root,-)
+
+%config(noreplace) %{_sysconfdir}/sysconfig/ctdb
+%config(noreplace) %{_sysconfdir}/ctdb/notify.sh
+%config(noreplace) %{_sysconfdir}/ctdb/debug-hung-script.sh
+%config(noreplace) %{_sysconfdir}/ctdb/ctdb-crash-cleanup.sh
+%config(noreplace) %{_sysconfdir}/ctdb/gcore_trace.sh
+%config(noreplace) %{_sysconfdir}/ctdb/functions
+%config(noreplace) %{_sysconfdir}/ctdb/debug_locks.sh
+%dir /run/ctdb/
+%dir %{_localstatedir}/lib/ctdb/
+%{_tmpfilesdir}/%{name}.conf
+
+%if %{with_systemd}
+%{_unitdir}/ctdb.service
+%else
+%attr(755,root,root) %{initdir}/ctdb
+%endif
+
+%{_docdir}/ctdb
+%dir %{_sysconfdir}/ctdb
+%{_sysconfdir}/ctdb/statd-callout
+%dir %{_sysconfdir}/ctdb/nfs-rpc-checks.d
+%{_sysconfdir}/ctdb/nfs-rpc-checks.d/10.statd.check
+%{_sysconfdir}/ctdb/nfs-rpc-checks.d/20.nfsd.check
+%{_sysconfdir}/ctdb/nfs-rpc-checks.d/30.lockd.check
+%{_sysconfdir}/ctdb/nfs-rpc-checks.d/40.mountd.check
+%{_sysconfdir}/ctdb/nfs-rpc-checks.d/50.rquotad.check
+%{_sysconfdir}/sudoers.d/ctdb
+%{_sysconfdir}/ctdb/events.d/
+%{_sbindir}/ctdbd
+%{_sbindir}/ctdbd_wrapper
+%{_bindir}/ctdb
+%{_bindir}/smnotify
+%{_bindir}/ping_pong
+%{_bindir}/ltdbtool
+%{_bindir}/ctdb_diagnostics
+%{_bindir}/onnode
+%{_bindir}/ctdb_lock_helper
+%{_bindir}/ctdb_event_helper
+
+%{_mandir}/man1/ctdb.1.gz
+%{_mandir}/man1/ctdbd.1.gz
+%{_mandir}/man1/onnode.1.gz
+%{_mandir}/man1/ltdbtool.1.gz
+%{_mandir}/man1/ping_pong.1.gz
+%{_mandir}/man1/ctdbd_wrapper.1.gz
+%{_mandir}/man5/ctdbd.conf.5.gz
+%{_mandir}/man7/ctdb-statistics.7.gz
+%{_mandir}/man7/ctdb-tunables.7.gz
+%{_mandir}/man7/ctdb.7.gz
+
+%files devel
+%defattr(-,root,root,-)
+%{_includedir}/ctdb.h
+%{_includedir}/ctdb_client.h
+%{_includedir}/ctdb_protocol.h
+%{_includedir}/ctdb_private.h
+%{_includedir}/ctdb_typesafe_cb.h
+%{_libdir}/pkgconfig/ctdb.pc
+
+%files tests
+%defattr(-,root,root,-)
+%dir %{_datadir}/%{name}-tests
+%{_datadir}/%{name}-tests/*
+%dir %{_libdir}/%{name}-tests
+%{_libdir}/%{name}-tests/*
+%{_bindir}/ctdb_run_tests
+%{_bindir}/ctdb_run_cluster_tests
+%doc tests/README
+
+%changelog
+* Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 2.5.5-2
+- Mass rebuild 2014-01-24

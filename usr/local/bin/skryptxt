@@ -1,0 +1,19 @@
+#!/bin/bash
+
+((j=0)); 
+wyswietl() 
+{ 
+for i in *; do 
+((j=j+1)); 
+case $i in (p*) mv $i $i.txt ; esac; 
+if [ -d $i ]; then 
+echo znalazlem katalog
+cd $i; 
+wyswietl;
+cd ..;
+fi
+done;
+}
+
+wyswietl
+

@@ -1,0 +1,136 @@
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!VboxGentoo01!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+W VirtualBox-ie ustawiamy RAM 1GB procesor, w³¹czamy wszystkie rdzenie i bootujemy gentoolive z gentoo.org	Ustawiamy partycje na boot, swap i system na dysku /dev/sda fdiskiem. 
+# fdisk /dev/sda
+/dev/sda1    128MB  na   /boot  
+/dev/sda2      4GB  na   swap 
+/dev/sda3     50GB  na   /root 
+/dev/sda4    reszta na   /home   
+Zak³adamy na boot i system ext4. 
+	# mkfs.ext4 /dev/sda1
+	# mkfs.ext4 /dev/sda3
+Formatujemy swap. 
+	# mkswap /dev/sda2
+	# swapon /dev/sda2
+Montujemy boot i system w katalogu mnt. 
+	# mount /dev/sda1 /mnt/floppy
+	# mount /dev/sda3 /mnt/gentoo
+	# mount /dev/sda1 /mnt/gentoo/boot
+Rozpakowujemy aktualny stage3 i portage w podmontowanym systemie na 
+	# tar jxvf stage3-i686-20130423.tar.bz2 -C /mnt/gentoo
+	# tar Jxvf ../portage-latest.tar.xz -C /mnt/gentoo/usr
+Konfigurujemy make.conf.
+	# nano /mnt/gentoo/etc/portage/make.conf
+	# MAKEOPTS=”j5”
+	# USE=”-kde -bindist -gnome”
+Dodajemy najbli¿szy serwer rsync portage:
+	# mirrorselect -i -r -o >> /mnt/gentoo/etc/portage/make.conf
+
+Konfigurujemy dystrybucji w /mnt/gentoo
+	# cp -L /etc/resolv.conf /mnt/gentoo/etc
+	# mount -t proc none /mnt/gentoo/proc
+	# mount -o bind /dev /mnt/gentoo/dev
+	# chroot /mnt/gentoo /bin/bash
+	# env-update
+	# source /etc/profile
+	# emerge –sync
+	# eselect profile list
+	# eselect profile set 3
+	# nano -w /etc/locale.gen
+	# locale-gen
+	# ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+	# date +%Y%m%d -s "20130811"
+	# date +%T -s "12:13:13"
+	# nano /etc/fstab
+Kompilujemy pierwsze nowe pakiety:
+	# emerge sudo grub eix 
+	(szukamy nowych przepisów na kompilacjê pakietu – ebuildów: 
+		http://gpo.zugaina.org/)
+	# eix-update
+	# nano /boot/grub/grub.conf
+	# sudo grub
+	grub> find /grub/stage1
+	(hd0,0)
+	grub> root (hd0,0)
+	grub> setup (hd0)
+	# emerge =vanilla-sources-3.8.13
+	(lub œci¹gamy Ÿród³a z sieci: liquorix.net/, www.kernel.org/)
+	# cd /usr/src
+	# tar Jxvf /usr/portage/distfiles/linux-3.8.tar.xz
+	# nano /etc/fstab
+	# ln -sfn linux-3.8 linux
+	# cd linux
+	# exit (z chroota wychodzimy)
+	# cp -a /home/gentoo/3.8.13-1.patch.gz 	/home/gentoo/config.i386 /mnt/gentoo/usr/src/linux
+	# cp config.i386 .config 
+	(lub, jeœli nie liquorix, gzip -dc /proc/config.gz > 	/mnt/gentoo/usr/src/linux/.config)
+	# chroot /mnt/gentoo
+	# cd /usr/src/linux
+	# gzip -d 3.8.13-1.patch.gz
+	# patch -p1 < 3.8.13-1.patch
+	# make menuconfig (konfiguracja kernela)
+	# make all -j5; make modules_install 
+	# cp /usr/src/linux/arch/x86/boot/bzimage /boot
+	# passwd
+	# useradd -g users -G wheel,audio,video -m guest
+	(dodaje np. do /etc/group „wheel:x:10:root,guest” wtedy „su -” 	dzia³a)
+	# passwd guest
+	# w razie b³edów ponownie zabootuj gentoolive i chrootuj siê 	do /mnt/gentoo
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!VboxGentoo02!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+emerge dhcpcd
+nano /etc/conf.d/net (dodajemy config_eth0=("dhcp") )
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!VboxGentoo03!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+emerge postgresql-server -av
+eix postgresql-server
+emerge --sync
+eix postgresql-server
+emerge postgresql-server -av
+mkdir /etc/portage/package.keywords
+mkdir /etc/portage/package.use
+touch /etc/portage/package.keywords/podstawowe
+nano /etc/portage/package.keywords/podstawowe
+emerge postgresql-server -av
+/etc/init.d/gpm start
+nano /etc/portage/package.keywords/podstawowe
+emerge =postgresql-server-9999  --autounmask-write
+dispatch-conf
+nano /etc/portage/make.conf (dodajemy USE="threads")
+emerge postgresql-server -av
+nano /etc/portage/package.use/flagi (dodajemy: postgresql-server python perl)
+emerge postgresql-server --jobs 5 --load-average 5
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!VboxGentoo04!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+nano /etc/portage/make.conf (dodajemy EMERGE_DEFAULTS_OPTS="--jobs 5  --load-average 5 --autounmask-write" MAKEOPTS="-j5 -l5")
+emerge postgresql-server
+mkdir /etc/portage/profile/
+nano /etc/portage/profile/package.provided (dodajemy dev-db/postgresql-base-9.3.0 dev-db/postgresql-server-9.3.0)
+emerge postgresql-server -av
+usuñ zawartoœæ  /etc/portage/profile/package.provided oraz /etc/portage/package.keywords/podstawowe
+emerge postgresql-server
+dispatch-conf
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!VboxGentoo05!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+date +%Y%m%d -s 20130912
+date +%T -s 16:16:16
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!VboxGentoo06!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+eselect profile list
+ls -l /etc/portage/make.profile
+less /usr/portage/profiles/base/packages
+emerge -e system -av
+cat /var/lib/portage/world
+emerge vim -av
+eix ^vim$
+nano /etc/portage/make.conf (dodajemy USE="-X")
+emerge vim -pv
+emerge -1 vim
+cat /var/lib/portage/world
+emerge vim
+cat /var/lib/portage/world
+emerge -uND world -av
+ls /usr/portage
+nano /usr/portage/app-misc/mc/mc-4.8.9.ebuild 
+emerge -uND system
+emerge -uND world (updatuje po emerge --sync pakiety z system oraz z pliku world)
+

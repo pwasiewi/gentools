@@ -1,0 +1,24 @@
+if [ $# -eq 0 ]
+then
+ echo Podaj ścieżkę plików np.: ./cp2konfig /etc/portage 
+ echo Przy kopiowaniu do dystrybucji gxdoo ./cp2konfig /etc/portage g
+ exit
+fi
+
+if [ $# -eq 1 ]
+then
+WHERE="/config"
+fi
+if [ $# -eq 2 ]
+then
+WHERE="/$2/chroot"
+fi
+
+echo rm -rf /var/tmp/iso$WHERE$1
+echo cp -a $1 /var/tmp/iso$WHERE`dirname $1`
+if [ ! -d /var/tmp/iso$WHERE`dirname $1` ]; then 
+rm /var/tmp/iso$WHERE`dirname $1`
+install -d /var/tmp/iso$WHERE`dirname $1`; 
+fi
+rm -rf /var/tmp/iso$WHERE$1
+cp -a $1 /var/tmp/iso$WHERE`dirname $1`

@@ -1,0 +1,37 @@
+bzr whoami "Imiê Nazwisko <e-mail>"
+
+Samo
+
+bzr whoami
+
+wy¶wietli Twoje ustawienia.
+Aby za³o¿yæ nowe repozytorium wejd¼ do katalogu z projektem i wydaj polecenia
+
+bzr init .
+
+bzr add
+
+bzr commit -m "Initial import"
+
+Obejrzeæ zmiany przed zatwierdzeniem mo¿esz poleceniem
+
+bzr diff
+
+Historiê zmian sprawdzisz wydaj±c polecenie
+
+bzr log
+
+Poleceniem
+
+bzr branch http://adres_serwera/repo/projekt `mój-projekt`
+
+stworzysz w³asn± ga³±¼ istniej±cego projektu,
+
+bzr merge
+
+w³±czysz do swojej ga³êzi zmiany wprowadzone w miêdzyczasie przez kogo¶ innego
+w g³ównym projekcie (pamiêtaj o tym by je zatwierdziæ -- bzr merge tego nie
+robi)
+
+bzr push sftp://`mój_login`@`adres_serwera`/`mój_projekt`
+

@@ -1,0 +1,2 @@
+unsquashfs /mnt/cdrom/livecd.squashfs
+[ -d squashfs-root ] && { cd squashfs-root; mv * ..; cd ..; rm -rf squashfs-root;}

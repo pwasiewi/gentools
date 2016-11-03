@@ -1,0 +1,58 @@
+emerge picocom dev-embedded/avrdude dev-python/pyserial
+modprobe cdc-acm 
+modprobe ftdi_sio 
+modprobe ch341
+crossdev -C avr; crossdev -S -P -v -t avr
+
+http://inotool.org/quickstart
+mkdir beep
+cd beep
+ino init -t blink
+ino build -m diecimila
+ino upload -m diecimila
+
+http://kungfulabs.com
+http://32bits.io/Arturo/
+https://aspgluval.wordpress.com/2012/09/05/faster-emerge-on-the-raspberry-pi-part-i/
+
+USE="multilib -cxx" crossdev --l 1.8.0 --b --g 5.2.0 -S -s1 --target avr -v
+https://apollo.open-resource.org/mission:log:2015:01:20:gentoo-crossdev-compile-avr-gcc-for-arduino-and-cura
+USE="multilib -cxx" crossdev -v -s1 --without-headers --target avr --gcc 4.5.4
+--binutils 2.21.1-r1 --libc 1.7.0
+USE="multilib cxx" crossdev -v -s4 --target avr --gcc 4.5.4 --binutils
+2.21.1-r1 --libc 1.7.0
+ln -nsf /usr/x86_64-pc-linux-gnu/avr/lib/ldscripts /usr/avr/lib/ldscripts
+ln -nsf /usr/x86_64-pc-linux-gnu/avr/lib/ldscripts
+/usr/x86_64-pc-linux-gnu/avr/binutils-bin/2.20.1/ldscripts
+cd /usr/avr/lib
+ln -nsf avr5/crtm328p.o .
+ln -nsf avr6/crtm2561.o .
+ln -nsf avr6/crtm2560.o .
+mkdir -p /usr/share/arduino/hardware/tools/avr/bin/
+ln -s /usr/bin/avr-gcc /usr/share/arduino/hardware/tools/avr/bin/avr-gcc
+ln -s /usr/bin/avr-g++ /usr/share/arduino/hardware/tools/avr/bin/avr-g++
+ln -s /usr/bin/avr-objcopy
+/usr/share/arduino/hardware/tools/avr/bin/avr-objcopy
+ln -s /usr/bin/avr-ar /usr/share/arduino/hardware/tools/avr/bin/avr-ar
+ln -s /usr/bin/avr-as /usr/share/arduino/hardware/tools/avr/bin/avr-as
+
+http://rainerkeller.de/2015_arduino_development_on_gentoo.htm
+PORTDIR_OVERLAY="/usr/local/portage $PORTDIR_OVERLAY"
+mkdir -p "/usr/local/portage/profiles"
+echo "my_repo_name" > "/usr/local/portage/profiles/repo_name"
+emerge sys-devel/crossdev
+USE="multilib -cxx" crossdev -v -s1 --gcc 4.6.4 --binutils 2.21.1-r1
+--without-headers --target avr
+USE="multilib cxx"  crossdev -v -s4 --gcc 4.6.4 --binutils 2.21.1-r1 --libc
+1.8.0 --target avr
+ln -s /usr/x86_64-pc-linux-gnu/avr/lib/ldscripts /usr/avr/lib/ldscripts
+
+
+
+ln -sfn /usr/share/arduino/hardware/tools/avr/bin/avr-gcc /bin/avr-gcc
+ln -sfn /usr/share/arduino/hardware/tools/avr/bin/avr-g++ /bin/avr-g++
+ln -sfn /usr/share/arduino/hardware/tools/avr/bin/avr-objcopy /bin/avr-objcopy
+ln -sfn /usr/share/arduino/hardware/tools/avr/bin/avr-objdump /bin/avr-objdump
+ln -sfn /usr/share/arduino/hardware/tools/avr/bin/avr-as /bin/avr-as
+ln -sfn /usr/share/arduino/hardware/tools/avr/bin/avr-ar /bin/avr-ar
+

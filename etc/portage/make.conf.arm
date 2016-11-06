@@ -1,5 +1,5 @@
 ARCH=arm #check your target architecture
-FEATURES=buildpkg #remove buildpkg if you don't want all binary packages in $ROOT/packages
+#FEATURES=buildpkg #remove buildpkg if you don't want all binary packages in $ROOT/packages
 USE="${ARCH} -pam -acl" #disable acl to build the base system (essential packages will fail cross compilation otherwise),enable it later if it's needed
 #set your CFLAGS, you can't use -march=native here if the target has a different cpu
 #for the raspberry-pi it could be

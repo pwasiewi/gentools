@@ -280,6 +280,8 @@ systemctl restart systemd-binfmt
 #http://processors.wiki.ti.com/index.php/Creating_a_Root_File_System_for_Linux_on_OMAP35x
 http://processors.wiki.ti.com/index.php/Kernel_-_Common_Problems_Booting_Linux
 
+wget -c http://gentoo.prz.rzeszow.pl/releases/arm/autobuilds/20160523/stage3-armv7a_hardfp-20160523.tar.bz2
+
 vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
 e u crossdev distcc
@@ -294,13 +296,20 @@ armv7a-hardfloat-linux-gnueabi-emerge -uva1 --keep-going $(egrep '^[a-z]+' /usr/
 QEMU_USER_TARGETS="arm" QEMU_SOFTMMU_TARGETS="arm" USE="static-user static-libs" emerge --ask --buildpkg --oneshot qemu
 cd /usr/armv7a-hardfloat-linux-gnueabi/
 ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --ask --usepkgonly --oneshot --nodeps qemu
-mkdir /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin -pv 
-gcc -static /usr/local/bin/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
+[ -e /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin ] && mkdir /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin -pv 
+gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
+ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
 chroot-armv7a
 ldconfig
-ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
-#nano /etc/locale.gen
-#locale-gen
+echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
+echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
+locale-gen
+env-update
+. /etc/profile
+ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+ln -sf /proc/self/mounts /etc/mtab
+sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
+
 gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
 echo 'alias emerge-chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge-chroot && source /etc/profile
 emerge-chroot --ask --update -v --keep-going @system

@@ -1,0 +1,29 @@
+#!/bin/sh
+
+. /etc/portage/make.conf
+
+# just make sure
+#FEATURES="${FEATURES} distcc distcc-pump"
+FEATURES="${FEATURES} distcc"
+
+DISTCC_PATH="/usr/lib/distcc/bin"
+CUR_CHOST="$(basename /usr/lib/gcc/armv*)"
+DISTCC_WRAPPER="${CUR_CHOST}-wrapper"
+
+pushd "${DISTCC_PATH}" > /dev/null || exit 1
+cur_link=$(readlink cc)
+if [ "${cur_link}" = "/usr/bin/distcc" ] || [ ! -f "${DISTCC_WRAPPER}" ]; then
+        echo "Fixing links in ${DISTCC_PATH}"
+        rm -f c++ g++ gcc cc || exit 1
+        echo "#!/bin/bash" > "${DISTCC_WRAPPER}"
+        echo "exec /usr/lib/distcc/bin/${CUR_CHOST}-g\${0:\$[-2]} \"\$@\"" >> "${DISTCC_WRAPPER}"
+        chmod a+x "${DISTCC_WRAPPER}" || exit 1
+        ln -s "${DISTCC_WRAPPER}" cc || exit 1
+        ln -s "${DISTCC_WRAPPER}" gcc || exit 1
+        ln -s "${DISTCC_WRAPPER}" g++ || exit 1
+        ln -s "${DISTCC_WRAPPER}" c++ || exit 1
+fi
+popd > /dev/null
+
+export FEATURES PATH
+exec emerge "$@"

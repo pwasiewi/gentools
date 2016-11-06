@@ -273,30 +273,31 @@ echo -1 >   /proc/sys/fs/binfmt_misc/armeb
 echo ':arm:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/qemu-wrapper:' > /proc/sys/fs/binfmt_misc/register
 echo ':armeb:M::\x7fELF\x01\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff:/usr/bin/qemu-armeb:' > /proc/sys/fs/binfmt_misc/register
 systemctl restart systemd-binfmt
-ROOT=$PWD/ emerge --usepkgonly --oneshot --nodeps qemu
-mkdir -p usr/portage
-mount --bind /usr/portage usr/portage
-mount --bind /proc proc
-mount --bind /sys sys
-mount --bind /dev dev
-mount --bind /dev/pts dev/pts 
-gcc -static qemu-wrapper.c -O3 -s -o qemu-wrapper
-chroot . /bin/bash --login 
 
+##############################################################
 ##############################################################
 #https://wiki.gentoo.org/wiki/Cross_build_environment
 #http://processors.wiki.ti.com/index.php/Creating_a_Root_File_System_for_Linux_on_OMAP35x
 http://processors.wiki.ti.com/index.php/Kernel_-_Common_Problems_Booting_Linux
-time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 5.4.0 --libc ">=2.23" --kernel 4.8.2 -oS /usr/portage
+
+vex sys-devel/crossdev
+veu "sys-devel/distcc crossdev"
+e u crossdev distcc
+#time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 5.4.0 --libc ">=2.23" --kernel 4.8.2 -oS /usr/portage
+time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3--kernel 4.8.2 -oS /usr/portage
 cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s /usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile
+
 armv7a-hardfloat-linux-gnueabi-emerge -uva --keep-going @system
 #vim /usr/armv7a-hardfloat-linux-gnueabi/etc/portage/make.conf
 armv7a-hardfloat-linux-gnueabi-emerge -uva1 --keep-going $(egrep '^[a-z]+' /usr/portage/profiles/default/linux/packages.build)
+
 QEMU_USER_TARGETS="arm" QEMU_SOFTMMU_TARGETS="arm" USE="static-user static-libs" emerge --ask --buildpkg --oneshot qemu
 cd /usr/armv7a-hardfloat-linux-gnueabi/
-ROOT=$PWD/ emerge --ask --usepkgonly --oneshot --nodeps qemu
-mkdir /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin -pv && gcc -static qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
+ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --ask --usepkgonly --oneshot --nodeps qemu
+mkdir /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin -pv 
+gcc -static /usr/local/bin/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
 chroot-armv7a
+ldconfig
 ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
 #nano /etc/locale.gen
 #locale-gen
@@ -304,6 +305,7 @@ gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
 echo 'alias emerge-chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge-chroot && source /etc/profile
 emerge-chroot --ask --update -v --keep-going @system
 
+##############################################################
 ##############################################################
 #załączone make.arm i make.x86_64
 #http://mgalgs.github.io/2015/05/16/how-to-build-a-custom-linux-kernel-for-qemu-2015-edition.html

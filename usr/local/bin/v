@@ -213,9 +213,9 @@ chmod 755 /usr/local/bin/v*
 
 cat >> /etc/portage/make.conf << 'EOF'
 
-ACCEPT_LICENSE="*" 
 #ABI_X86="64 32"  
 CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3"
+ACCEPT_LICENSE="*" 
 RUBY_TARGETS="ruby21 ruby23" 
 GRUB_PLATFORMS="emu pc" 
 USE_PYTHON='2.7 3.4' 
@@ -225,8 +225,9 @@ PYTHON_ABIS="2.7 3.4"
 MAKEOPTS="-j4 -l8" 
 EMERGE_DEFAULT_OPTS="--jobs 4 --load-average 8 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=0" 
 PORTAGE_NICENESS="20" 
-FEATURES="${FEATURES} sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
-#FEATURES="${FEATURES} distcc" 
+#FEATURES="${FEATURES} sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
+FEATURES="-collision-protect sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
+#FEATURES="${FEATURES} distcc distcc-pump" 
 
 PORTAGE_TMPDIR="/var/tmp/portage" 
 USE="${USE} -X -java -systemd -hardened -pic branding experimental extras -doc -acl -systemtap"

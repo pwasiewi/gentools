@@ -312,7 +312,7 @@ quickpkg qemu --include-config y
 ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
 gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
 
-armv7a-emerge "ec p vim"
+armv7a-1by1nodeps "ec p vim"
 
 armv7a-chroot bash
 vcportarm
@@ -336,14 +336,14 @@ veu "gnome-base/librsvg -tools"
 vep sys-devel/gcc-5.4.0
 vep dev-lang/python-3.4.5
 
-armerge --nodeps util-linux
-armerge --nodeps udev
+armv7a-emerge --nodeps util-linux
+armv7a-emerge --nodeps udev
 ### ec a s #emerge-chroot --ask --update -v --keep-going @system
 armv7a-chroot "ec p s" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'
-armv7a-emerge "ec p s"
+armv7a-1by1nodeps "ec p s"
 ### armv7a-chroot "ec b s"
 
-armerge -uND -v system
+armv7a-emerge -uND -v system
 
 ##############################################################
 ##############################################################

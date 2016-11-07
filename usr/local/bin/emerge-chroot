@@ -1,2 +1,1 @@
-shift
-ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge "$@"
+CBUILD=armv7a-hardfloat-linux-gnueabi HOSTCC=armv7a-hardfloat-linux-gnueabi emerge --root=/ --config-root=/ "$@"

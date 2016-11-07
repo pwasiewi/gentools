@@ -285,9 +285,6 @@ http://processors.wiki.ti.com/index.php/Kernel_-_Common_Problems_Booting_Linux
 #wget -c http://gentoo.prz.rzeszow.pl/releases/arm/autobuilds/20160523/stage3-armv7a_hardfp-20160523.tar.bz2
 v r f
 
-vex sys-devel/crossdev
-veu "sys-devel/distcc crossdev"
-e u crossdev distcc
 #time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 5.4.0 --libc ">=2.23" --kernel 4.8.2 -oS /usr/portage
 
 time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
@@ -315,6 +312,10 @@ gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardflo
 
 armv7a-hardfloat-linux-gnueabi-emerge vim
 
+vex sys-devel/crossdev
+veu "sys-devel/distcc crossdev"
+e u crossdev distcc
+
 chroot-armv7a bash
 ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
 ln -sf /proc/self/mounts /etc/mtab
@@ -322,7 +323,7 @@ echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
 gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
-echo 'alias emerge-chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge_chroot && source /etc/profile
+echo 'alias emerge_chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge_chroot && source /etc/profile
 #emerge_chroot vim
 ec vim
 sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
@@ -332,6 +333,7 @@ sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
 armv7a-emerge "ec p s"
 chroot-armv7a "ec b s"
 
+armv7a-hardfloat-linux-gnueabi-emerge --root=/usr/armv7a-hardfloat-linux-gnueabi --config-root=/usr/armv7a-hardfloat-linux-gnueabi -uND  -v system
 
 ##############################################################
 ##############################################################

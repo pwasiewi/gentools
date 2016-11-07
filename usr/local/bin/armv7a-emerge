@@ -1,0 +1,1 @@
+for i in `chroot-armv7a "$@" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'`; do PORTAGE_CONFIGROOT=/usr/armv7a-hardfloat-linux-gnueabi/ armv7a-hardfloat-linux-gnueabi-emerge  --nodeps $i; if [ "$?" = "0" ]; then echo $i >> /var/tmp/packages_arm/packages_done.txt; else echo $i >> /var/tmp/packages_arm/packages_todo.txt; fi;  done

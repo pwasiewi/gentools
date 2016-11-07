@@ -37,7 +37,7 @@ MAKEOPTS="-j4 -l8"
 EMERGE_DEFAULT_OPTS="--jobs 4 --load-average 8 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=0" 
 PORTAGE_NICENESS="20" 
 FEATURES="${FEATURES} sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
-#FEATURES="${FEATURES} distcc" 
+#FEATURES="${FEATURES} distcc distcc-pump" 
 
 #PORTAGE_TMPDIR="/var/tmp/portage" 
 USE="${USE} -X -java -systemd -hardened -pic branding experimental extras -doc -acl -systemtap"
@@ -59,8 +59,8 @@ APACHE2_MODULES="actions alias auth_basic authn_alias authn_anon authn_core auth
 PORTAGE_ECLASS_WARNING_ENABLE="0" 
 PORT_LOGDIR="/var/log/portage" 
 #source /var/lib/layman/make.conf 
-#QEMU_SOFTMMU_TARGETS="arm i386 x86_64" 
-#QEMU_USER_TARGETS="arm armeb i386 x86_64" 
+#QEMU_SOFTMMU_TARGETS="arm x86_64" 
+#QEMU_USER_TARGETS="arm x86_64" 
 JAVA_HOME="/etc/java-config-2/current-system-vm" 
 
 EOF

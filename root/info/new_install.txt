@@ -282,7 +282,8 @@ systemctl restart systemd-binfmt
 #http://processors.wiki.ti.com/index.php/Creating_a_Root_File_System_for_Linux_on_OMAP35x
 http://processors.wiki.ti.com/index.php/Kernel_-_Common_Problems_Booting_Linux
 
-wget -c http://gentoo.prz.rzeszow.pl/releases/arm/autobuilds/20160523/stage3-armv7a_hardfp-20160523.tar.bz2
+#wget -c http://gentoo.prz.rzeszow.pl/releases/arm/autobuilds/20160523/stage3-armv7a_hardfp-20160523.tar.bz2
+v r f
 
 vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
@@ -291,14 +292,16 @@ e u crossdev distcc
 
 time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
 ln -sfn /var/tmp/iso/r/chroot /usr/armv7a-hardfloat-linux-gnueabi
-
-#vim /usr/armv7a-hardfloat-linux-gnueabi/etc/portage/make.conf
-
 cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s /usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile && cd /usr/armv7a-hardfloat-linux-gnueabi
 ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
 tar Jxvf /config.txz
 sed -i 's/^\/dev\//\#\/dev\//g' etc/fstab
-cp /etc/portage/make.conf.armv7a /etc/portage/make.conf
+cp etc/portage/make.conf.armv7a etc/portage/make.conf
+[ ! -e var/tmp/portage ] && mkdir var/tmp/portage 
+[ ! -e /var/tmp/packages_arm ] && mkdir /var/tmp/packages_arm
+[ ! -e var/tmp/packages_arm ] && mkdir var/tmp/packages_arm
+mv etc/portage/repos.conf/s*.conf root
+vcportarm
 
 #armv7a-hardfloat-linux-gnueabi-emerge bash
 #armv7a-hardfloat-linux-gnueabi-emerge -uva --keep-going @system
@@ -309,22 +312,26 @@ e qemu
 quickpkg qemu --include-config y
 ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
 gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
-ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ armv7a-hardfloat-linux-gnueabi-emerge vim
-chroot-armv7a
 
-ldconfig
+armv7a-hardfloat-linux-gnueabi-emerge vim
+
+chroot-armv7a bash
+ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+ln -sf /proc/self/mounts /etc/mtab
 echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
-env-update
-. /etc/profile
-ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
-ln -sf /proc/self/mounts /etc/mtab
+gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
+echo 'alias emerge-chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge_chroot && source /etc/profile
+#emerge_chroot vim
+ec vim
 sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
 
-gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
-echo 'alias emerge-chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge-chroot && source /etc/profile
-emerge-chroot --ask --update -v --keep-going @system
+#emerge-chroot --ask --update -v --keep-going @system
+#for i in `chroot-armv7a "ec p s" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'`; do armv7a-hardfloat-linux-gnueabi-emerge -1 --nodeps $i; if [ "$?" = "0" ]; then echo $i >> /var/tmp/packages_arm/packages_done.txt; else echo $i >> /var/tmp/packages_arm/packages_todo.txt; fi;  done
+armv7a-emerge "ec p s"
+chroot-armv7a "ec b s"
+
 
 ##############################################################
 ##############################################################

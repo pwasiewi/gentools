@@ -13,6 +13,9 @@ mount -o bind /dev dev
 mount -o bind /usr/portage usr/portage
 [ ! -e usr/local/portage ] && mkdir -pv usr/local/portage
 mount -o bind /usr/local/portage usr/local/portage
+[ ! -e var/tmp/packages_arm ] && mkdir -pv var/tmp/packages_arm
+[ ! -e /var/tmp/packages_arm ] && mkdir -pv /var/tmp/packages_arm
+mount -o bind /var/tmp/packages_arm var/tmp/packages_arm
 #mount -o bind /usr/src/raspberrypi-sources usr/src/linux
 #mount -o bind /lib/modules lib/modules
 [ ! -e sys ] && mkdir -pv sys
@@ -21,13 +24,14 @@ cp /etc/resolv.conf etc/resolv.conf
 mount -o bind /tmp tmp
 mount -o bind /dev/pts dev/pts #only for X
  
-chroot . /bin/bash --login
+chroot . /bin/bash -c "$@"
   
 umount dev/pts
 umount tmp
 umount sys
 #umount lib/modules
 #umount usr/src/linux
+umount var/tmp/packages_arm
 umount usr/local/portage
 umount usr/portage
 umount dev

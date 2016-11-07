@@ -7,10 +7,10 @@ echo ':arm:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x2
 cd /usr/armv7a-hardfloat-linux-gnueabi
 #cp /etc/resolv.conf etc/resolv.conf
 
-for i in proc dev usr/portage usr/local/portage var/tmp/packages_arm /var/tmp/packages_arm sys; do [ ! -e $i ] && mkdir -pv $i; done;
+for i in proc dev usr/local/portage var/tmp/packages_arm /var/tmp/packages_arm sys; do [ ! -e $i ] && mkdir -pv $i; done;
    
-mount -t proc none proc
-for i in dev usr/portage usr/local/portage var/tmp/packages_arm sys tmp dev/pts; do mountpoint -q "$i" && echo "$i mounted" || mount --bind "/$i" "$i"; done
+mountpoint -q proc && echo "proc mounted" || mount -t proc none proc
+for i in dev usr/local/portage var/tmp/packages_arm sys tmp dev/pts; do mountpoint -q "$i" && echo "$i mounted" || mount --bind "/$i" "$i"; done
 #mount -o bind /usr/src/raspberrypi-sources usr/src/linux
 #mount -o bind /lib/modules lib/modules
 
@@ -26,6 +26,6 @@ fi
 
 #umount lib/modules
 #umount usr/src/linux
-for i in dev/pts tmp sys var/tmp/packages_arm usr/local/portage usr/portage dev proc; do 
+for i in dev/pts tmp sys var/tmp/packages_arm usr/local/portage dev proc; do 
    mountpoint -q "$i" && umount "$i"
 done

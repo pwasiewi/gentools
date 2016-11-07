@@ -611,6 +611,8 @@ veu "media-libs/mesa -vaapi"
 veu "gnome-base/librsvg -tools"
 vep sys-devel/gcc-5.4.0
 vep dev-lang/python-3.4.5
+vex sys-devel/crossdev
+veu "sys-devel/distcc crossdev"
 EOF
 	chmod +x $PROFILETMP/vcportdir
         mount_all

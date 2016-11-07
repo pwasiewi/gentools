@@ -350,6 +350,8 @@ EOF
 	mv etc/portage/repos.conf/s*.conf root
 	veu "app-emulation/qemu -accessibility aio alsa bluetooth bzip2 caps curl -debug fdt -filecaps -glusterfs gnutls gtk gtk2 -infiniband -iscsi jpeg lzo ncurses nfs nls numa opengl pin-upstream-blobs png pulseaudio python -sasl sdl sdl2 -seccomp -selinux -smartcard snappy spice ssh -static -static-softmmu static-user -systemtap -tci -test threads usb -usbredir -uuid vde vhost-net virgl -virtfs vnc vte xattr xen xfs -rbd"
 	e qemu
+	etc-update --automode -5
+	e u qemu
 	quickpkg qemu --include-config y
 	ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
 	gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
@@ -369,7 +371,7 @@ echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
 gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
 echo 'alias emerge_chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge_chroot && source /etc/profile
-sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
+#sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
 vep dev-lang/perl-5.24.0-r2
 veu ">=dev-libs/libpcre-8.39 pcre16"
 vep sys-libs/readline-7.0

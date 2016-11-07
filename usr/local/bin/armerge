@@ -1,0 +1,1 @@
+armv7a-hardfloat-linux-gnueabi-emerge --root=/usr/armv7a-hardfloat-linux-gnueabi --config-root=/usr/armv7a-hardfloat-linux-gnueabi "$@"

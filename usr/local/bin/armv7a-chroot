@@ -1,0 +1,27 @@
+#/etc/init.d/qemu-binfmt start
+
+#Next two lines are optional. Activate if the qemu-wrapper is used. Check that the wrapper location corresponds with the call at the end of line two
+echo '-1' > /proc/sys/fs/binfmt_misc/arm #deregister wrong arm
+echo ':arm:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\x00\xff\xfe\xff\xff\xff:/usr/local/bin/qemu-wrapper:' > /proc/sys/fs/binfmt_misc/register
+
+cd /usr/armv7a-hardfloat-linux-gnueabi
+cp /etc/resolv.conf etc/resolv.conf
+
+for i in proc dev usr/portage usr/local/portage var/tmp/packages_arm /var/tmp/packages_arm sys; do [ ! -e $i ] && mkdir -pv $i; done;
+   
+mount -t proc none proc
+for i in dev usr/portage usr/local/portage var/tmp/packages_arm sys tmp dev/pts; do mountpoint -q "$i" && echo "$i mounted" || mount --bind "/$i" "$i"; done
+#mount -o bind /usr/src/raspberrypi-sources usr/src/linux
+#mount -o bind /lib/modules lib/modules
+ 
+if [ -f "$1" ]; then
+   chroot . "$1"
+else
+   chroot . /bin/bash -c "$@"
+fi
+
+#umount lib/modules
+#umount usr/src/linux
+for i in dev/pts tmp sys var/tmp/packages_arm usr/local/portage usr/portage dev proc; do 
+   mountpoint -q "$i" && umount "$i"
+done

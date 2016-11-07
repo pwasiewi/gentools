@@ -26,8 +26,10 @@ Komendy:
  eb     uruchomiono vv <profil> e, to wejdz bez montowania z drugiej konsoli
  p      przejdz do plikow konfiguracyjnych vv zwykle w /etc i uruchom mc
  r      przejdz do katalogu chroota i uruchom mc
- 2 	uruchom etap 2/8 instalacji - chroot z hosta 
+ 2 	uruchom etap 2/8 instalacji - chroot z hosta: v a 2
  2host 	uruchom etap 2/8 instalacji juz po zbootowaniu lub w chroocie
+ ec     wejdz (Enter) na qemu-user armv7a chroot: v r ec
+ 1arm 	uruchom 1 etap armv7a: v r 1arm
  -h|--help	Wyswietl ten ekran
 
 Piotr Wasiewicz 2005-2016
@@ -327,69 +329,6 @@ EOF
 	umount_all
 }
 
-1arm() {
-	umount_all
-	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
-	[ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
-	echo ">>> Rozpakowuje Gentoo stage3..."
-	[ ! -e "$CHROOT/home" ] && tar xjpf "$CDLOC/$CD_STAGEFILE" -C $CHROOT || die "stage tarball extraction error"
-        #mv "$CDLOC/$CD_STAGEFILE" $CHROOT
-	# aby siec dzialala
-	cp /etc/resolv.conf ${CHROOT}/etc
-
- 	ln -sfn /var/tmp/iso/r/chroot /usr/armv7a-hardfloat-linux-gnueabi
-	time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
-	cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s /usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile && cd /usr/armv7a-hardfloat-linux-gnueabi
-	ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
-	tar Jxvf /config.txz
-	sed -i 's/^\/dev\//\#\/dev\//g' etc/fstab
-	cp etc/portage/make.conf.armv7a etc/portage/make.conf
-	[ ! -e var/tmp/portage ] && mkdir var/tmp/portage 
-	[ ! -e /var/tmp/packages_arm ] && mkdir /var/tmp/packages_arm
-	[ ! -e var/tmp/packages_arm ] && mkdir var/tmp/packages_arm
-	mv etc/portage/repos.conf/s*.conf root
-	veu "app-emulation/qemu -accessibility -aio alsa bluetooth bzip2 -caps curl -debug fdt -filecaps -glusterfs gnutls gtk gtk2 -infiniband -iscsi jpeg lzo ncurses nfs nls numa opengl pin-upstream-blobs png pulseaudio python -sasl -sdl -sdl2 -seccomp -selinux -smartcard snappy -spice ssh -static -static-softmmu static-user -systemtap -tci -test threads usb -usbredir -uuid -vde -vhost-net -virgl -virtfs -vnc -vte xattr -xen -xfs -rbd"
-	e qemu
-	etc-update --automode -5
-	e u qemu
-	quickpkg qemu --include-config y
-	ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
-	gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
-
-    cat >> $PROFILETMP/vcportdir << 'EOF'
-cd /usr
-wget -c http://gentoo.prz.rzeszow.pl/snapshots/portage-latest.tar.xz
-tar Jxf portage-latest.tar.xz
-[ -e /usr/portage/distfiles ] && rmdir /usr/portage/distfiles
-[ ! -e /var/tmp/distfiles ] && mkdir /var/tmp/distfiles
-ln -sfn /var/tmp/distfiles /usr/portage/distfiles
-vcportarm
-ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
-ln -sf /proc/self/mounts /etc/mtab
-echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
-echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
-locale-gen
-gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
-echo 'alias emerge_chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge_chroot && source /etc/profile
-#sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
-vep dev-lang/perl-5.24.0-r2
-veu ">=dev-libs/libpcre-8.39 pcre16"
-vep sys-libs/readline-7.0
-veu "net-libs/libproxy -webkit"
-veu "media-libs/harfbuzz -graphite"
-veu "dev-util/cmake -qt5"
-veu "app-arch/p7zip -wxwidgets"
-veu "media-libs/mesa -vaapi"
-veu "gnome-base/librsvg -tools"
-vep sys-devel/gcc-5.4.0
-vep dev-lang/python-3.4.5
-EOF
-	chmod +x $PROFILETMP/vcportdir
-        mount_all
-	chroot $CHROOT /tmp/livecd/vcportdir
-	umount_all
-}
-
 2etap(){
 	ETAP=2etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
@@ -616,6 +555,69 @@ EOF
 	fi
 }
 
+1arm() {
+	umount_all
+	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
+	[ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
+	echo ">>> Rozpakowuje Gentoo stage3..."
+	[ ! -e "$CHROOT/home" ] && tar xjpf "$CDLOC/$CD_STAGEFILE" -C $CHROOT || die "stage tarball extraction error"
+        #mv "$CDLOC/$CD_STAGEFILE" $CHROOT
+	# aby siec dzialala
+	cp /etc/resolv.conf ${CHROOT}/etc
+
+ 	ln -sfn /var/tmp/iso/r/chroot /usr/armv7a-hardfloat-linux-gnueabi
+	time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
+	cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s /usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile && cd /usr/armv7a-hardfloat-linux-gnueabi
+	ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
+	tar Jxvf /config.txz
+	sed -i 's/^\/dev\//\#\/dev\//g' etc/fstab
+	cp etc/portage/make.conf.armv7a etc/portage/make.conf
+	[ ! -e var/tmp/portage ] && mkdir var/tmp/portage 
+	[ ! -e /var/tmp/packages_arm ] && mkdir /var/tmp/packages_arm
+	[ ! -e var/tmp/packages_arm ] && mkdir var/tmp/packages_arm
+	mv etc/portage/repos.conf/s*.conf root
+	veu "app-emulation/qemu -accessibility -aio alsa bluetooth bzip2 -caps curl -debug fdt -filecaps -glusterfs gnutls gtk gtk2 -infiniband -iscsi jpeg lzo ncurses nfs nls numa opengl pin-upstream-blobs png pulseaudio python -sasl -sdl -sdl2 -seccomp -selinux -smartcard snappy -spice ssh -static -static-softmmu static-user -systemtap -tci -test threads usb -usbredir -uuid -vde -vhost-net -virgl -virtfs -vnc -vte xattr -xen -xfs -rbd"
+	e qemu
+	etc-update --automode -5
+	e u qemu
+	quickpkg qemu --include-config y
+	ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
+	gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
+
+    cat >> $PROFILETMP/vcportdir << 'EOF'
+cd /usr
+wget -c http://gentoo.prz.rzeszow.pl/snapshots/portage-latest.tar.xz
+tar Jxf portage-latest.tar.xz
+[ -e /usr/portage/distfiles ] && rmdir /usr/portage/distfiles
+[ ! -e /var/tmp/distfiles ] && mkdir /var/tmp/distfiles
+ln -sfn /var/tmp/distfiles /usr/portage/distfiles
+vcportarm
+ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+ln -sf /proc/self/mounts /etc/mtab
+echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
+echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
+locale-gen
+gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
+echo 'alias emerge_chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge_chroot && source /etc/profile
+#sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
+vep dev-lang/perl-5.24.0-r2
+veu ">=dev-libs/libpcre-8.39 pcre16"
+vep sys-libs/readline-7.0
+veu "net-libs/libproxy -webkit"
+veu "media-libs/harfbuzz -graphite"
+veu "dev-util/cmake -qt5"
+veu "app-arch/p7zip -wxwidgets"
+veu "media-libs/mesa -vaapi"
+veu "gnome-base/librsvg -tools"
+vep sys-devel/gcc-5.4.0
+vep dev-lang/python-3.4.5
+EOF
+	chmod +x $PROFILETMP/vcportdir
+        mount_all
+	chroot $CHROOT /tmp/livecd/vcportdir
+	umount_all
+}
+
 genkernel() {
 	cat > $PROFILETMP/genkernel-build << EOF
 sed -i "s/CDROOT='0'/CDROOT='1'/g" /usr/share/genkernel/defaults/initrd.defaults
@@ -751,6 +753,10 @@ chroot_bis() {
 	chroot $CHROOT
 }
 
+armv7a_chroot() {
+	armv7a-chroot
+}
+
 case "$2" in
     f)	
     	fetch		;;
@@ -769,6 +775,8 @@ case "$2" in
     	make_isocd      ;;
     e)  
     	chroot_e        ;;
+    ec)  
+    	armv7a_chroot   ;;
     r)  
     	chroot_mc       ;;
     p)  

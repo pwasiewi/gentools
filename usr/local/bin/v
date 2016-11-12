@@ -584,7 +584,7 @@ EOF
 	ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
 	gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
 
-    cat >> $PROFILETMP/vcportdir << 'EOF'
+    cat > $PROFILETMP/vcportdir << 'EOF'
 cd /usr
 wget -c http://gentoo.prz.rzeszow.pl/snapshots/portage-latest.tar.xz
 tar Jxf portage-latest.tar.xz

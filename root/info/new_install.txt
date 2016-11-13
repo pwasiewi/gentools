@@ -290,7 +290,7 @@ v r f
 
 
 
-[ -d /etc/portage.host ] && mv /etc/portage /etc/portage.host;
+[ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host;
 [ -d /etc/portage ] && rm -rf /etc/portage; cp -a /etc/portage.host/ /etc/portage; rm -rf /var/tmp/iso/r/chroot/*; rm /usr/armv7a-hardfloat-linux-gnueabi
 
 #time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 5.4.0 --libc ">=2.23" --kernel 4.8.2 -oS /usr/portage

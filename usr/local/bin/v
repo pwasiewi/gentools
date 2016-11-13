@@ -622,7 +622,7 @@ EOF
 	umount_all
 
 	[ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host
-	#cp2home /etc/portage r; cp /etc/portage.host/make.conf /etc/portage
+	cp2home /etc/portage r; cp /etc/portage.host/make.conf /etc/portage
 	[ ! -d /usr/portage/profiles ] && cp2home /usr/portage r
 }
 

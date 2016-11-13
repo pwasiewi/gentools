@@ -355,9 +355,10 @@ armv7a-emerge --nodeps udev
 armv7a-emerge -C sys-devel/autoconf
 armv7a-emerge sys-devel/autoconf
 armv7a-1by1nodeps "ec U p eix"
+armv7a-1by1nodeps "ec p s"
+
 ### ec a s #emerge-chroot --ask --update -v --keep-going @system
 #armv7a-chroot "ec p s" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'
-armv7a-1by1nodeps "ec p s"
 ### armv7a-chroot "ec b s"
 
 armv7a-emerge -uND -v system

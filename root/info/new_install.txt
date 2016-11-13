@@ -267,7 +267,6 @@ systemctl restart systemd-binfmt
 #https://wiki.gentoo.org/wiki/Cross_build_environment
 #http://processors.wiki.ti.com/index.php/Creating_a_Root_File_System_for_Linux_on_OMAP35x
 #http://processors.wiki.ti.com/index.php/Kernel_-_Common_Problems_Booting_Linux
-
 cd 
 git clone https://github.com/pwasiewi/gentools.git
 git clone https://gist.github.com/586b9e389eb1bfedb951053d745473b6.git
@@ -276,6 +275,7 @@ e m
 vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
 e u crossdev distcc
+/etc/init.d/binfmt restart
 [ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host; [ -d /etc/portage ] && rm -rf /etc/portage; cp -a /etc/portage.host/ /etc/portage; rm -rf /var/tmp/iso/r/chroot/*; rm /usr/armv7a-hardfloat-linux-gnueabi -rf
 v r f
 v r 1arm
@@ -320,14 +320,15 @@ cp2home /etc/portage r
 [ ! -e /usr/portage/profiles ] && cp2home /usr/portage r
 
 armv7a-emerge vim
-armv7a-emerge --nodeps util-linux
-armv7a-emerge --nodeps udev
-armv7a-emerge -C sys-devel/autoconf
-armv7a-emerge sys-devel/autoconf
-armv7a-emerge -uND gentoolkit
+#armv7a-emerge --nodeps util-linux
+#armv7a-emerge --nodeps udev
+#armv7a-emerge -C sys-devel/autoconf
+#armv7a-emerge sys-devel/autoconf
+#armv7a-emerge -uND gentoolkit
 
+armv7a-1by1nodeps "ec U p gentoolkit"
 armv7a-1by1nodeps "ec U p eix"
-armv7a-1by1nodeps "ec p s"
+armv7a-1by1nodeps "ec p w"
 
 ### ec a s #emerge-chroot --ask --update -v --keep-going @system
 #armv7a-chroot "ec p s" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'

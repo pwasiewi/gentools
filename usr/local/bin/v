@@ -114,6 +114,8 @@ CD_PORTDIR=$DIST/.portage  	# portage drzewo pakietow do pobrania
 CD_LAYMDIR=$DIST/.layman  	# layman drzewo pakietow do pobrania
 [ ! -e $CD_LAYMDIR ] && mkdir -pv $CD_LAYMDIR
 HOST=""
+KERNEL_ARM=raspberrypi-kernel_1.20161020-1
+CROSS_COMPILE=armv7a-hardfloat-linux-gnueabi-
 
 mount_all() {
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT 
@@ -615,10 +617,11 @@ veu "media-libs/mesa -vaapi"
 veu "gnome-base/librsvg -tools"
 veu "sys-devel/distcc crossdev"
 vex sys-devel/crossdev
-#vep sys-devel/gcc-5.4.0
+vep sys-devel/gcc-4.9.4
+vep sys-libs/ncurses-6.0-r1
+vep sys-apps/busybox-1.24.2
 #vep dev-lang/perl-5.24.0-r2
 #vep sys-libs/readline-7.0
-#vep sys-libs/ncurses-6.0-r1
 #vep dev-util/ctags-5.8
 #vep dev-lang/python-3.4.5
 EOF
@@ -635,6 +638,25 @@ EOF
 	cp2home /etc/portage/env r
 	cp2home /etc/portage/profile r
 	#cp2home /usr/portage r
+}
+
+3arm() {
+    cat > $PROFILETMP/vcportdir << 'EOF'
+cd /usr/src
+export KERNEL_ARM=raspberrypi-kernel_1.20161020-1
+export CROSS_COMPILE=armv7a-hardfloat-linux-gnueabi-
+wget -O linux-${KERNEL_ARM}.tar.gz https://github.com/raspberrypi/linux/archive/${KERNEL_ARM}.tar.gz
+tar xzf linux-${KERNEL_ARM}.tar.gz -C /usr/src
+ln -sfn linux-${KERNEL_ARM} linux
+cd linux
+#make O=/usr/src/linux ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} bcm2709_defconfig
+make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} bcm2709_defconfig
+make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} -j4
+EOF
+	chmod +x $PROFILETMP/vcportdir
+        mount_all
+	chroot $CHROOT /tmp/livecd/vcportdir
+	umount_all
 }
 
 genkernel() {
@@ -808,6 +830,8 @@ case "$2" in
     	1arm            ;;
     2arm)	
     	2arm            ;;
+    3arm)	
+    	3arm            ;;
     1)	
     	1etap           ;;
     2)	

@@ -231,7 +231,7 @@ PORTAGE_NICENESS="20"
 FEATURES="-collision-protect sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
 #FEATURES="${FEATURES} distcc distcc-pump" 
 
-PORTAGE_TMPDIR="/var/tmp/portage" 
+#PORTAGE_TMPDIR="/var/tmp/portage" 
 USE="${USE} -X -java -systemd -hardened -pic branding experimental extras -doc -acl -systemtap"
 USE="${USE} -kde plasma -gnome -gnome-keyring nautilus grub mediacenter"
 USE="${USE} -cryptsetup reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay"
@@ -624,11 +624,11 @@ EOF
 	[ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host
 	cp2home /etc/portage/package.use r
 	cp2home /etc/portage/package.keywords r
-	cp2home /etc/portage/package.mask r
-	cp2home /etc/portage/package.env r
-	cp2home /etc/portage/env r
-	cp2home /etc/portage/profile r
-	cp2home /usr/portage r
+	#cp2home /etc/portage/package.mask r
+	#cp2home /etc/portage/package.env r
+	#cp2home /etc/portage/env r
+	#cp2home /etc/portage/profile r
+	#cp2home /usr/portage r
 }
 
 genkernel() {

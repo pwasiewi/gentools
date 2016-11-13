@@ -282,13 +282,16 @@ systemctl restart systemd-binfmt
 #http://processors.wiki.ti.com/index.php/Creating_a_Root_File_System_for_Linux_on_OMAP35x
 http://processors.wiki.ti.com/index.php/Kernel_-_Common_Problems_Booting_Linux
 
+cd 
+git clone https://gist.github.com/586b9e389eb1bfedb951053d745473b6.git
+git clone https://github.com/pwasiewi/gentools.git
+mv 586b9e389eb1bfedb951053d745473b6 configist
 e m
 vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
 e u crossdev distcc
 #wget -c http://gentoo.prz.rzeszow.pl/releases/arm/autobuilds/20160523/stage3-armv7a_hardfp-20160523.tar.bz2
-[ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host;
-[ -d /etc/portage ] && rm -rf /etc/portage; cp -a /etc/portage.host/ /etc/portage; rm -rf /var/tmp/iso/r/chroot/*; rm /usr/armv7a-hardfloat-linux-gnueabi
+[ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host; [ -d /etc/portage ] && rm -rf /etc/portage; cp -a /etc/portage.host/ /etc/portage; rm -rf /var/tmp/iso/r/chroot/*; rm /usr/armv7a-hardfloat-linux-gnueabi -rf
 v r f
 v r 1arm
 

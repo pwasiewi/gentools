@@ -282,6 +282,7 @@ systemctl restart systemd-binfmt
 #http://processors.wiki.ti.com/index.php/Creating_a_Root_File_System_for_Linux_on_OMAP35x
 http://processors.wiki.ti.com/index.php/Kernel_-_Common_Problems_Booting_Linux
 
+e m
 vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
 e u crossdev distcc

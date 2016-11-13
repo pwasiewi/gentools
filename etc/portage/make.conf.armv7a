@@ -11,7 +11,7 @@ CXXFLAGS="${CFLAGS}"
 #FEATURES="-collision-protect sandbox buildpkg noman noinfo nodoc"
 # Be sure we dont overwrite pkgs from another repo..
 PKGDIR=/var/tmp/packages_arm
-PORTAGE_TMPDIR=/var/tmp/portage
+#PORTAGE_TMPDIR=/var/tmp/portage
 ELIBC="glibc"
 PKG_CONFIG_PATH="${ROOT}usr/lib/pkgconfig/"
 #PKG_CONFIG_PATH="/usr/lib/pkgconfig/"

@@ -288,6 +288,11 @@ e u crossdev distcc
 #wget -c http://gentoo.prz.rzeszow.pl/releases/arm/autobuilds/20160523/stage3-armv7a_hardfp-20160523.tar.bz2
 v r f
 
+
+
+[ -d /etc/portage.host ] && mv /etc/portage /etc/portage.host;
+[ -d /etc/portage ] && rm -rf /etc/portage; cp -a /etc/portage.host/ /etc/portage; rm -rf /var/tmp/iso/r/chroot/*; rm /usr/armv7a-hardfloat-linux-gnueabi
+
 #time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 5.4.0 --libc ">=2.23" --kernel 4.8.2 -oS /usr/portage
 
 ln -sfn /var/tmp/iso/r/chroot /usr/armv7a-hardfloat-linux-gnueabi
@@ -316,6 +321,7 @@ armv7a-1by1nodeps "ec p vim"
 
 armv7a-chroot bash
 vcportarm
+###################################################################################
 ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
 ln -sf /proc/self/mounts /etc/mtab
 echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
@@ -337,11 +343,20 @@ vep sys-devel/gcc-5.4.0
 vep dev-lang/python-3.4.5
 vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
+###################################################################################
 
+[ -d /etc/portage.host ] && mv /etc/portage /etc/portage.host
+cp2home /etc/portage r
+[ ! -e /usr/portage/profiles ] && cp2home /usr/portage r
+
+armv7a-emerge vim
 armv7a-emerge --nodeps util-linux
 armv7a-emerge --nodeps udev
+armv7a-emerge -C sys-devel/autoconf
+armv7a-emerge sys-devel/autoconf
+armv7a-1by1nodeps "ec U p eix"
 ### ec a s #emerge-chroot --ask --update -v --keep-going @system
-armv7a-chroot "ec p s" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'
+#armv7a-chroot "ec p s" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'
 armv7a-1by1nodeps "ec p s"
 ### armv7a-chroot "ec b s"
 

@@ -569,13 +569,14 @@ EOF
 	time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
 	cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s /usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile && cd /usr/armv7a-hardfloat-linux-gnueabi
 	ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
-	tar Jxvf /config.txz
+	tar Jxf /config.txz
 	sed -i 's/^\/dev\//\#\/dev\//g' etc/fstab
 	cp etc/portage/make.conf.armv7a etc/portage/make.conf
 	[ ! -e var/tmp/portage ] && mkdir var/tmp/portage 
 	[ ! -e /var/tmp/packages_arm ] && mkdir /var/tmp/packages_arm
 	[ ! -e var/tmp/packages_arm ] && mkdir var/tmp/packages_arm
 	mv etc/portage/repos.conf/s*.conf root
+	#vex "=app-emulation/qemu-9999 **"
 	veu "app-emulation/qemu -accessibility -aio alsa bluetooth bzip2 -caps curl -debug fdt -filecaps -glusterfs gnutls gtk gtk2 -infiniband -iscsi jpeg lzo ncurses nfs nls numa opengl pin-upstream-blobs png pulseaudio python -sasl -sdl -sdl2 -seccomp -selinux -smartcard snappy -spice ssh -static -static-softmmu static-user -systemtap -tci -test threads usb -usbredir -uuid -vde -vhost-net -virgl -virtfs -vnc -vte xattr -xen -xfs -rbd"
 	e qemu
 	etc-update --automode -5
@@ -610,14 +611,19 @@ veu "app-arch/p7zip -wxwidgets"
 veu "media-libs/mesa -vaapi"
 veu "gnome-base/librsvg -tools"
 vep sys-devel/gcc-5.4.0
-vep dev-lang/python-3.4.5
+#vep dev-lang/python-3.4.5
 vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
+vep sys-libs/ncurses-6.0-r1
 EOF
 	chmod +x $PROFILETMP/vcportdir
         mount_all
 	chroot $CHROOT /tmp/livecd/vcportdir
 	umount_all
+
+	[ -d /etc/portage.host ] && mv /etc/portage /etc/portage.host
+	cp2home /etc/portage r
+	[ ! -e /usr/portage/profiles ] && cp2home /usr/portage r
 }
 
 genkernel() {

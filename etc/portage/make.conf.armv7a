@@ -3,7 +3,8 @@ HOSTCC=x86_64-pc-linux-gnu-gcc
 CHOST=armv7a-hardfloat-linux-gnueabi
 ARCH=arm
 ROOT=/usr/${CHOST}/
-ACCEPT_KEYWORDS="arm ~arm"
+#ACCEPT_KEYWORDS="arm ~arm"
+ACCEPT_KEYWORDS="arm"
 USE="${ARCH} -pam -acl"
 #CFLAGS="-O2 -pipe -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=hard -fomit-frame-pointer"
 CFLAGS="-O2 -pipe -fomit-frame-pointer"

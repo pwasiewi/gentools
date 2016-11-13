@@ -250,20 +250,6 @@ v a 8host
 ##############################################################
 
 ##############################################################
-#BACKUP
-##############################################################
-#for i in .SQLDeveloper .WebStorm .android-ndk .android-sdk-linux .android-studio .eclipse-4.5; do 8z opt160317$i $i; done;
-
-##############################################################
-https://www.thomas-krenn.com/pl/wiki/Optymalizacja_systemu_Windows_na_dysku_SSD
-
-##############################################################
-# https://hub.docker.com/r/gentoo/stage3-amd64/
-docker create -v /usr/portage --name portage gentoo/portage
-docker run --volumes-from portage --name gentoo -it gentoo/stage3-amd64 /bin/bash
-docker run -P -it gentoo/stage3-amd64 /bin/bash
-
-##############################################################
 echo -1 >   /proc/sys/fs/binfmt_misc/arm
 echo -1 >   /proc/sys/fs/binfmt_misc/armeb
 #najlepsza!
@@ -280,32 +266,20 @@ systemctl restart systemd-binfmt
 #http://ublo.ro/raspberry-pi-minimal-gentoo/
 #https://wiki.gentoo.org/wiki/Cross_build_environment
 #http://processors.wiki.ti.com/index.php/Creating_a_Root_File_System_for_Linux_on_OMAP35x
-http://processors.wiki.ti.com/index.php/Kernel_-_Common_Problems_Booting_Linux
+#http://processors.wiki.ti.com/index.php/Kernel_-_Common_Problems_Booting_Linux
 
 cd 
-git clone https://gist.github.com/586b9e389eb1bfedb951053d745473b6.git
 git clone https://github.com/pwasiewi/gentools.git
+git clone https://gist.github.com/586b9e389eb1bfedb951053d745473b6.git
 mv 586b9e389eb1bfedb951053d745473b6 configist
 e m
 vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
 e u crossdev distcc
-#wget -c http://gentoo.prz.rzeszow.pl/releases/arm/autobuilds/20160523/stage3-armv7a_hardfp-20160523.tar.bz2
 [ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host; [ -d /etc/portage ] && rm -rf /etc/portage; cp -a /etc/portage.host/ /etc/portage; rm -rf /var/tmp/iso/r/chroot/*; rm /usr/armv7a-hardfloat-linux-gnueabi -rf
 v r f
 v r 1arm
 
-# armv7a-chroot #sprawdzenie
-#time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 5.4.0 --libc ">=2.23" --kernel 4.8.2 -oS /usr/portage
-#armv7a-hardfloat-linux-gnueabi-emerge bash
-#armv7a-hardfloat-linux-gnueabi-emerge -uva --keep-going @system
-#armv7a-hardfloat-linux-gnueabi-emerge -uva1 --keep-going $(egrep '^[a-z]+' /usr/portage/profiles/default/linux/packages.build)
-
-gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
-
-armv7a-1by1nodeps "ec p vim"
-
-armv7a-chroot bash
 
 ###################################################################################
 v r 2arm
@@ -334,6 +308,13 @@ vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
 ###################################################################################
 
+# armv7a-chroot #sprawdzenie
+#time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 5.4.0 --libc ">=2.23" --kernel 4.8.2 -oS /usr/portage
+#armv7a-hardfloat-linux-gnueabi-emerge bash
+#armv7a-hardfloat-linux-gnueabi-emerge -uva --keep-going @system
+#armv7a-hardfloat-linux-gnueabi-emerge -uva1 --keep-going $(egrep '^[a-z]+' /usr/portage/profiles/default/linux/packages.build)
+#armv7a-1by1nodeps "ec p vim"
+
 [ -d /etc/portage.host ] && mv /etc/portage /etc/portage.host
 cp2home /etc/portage r
 [ ! -e /usr/portage/profiles ] && cp2home /usr/portage r
@@ -343,6 +324,8 @@ armv7a-emerge --nodeps util-linux
 armv7a-emerge --nodeps udev
 armv7a-emerge -C sys-devel/autoconf
 armv7a-emerge sys-devel/autoconf
+armv7a-emerge -uND gentoolkit
+
 armv7a-1by1nodeps "ec U p eix"
 armv7a-1by1nodeps "ec p s"
 
@@ -418,4 +401,18 @@ emerge -u --ask --verbose dev-vcs/git dev-util/diffstat app-arch/unzip sys-apps/
 #very small kernel
 #http://wiki.osdev.org/Raspberry_Pi_Bare_Bones
 #http://wiki.osdev.org/Bare_Bones
+
+##############################################################
+#BACKUP
+##############################################################
+#for i in .SQLDeveloper .WebStorm .android-ndk .android-sdk-linux .android-studio .eclipse-4.5; do 8z opt160317$i $i; done;
+
+##############################################################
+https://www.thomas-krenn.com/pl/wiki/Optymalizacja_systemu_Windows_na_dysku_SSD
+
+##############################################################
+# https://hub.docker.com/r/gentoo/stage3-amd64/
+docker create -v /usr/portage --name portage gentoo/portage
+docker run --volumes-from portage --name gentoo -it gentoo/stage3-amd64 /bin/bash
+docker run -P -it gentoo/stage3-amd64 /bin/bash
 

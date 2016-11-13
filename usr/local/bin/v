@@ -606,20 +606,21 @@ locale-gen
 gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
 echo 'alias emerge_chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge_chroot && source /etc/profile
 #sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
-vep dev-lang/perl-5.24.0-r2
 veu ">=dev-libs/libpcre-8.39 pcre16"
-vep sys-libs/readline-7.0
 veu "net-libs/libproxy -webkit"
 veu "media-libs/harfbuzz -graphite"
 veu "dev-util/cmake -qt5"
 veu "app-arch/p7zip -wxwidgets"
 veu "media-libs/mesa -vaapi"
 veu "gnome-base/librsvg -tools"
-vep sys-devel/gcc-5.4.0
-#vep dev-lang/python-3.4.5
-vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
-vep sys-libs/ncurses-6.0-r1
+vex sys-devel/crossdev
+#vep sys-devel/gcc-5.4.0
+#vep dev-lang/perl-5.24.0-r2
+#vep sys-libs/readline-7.0
+#vep sys-libs/ncurses-6.0-r1
+#vep dev-util/ctags-5.8
+#vep dev-lang/python-3.4.5
 EOF
 	chmod +x $PROFILETMP/vcportdir
         mount_all

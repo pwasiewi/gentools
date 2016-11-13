@@ -557,6 +557,9 @@ EOF
 
 1arm() {
 	umount_all
+	[ -e /usr/armv7a-hardfloat-linux-gnueabi ] && rm -rf /usr/armv7a-hardfloat-linux-gnueabi
+	time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
+     	mv /usr/armv7a-hardfloat-linux-gnueabi /usr/armv7a-hardfloat-linux-gnueabi.orig
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
 	[ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
 	echo ">>> Rozpakowuje Gentoo stage3..."
@@ -564,10 +567,9 @@ EOF
         #mv "$CDLOC/$CD_STAGEFILE" $CHROOT
 	# aby siec dzialala
 	cp /etc/resolv.conf ${CHROOT}/etc
-
  	ln -sfn /var/tmp/iso/r/chroot /usr/armv7a-hardfloat-linux-gnueabi
 	time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
-	cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s /usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile && cd /usr/armv7a-hardfloat-linux-gnueabi
+	cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s ../../usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile && cd /usr/armv7a-hardfloat-linux-gnueabi
 	ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
 	tar Jxf /config.txz
 	sed -i 's/^\/dev\//\#\/dev\//g' etc/fstab
@@ -584,7 +586,10 @@ EOF
 	quickpkg qemu --include-config y
 	ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
 	gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
+}
 
+
+2arm() {
     cat > $PROFILETMP/vcportdir << 'EOF'
 cd /usr
 wget -c http://gentoo.prz.rzeszow.pl/snapshots/portage-latest.tar.xz
@@ -800,6 +805,8 @@ case "$2" in
     	umount_all      ;;
     1arm)	
     	1arm            ;;
+    2arm)	
+    	2arm            ;;
     1)	
     	1etap           ;;
     2)	

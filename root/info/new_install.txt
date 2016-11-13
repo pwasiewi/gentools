@@ -287,40 +287,25 @@ vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
 e u crossdev distcc
 #wget -c http://gentoo.prz.rzeszow.pl/releases/arm/autobuilds/20160523/stage3-armv7a_hardfp-20160523.tar.bz2
-v r f
-
-
-
 [ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host;
 [ -d /etc/portage ] && rm -rf /etc/portage; cp -a /etc/portage.host/ /etc/portage; rm -rf /var/tmp/iso/r/chroot/*; rm /usr/armv7a-hardfloat-linux-gnueabi
+v r f
+v r 1arm
 
+# armv7a-chroot #sprawdzenie
 #time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 5.4.0 --libc ">=2.23" --kernel 4.8.2 -oS /usr/portage
-
-ln -sfn /var/tmp/iso/r/chroot /usr/armv7a-hardfloat-linux-gnueabi
-time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
-cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s /usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile && cd /usr/armv7a-hardfloat-linux-gnueabi
-ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
-tar Jxvf /config.txz
-sed -i 's/^\/dev\//\#\/dev\//g' etc/fstab
-cp etc/portage/make.conf.armv7a etc/portage/make.conf
-[ ! -e var/tmp/portage ] && mkdir var/tmp/portage 
-[ ! -e /var/tmp/packages_arm ] && mkdir /var/tmp/packages_arm
-[ ! -e var/tmp/packages_arm ] && mkdir var/tmp/packages_arm
-mv etc/portage/repos.conf/s*.conf root
-
 #armv7a-hardfloat-linux-gnueabi-emerge bash
 #armv7a-hardfloat-linux-gnueabi-emerge -uva --keep-going @system
 #armv7a-hardfloat-linux-gnueabi-emerge -uva1 --keep-going $(egrep '^[a-z]+' /usr/portage/profiles/default/linux/packages.build)
 
-veu "app-emulation/qemu -accessibility aio alsa bluetooth bzip2 caps curl -debug fdt -filecaps -glusterfs gnutls gtk gtk2 -infiniband -iscsi jpeg lzo ncurses nfs nls numa opengl pin-upstream-blobs png pulseaudio python -sasl sdl sdl2 -seccomp -selinux -smartcard snappy spice ssh -static -static-softmmu static-user -systemtap -tci -test threads usb -usbredir -uuid vde vhost-net virgl -virtfs vnc vte xattr xen xfs -rbd"
-e qemu
-quickpkg qemu --include-config y
-ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
 gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
 
 armv7a-1by1nodeps "ec p vim"
 
 armv7a-chroot bash
+
+###################################################################################
+v r 2arm
 vcportarm
 ###################################################################################
 ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime

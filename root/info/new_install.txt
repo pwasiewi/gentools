@@ -329,6 +329,17 @@ armv7a-emerge vim
 armv7a-1by1nodeps "ec U p gentoolkit"
 armv7a-1by1nodeps "ec U p eix"
 armv7a-1by1nodeps "ec p w"
+armv7a-1by1nodeps "ec p openbox"
+armv7a-chroot "ec glib"
+armv7a-chroot "ec gobject-introspection"
+armv7a-chroot "ec harfbuzz"
+armv7a-chroot "ec x11-libs/pango"
+armv7a-chroot "ec vim"
+armv7a-emerge openbox
+armv7a-1by1nodeps "ec U p xorg-server"
+armv7a-chroot "ec llvm" #160min qemu in Vbox
+armv7a-chroot "ec mesa"
+
 
 ### ec a s #emerge-chroot --ask --update -v --keep-going @system
 #armv7a-chroot "ec p s" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'

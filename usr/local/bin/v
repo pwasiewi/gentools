@@ -641,16 +641,17 @@ EOF
 }
 
 3arm() {
-    cat > $PROFILETMP/vcportdir << 'EOF'
+    	armv7a-emerge -u bc
+    	cat > $PROFILETMP/vcportdir << 'EOF'
 cd /usr/src
 export KERNEL_ARM=raspberrypi-kernel_1.20161020-1
 export CROSS_COMPILE=armv7a-hardfloat-linux-gnueabi-
-wget -O linux-${KERNEL_ARM}.tar.gz https://github.com/raspberrypi/linux/archive/${KERNEL_ARM}.tar.gz
-tar xzf linux-${KERNEL_ARM}.tar.gz -C /usr/src
+wget -c -O linux-${KERNEL_ARM}.tar.gz https://github.com/raspberrypi/linux/archive/${KERNEL_ARM}.tar.gz
+[ ! -d linux-${KERNEL_ARM} ] && tar xzf linux-${KERNEL_ARM}.tar.gz -C /usr/src
 ln -sfn linux-${KERNEL_ARM} linux
 cd linux
 #make O=/usr/src/linux ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} bcm2709_defconfig
-make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} bcm2709_defconfig
+[ ! -e .config ] && make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} bcm2709_defconfig
 make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} -j4
 EOF
 	chmod +x $PROFILETMP/vcportdir

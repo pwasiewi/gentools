@@ -41,7 +41,7 @@ FEATURES="buildpkg sandbox parallel-fetch metadata-transfer fail-clean -compress
 
 #PORTAGE_TMPDIR="/var/tmp/portage" 
 USE="${USE} -X -java -systemd -hardened -pic branding experimental extras -doc -acl -systemtap"
-USE="${USE} -kde plasma -gnome -gnome-keyring nautilus grub mediacenter xkb"
+USE="${USE} -kde plasma -gnome -gnome-keyring nautilus grub mediacenter xkb xa" 
 USE="${USE} -cryptsetup reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay"
 USE="${USE} device-mapper udev openrc kernel-patch -systemtap -pax_kernel acpi icu kvm fuse threads usb bluetooth network consolekit ssl wifi pcap -ipv6 -automount -gnutls -hal"
 USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost"

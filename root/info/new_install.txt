@@ -319,13 +319,13 @@ veu "sys-devel/distcc crossdev"
 cp2home /etc/portage r
 [ ! -e /usr/portage/profiles ] && cp2home /usr/portage r
 
-armv7a-emerge vim
 #armv7a-emerge --nodeps util-linux
 #armv7a-emerge --nodeps udev
 #armv7a-emerge -C sys-devel/autoconf
 #armv7a-emerge sys-devel/autoconf
 #armv7a-emerge -uND gentoolkit
 
+armv7a-emerge vim
 armv7a-1by1nodeps "ec U p gentoolkit"
 armv7a-1by1nodeps "ec U p eix"
 armv7a-1by1nodeps "ec p w"
@@ -337,15 +337,21 @@ armv7a-chroot "ec x11-libs/pango"
 armv7a-chroot "ec vim"
 armv7a-emerge openbox
 armv7a-1by1nodeps "ec U p xorg-server"
-armv7a-chroot "ec llvm" #160min qemu in Vbox
-armv7a-chroot "ec mesa"
+armv7a-chroot "ec llvm" #160min qemu in vbox - 10 razy mniej w vbox!
+armv7a-chroot "ec mesa" #77min qemu in vbox - 10 razy mniej w vbox!
+armv7a-1by1nodeps "ec U p xorg-server"
+armv7a-chroot "ec gdk-pixbuf"
+armv7a-chroot "ec distcc"
 
+v r 3arm
+
+#inne crosskompilacje w gentoo
+#https://github.com/chewi/cross-boss
+#http://bloodnoc.org/~roy/BINHOSTS/
 
 ### ec a s #emerge-chroot --ask --update -v --keep-going @system
 #armv7a-chroot "ec p s" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'
 ### armv7a-chroot "ec b s"
-
-armv7a-emerge -uND -v system
 
 ##############################################################
 ##############################################################

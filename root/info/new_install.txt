@@ -343,7 +343,10 @@ armv7a-1by1nodeps "ec U p xorg-server"
 armv7a-chroot "ec gdk-pixbuf"
 armv7a-chroot "ec distcc"
 
+#https://wiki.gentoo.org/wiki/Raspberry_Pi
 v r 3arm
+
+#ARCH=arm genkernel --config=/etc/genkernel-rpi.conf --kernel-config=/usr/armv7a-hardfloat-linux-gnueabi/usr/src/linux/arch/arm/configs/bcmrpi_defconfig kernel 
 
 #inne crosskompilacje w gentoo
 #https://github.com/chewi/cross-boss

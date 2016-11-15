@@ -114,8 +114,16 @@ CD_PORTDIR=$DIST/.portage  	# portage drzewo pakietow do pobrania
 CD_LAYMDIR=$DIST/.layman  	# layman drzewo pakietow do pobrania
 [ ! -e $CD_LAYMDIR ] && mkdir -pv $CD_LAYMDIR
 HOST=""
+
+#####################################
+##  ARM parametry ###################
+#####################################
 KERNEL_ARM=raspberrypi-kernel_1.20161020-1
 CROSS_COMPILE=armv7a-hardfloat-linux-gnueabi-
+
+#####################################
+#####################################
+#####################################
 
 mount_all() {
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT 
@@ -617,6 +625,7 @@ veu "media-libs/mesa -vaapi"
 veu "gnome-base/librsvg -tools"
 veu "sys-devel/distcc crossdev"
 vex sys-devel/crossdev
+vex sys-kernel/genkernel
 vep sys-devel/gcc-4.9.4
 vep sys-libs/ncurses-6.0-r1
 vep sys-apps/busybox-1.24.2
@@ -641,23 +650,23 @@ EOF
 }
 
 3arm() {
-    	armv7a-emerge -u bc
-    	cat > $PROFILETMP/vcportdir << 'EOF'
+    	armv7a-emerge -u bc genkernel
+    	cat > $PROFILETMP/vcportdir << EOF
 cd /usr/src
-export KERNEL_ARM=raspberrypi-kernel_1.20161020-1
-export CROSS_COMPILE=armv7a-hardfloat-linux-gnueabi-
-wget -c -O linux-${KERNEL_ARM}.tar.gz https://github.com/raspberrypi/linux/archive/${KERNEL_ARM}.tar.gz
+[ ! -e linux-${KERNEL_ARM}.tar.gz ] && wget -O linux-${KERNEL_ARM}.tar.gz https://github.com/raspberrypi/linux/archive/${KERNEL_ARM}.tar.gz
 [ ! -d linux-${KERNEL_ARM} ] && tar xzf linux-${KERNEL_ARM}.tar.gz -C /usr/src
 ln -sfn linux-${KERNEL_ARM} linux
 cd linux
-#make O=/usr/src/linux ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} bcm2709_defconfig
-[ ! -e .config ] && make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} bcm2709_defconfig
-make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} -j4
 EOF
 	chmod +x $PROFILETMP/vcportdir
         mount_all
 	chroot $CHROOT /tmp/livecd/vcportdir
 	umount_all
+cd $CHROOT/usr/src/linux
+[ ! -e .config ] && make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} bcm2709_defconfig
+make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} oldconfig
+make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} -j4
+make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} modules_install INSTALL_MOD_PATH=$CHROOT
 }
 
 genkernel() {

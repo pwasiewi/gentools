@@ -80,8 +80,8 @@ do
             ;;
         w|W)
 	    if [ "$RECOMP" == "-e" ]; then
-	       echo emerge $ASK -e @world
-	       time emerge $ASK -e @world
+	       echo emerge $VERBOSE $ASK -e @world
+	       time emerge $VERBOSE $ASK -e @world
 	    else
                echo emerge -uND $VERBOSE $ASK $BINARY $KEEP_GOING $TREE $FETCH $NODEPS @world
                time emerge -uND $VERBOSE $ASK $BINARY $KEEP_GOING $TREE $FETCH $NODEPS @world
@@ -90,8 +90,8 @@ do
             ;;
         s|S)
 	    if [ "$RECOMP" == "-e" ]; then
-	       echo emerge $ASK -e @world
-	       time emerge $ASK -e @world
+	       echo emerge $VERBOSE $ASK -e @world
+	       time emerge $VERBOSE $ASK -e @world
 	    else
                echo emerge -uND $VERBOSE $ASK $BINARY $KEEP_GOING $TREE $FETCH $NODEPS @system
                time emerge -uND $VERBOSE $ASK $BINARY $KEEP_GOING $TREE $FETCH $NODEPS @system

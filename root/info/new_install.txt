@@ -345,12 +345,14 @@ armv7a-chroot "ec distcc"
 
 #https://wiki.gentoo.org/wiki/Raspberry_Pi
 v r 3arm
-
 #ARCH=arm genkernel --config=/etc/genkernel-rpi.conf --kernel-config=/usr/armv7a-hardfloat-linux-gnueabi/usr/src/linux/arch/arm/configs/bcmrpi_defconfig kernel 
+
+armv7a-chroot "ec e p w"
 
 #inne crosskompilacje w gentoo
 #https://github.com/chewi/cross-boss
 #http://bloodnoc.org/~roy/BINHOSTS/
+#https://github.com/dervishe-/genBerry
 
 ### ec a s #emerge-chroot --ask --update -v --keep-going @system
 #armv7a-chroot "ec p s" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'

@@ -11,7 +11,7 @@ I. INSTALACJA Z OFICJALNEGO LIVEDVD/USB NA VIRTUALBOX
 sudo su -
 #Skrypty do screencastów o sprawnej instalacji gentoo https://goo.gl/Ao9sUU
 wget -c https://goo.gl/zbNuuu  -O../config.txz
-#NOWSZA WERSJA skryptów: https://goo.gl/STCdfQ
+#NOWSZA WERSJA skryptów: https://goo.gl/AWObbz
 #wget -c https://codeload.github.com/pwasiewi/gentools/tar.gz/v0.6  -O../config.txz
 cd / && tar Jxvf config.txz && cd
 v a p #edytuj settings chroot na /dev/sda5 

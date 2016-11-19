@@ -313,7 +313,7 @@ veu "sys-devel/distcc crossdev"
 #armv7a-hardfloat-linux-gnueabi-emerge bash
 #armv7a-hardfloat-linux-gnueabi-emerge -uva --keep-going @system
 #armv7a-hardfloat-linux-gnueabi-emerge -uva1 --keep-going $(egrep '^[a-z]+' /usr/portage/profiles/default/linux/packages.build)
-#armv7a-1by1nodeps "ec p vim"
+#armv7a-1by1crossroot "ec p vim"
 
 [ -d /etc/portage.host ] && mv /etc/portage /etc/portage.host
 cp2home /etc/portage r
@@ -325,26 +325,18 @@ cp2home /etc/portage r
 #armv7a-emerge sys-devel/autoconf
 #armv7a-emerge -uND gentoolkit
 
-armv7a-emerge vim
-armv7a-1by1nodeps "ec U p gentoolkit"
-armv7a-1by1nodeps "ec U p eix"
-armv7a-1by1nodeps "ec p w"
-armv7a-1by1nodeps "ec p openbox"
-armv7a-chroot "ec glib"
-armv7a-chroot "ec gobject-introspection"
-armv7a-chroot "ec harfbuzz"
-armv7a-chroot "ec x11-libs/pango"
-armv7a-chroot "ec vim"
-armv7a-emerge openbox
-armv7a-1by1nodeps "ec U p xorg-server"
-armv7a-chroot "ec llvm" #160min qemu in vbox - 10 razy mniej w vbox!
-armv7a-chroot "ec mesa" #77min qemu in vbox - 10 razy mniej w vbox!
-armv7a-1by1nodeps "ec U p xorg-server"
-armv7a-chroot "ec gdk-pixbuf"
-armv7a-chroot "ec distcc"
+armv7a-1by1crossroot "ec U p vim"
+armv7a-1by1crossroot "ec U p gentoolkit"
+armv7a-1by1crossroot "ec U p eix"
+armv7a-1by1crossroot "ec p w"
+armv7a-1by1crossroot "ec U p openbox"
+armv7a-1by1crossroot "ec U p xorg-server" #160min na gentoo hoscie
+#armv7a-chroot "ec llvm" #160min qemu in vbox - 10 razy mniej w vbox!
+#armv7a-chroot "ec mesa" #77min qemu in vbox - 10 razy mniej w vbox!
+armv7a-1by1crossroot "ec U p distcc" #40min na gentoo
 
 #https://wiki.gentoo.org/wiki/Raspberry_Pi
-v r 3arm
+time v r 3arm
 #ARCH=arm genkernel --config=/etc/genkernel-rpi.conf --kernel-config=/usr/armv7a-hardfloat-linux-gnueabi/usr/src/linux/arch/arm/configs/bcmrpi_defconfig kernel 
 
 armv7a-chroot "ec e p w"

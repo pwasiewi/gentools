@@ -648,6 +648,7 @@ EOF
 	cp2home /etc/portage/env r
 	cp2home /etc/portage/profile r
 	#cp2home /usr/portage r
+        armv7a-1by1crossroot "ec U p vim"
 }
 
 3arm() {
@@ -668,6 +669,23 @@ cd $CHROOT/usr/src/linux
 make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} oldconfig
 make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} -j4
 make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} modules_install INSTALL_MOD_PATH=$CHROOT
+}
+
+4arm() {
+ 	#trwa 4 godziny
+    	cat > $PROFILETMP/vcportdir << EOF
+	sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
+EOF
+	chmod +x $PROFILETMP/vcportdir
+        mount_all
+	chroot $CHROOT /tmp/livecd/vcportdir
+	umount_all
+        time armv7a-1by1crossroot "ec U p gentoolkit"
+        time armv7a-1by1crossroot "ec U p eix"
+        time armv7a-1by1crossroot "ec p w"
+	time armv7a-1by1crossroot "ec U p openbox"
+	time armv7a-1by1crossroot "ec U p xorg-server" #160min na gentoo
+	time armv7a-1by1crossroot "ec U p distcc" #41min
 }
 
 genkernel() {

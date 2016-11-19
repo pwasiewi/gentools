@@ -626,6 +626,7 @@ veu "gnome-base/librsvg -tools"
 veu "sys-devel/distcc crossdev"
 vex sys-devel/crossdev
 vex sys-kernel/genkernel
+vex x11-libs/pango
 vep sys-devel/gcc-4.9.4
 vep sys-libs/ncurses-6.0-r1
 vep sys-apps/busybox-1.24.2

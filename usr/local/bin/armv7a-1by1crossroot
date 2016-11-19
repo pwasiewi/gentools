@@ -1,0 +1,2 @@
+for i in `armv7a-chroot "$@" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'`; do armv7a-hardfloat-linux-gnueabi-emerge --root=/usr/armv7a-hardfloat-linux-gnueabi --config-root=/usr/armv7a-hardfloat-linux-gnueabi --nodeps $i; if [ "$?" = "0" ]; then echo $i >> /var/tmp/packages_arm/packages_done.txt; else echo $i >> /var/tmp/packages_arm/packages_chrootrial.txt; armv7a-chroot "ec u n $i"; fi;  done
+

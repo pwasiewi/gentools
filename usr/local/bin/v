@@ -584,9 +584,9 @@ EOF
 	tar Jxf /config.txz
 	sed -i 's/^\/dev\//\#\/dev\//g' etc/fstab
 	cp etc/portage/make.conf.armv7a etc/portage/make.conf
-	[ ! -e var/tmp/portage ] && mkdir var/tmp/portage 
-	[ ! -e /var/tmp/packages_arm ] && mkdir /var/tmp/packages_arm
-	[ ! -e var/tmp/packages_arm ] && mkdir var/tmp/packages_arm
+	[ ! -e var/tmp/portage ] && mkdir var/tmp/portage -pv
+	[ ! -e /var/tmp/packages_arm ] && mkdir /var/tmp/packages_arm -pv
+	[ ! -e var/tmp/packages_arm ] && mkdir var/tmp/packages_arm -pv
 	mv etc/portage/repos.conf/s*.conf root
 	#vex "=app-emulation/qemu-9999 **"
 	veu "app-emulation/qemu -accessibility -aio alsa bluetooth bzip2 -caps curl -debug fdt -filecaps -glusterfs gnutls gtk gtk2 -infiniband -iscsi jpeg lzo ncurses nfs nls numa opengl pin-upstream-blobs png pulseaudio python -sasl -sdl -sdl2 -seccomp -selinux -smartcard snappy -spice ssh -static -static-softmmu static-user -systemtap -tci -test threads usb -usbredir -uuid -vde -vhost-net -virgl -virtfs -vnc -vte xattr -xen -xfs -rbd"
@@ -648,11 +648,13 @@ EOF
 	cp2home /etc/portage/env r
 	cp2home /etc/portage/profile r
 	#cp2home /usr/portage r
-        armv7a-1by1crossroot "ec U p vim"
 }
 
 3arm() {
-    	armv7a-emerge -u bc genkernel
+        #trwa 40min
+        armv7a-1by1crossroot "ec U p vim"
+        armv7a-1by1crossroot "ec U p bc"
+        armv7a-1by1crossroot "ec U p genkernel"
     	cat > $PROFILETMP/vcportdir << EOF
 cd /usr/src
 [ ! -e linux-${KERNEL_ARM}.tar.gz ] && wget -O linux-${KERNEL_ARM}.tar.gz https://github.com/raspberrypi/linux/archive/${KERNEL_ARM}.tar.gz
@@ -672,7 +674,7 @@ make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} modules_install INSTALL_MOD_PATH=$C
 }
 
 4arm() {
- 	#trwa 4 godziny
+ 	#trwa 40 min
     	cat > $PROFILETMP/vcportdir << EOF
 	sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
 EOF
@@ -683,9 +685,13 @@ EOF
         time armv7a-1by1crossroot "ec U p gentoolkit"
         time armv7a-1by1crossroot "ec U p eix"
         time armv7a-1by1crossroot "ec p w"
-	time armv7a-1by1crossroot "ec U p openbox"
-	time armv7a-1by1crossroot "ec U p xorg-server" #160min na gentoo
 	time armv7a-1by1crossroot "ec U p distcc" #41min
+}
+
+5arm() {
+ 	#trwa 3,2 godziny gdyż llvm w chroocie 80min, mesa 46min, jeśli crosscompiler z hosta by działał...
+	time armv7a-1by1crossroot "ec U p xorg-server" #160min na gentoo
+	time armv7a-1by1crossroot "ec U p openbox"
 }
 
 genkernel() {
@@ -861,6 +867,10 @@ case "$2" in
     	2arm            ;;
     3arm)	
     	3arm            ;;
+    4arm)	
+    	4arm            ;;
+    5arm)	
+    	5arm            ;;
     1)	
     	1etap           ;;
     2)	

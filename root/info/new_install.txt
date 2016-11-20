@@ -276,7 +276,11 @@ vex sys-devel/crossdev
 veu "sys-devel/distcc crossdev"
 e u crossdev distcc
 /etc/init.d/binfmt restart
-[ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host; [ -d /etc/portage ] && rm -rf /etc/portage; cp -a /etc/portage.host/ /etc/portage; rm -rf /var/tmp/iso/r/chroot/*; rm /usr/armv7a-hardfloat-linux-gnueabi -rf
+systemctl restart systemd-binfmt
+
+[ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host; [ -d
+/etc/portage ] && rm -rf /etc/portage; cp -a /etc/portage.host/ /etc/portage;
+rm -rf /var/tmp/iso/r/chroot/*; rm /usr/armv7a-hardfloat-linux-gnueabi* -rf
 v r f
 v r 1arm
 

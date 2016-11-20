@@ -346,6 +346,8 @@ time v r 3arm
 armv7a-chroot "ec e p w"
 
 #inne crosskompilacje w gentoo
+#https://goo.gl/n6MgZa
+#https://github.com/grbd/GBD.Rpi2.Gentoo
 #https://github.com/chewi/cross-boss
 #http://bloodnoc.org/~roy/BINHOSTS/
 #https://github.com/dervishe-/genBerry

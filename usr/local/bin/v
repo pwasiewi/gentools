@@ -689,7 +689,7 @@ EOF
 }
 
 5arm() {
- 	#trwa 3,2 godziny gdyż llvm w chroocie 80min, mesa 46min, jeśli crosscompiler z hosta by działał...
+ 	#trwa ponad 3.5 godziny, gdyż llvm w chroocie 80min, mesa 46min, jeśli crosscompiler z hosta by je compilował byłoby z 10razy krócej
 	time armv7a-1by1crossroot "ec U p xorg-server" #160min na gentoo
 	time armv7a-1by1crossroot "ec U p openbox"
 }

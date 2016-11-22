@@ -327,6 +327,8 @@ make defconfig
 make kvmconfig
 ./scripts/config --enable  CONFIG_E1000
 ./scripts/config --disable DM_DEBUG_BLOCK_STACK_TRACING
+./scripts/config --enable SND_INTEL8X0
+./scripts/config --enable SND_HDA_GENERIC
 make olddefconfig
 sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
 e k
@@ -533,8 +535,10 @@ vex app-admin/mongo-tools
 vex dev-db/mongodb #na razie rezygnuje z kompilacji mongodb, gdyz trzeba na 1 rdzeniu
 echo "dev-db/mongodb empty1core" >> /etc/portage/package.env/moje.env
 e u cdrtools dvd+rw-tools libisoburn R octave nodejs opera #67 pakietow 30min
+vex app-emulation/virtualbox-guest-additions
+e app-emulation/virtualbox-guest-additions
 vex x11-drivers/xf86-video-virtualbox
-e u =x11-drivers/xf86-video-virtualbox-5.1.6
+e u x11-drivers/xf86-video-virtualbox
 echo "jesli blad kompilacji virtualbox drivera, to nalezy poprawic kod wykorzystujac ebuild wykonujacy instalacje etapami:"
 echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild compile"
 echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild install"

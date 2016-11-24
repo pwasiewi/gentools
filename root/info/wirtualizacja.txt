@@ -1,0 +1,15 @@
+vex app-emulation/virtualbox
+vex app-emulation/virtualbox-additions
+vex app-emulation/virtualbox-extpack-oracle
+vex app-emulation/virtualbox-guest-additions
+vex app-emulation/virtualbox-modules
+vex x11-drivers/xf86-video-virtualbox
+vex media-libs/libvpx
+vex dev-util/kbuild
+e virtualbox
+e virtualbox-additions virtualbox-extpack-oracle
+useradd -G vboxusers guest
+chmod a+x /usr/lib64/virtualbox/*
+chmod a+r /usr/lib64/virtualbox/*
+chmod 755 /usr/lib64/virtualbox/VBox
+chmod 755 /usr/lib64/virtualbox/VBox

@@ -351,6 +351,7 @@ armv7a-chroot "ec e p w"
 #https://github.com/chewi/cross-boss
 #http://bloodnoc.org/~roy/BINHOSTS/
 #https://github.com/dervishe-/genBerry
+#https://github.com/twobitcircus/rpi-build-and-boot
 
 ### ec a s #emerge-chroot --ask --update -v --keep-going @system
 #armv7a-chroot "ec p s" 2>&1 | grep "\[ebuild" | cut -d: -f1 | cut -d] -f2 | sed 's/\ /=/'

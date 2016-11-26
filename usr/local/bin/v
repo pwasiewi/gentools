@@ -256,6 +256,7 @@ USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost"
 #USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot"
 
 VIDEO_CARDS="nvidia intel radeon fglrx nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu" 
+INPUT_DEVICES="synaptics evdev"
 PORTDIR_OVERLAY="/usr/local/portage $PORTDIR_OVERLAY" 
 APACHE2_MODULES="actions alias auth_basic authn_alias authn_anon authn_core authn_dbm authn_file authz_core authz_dbm authz_groupfile authz_host authz_owner authz_user autoindex cache cgi cgid dav dav_fs dav_lock deflate dir env expires ext_filter file_cache filter headers include info log_config logio mime mime_magic negotiation rewrite setenvif socache_shmcb speling status unique_id unixd userdir usertrack vhost_alias access_compat asis auth_digest authn_dbd cache_disk dbd dumpio ident imagemap" 
 PORTAGE_ECLASS_WARNING_ENABLE="0" 

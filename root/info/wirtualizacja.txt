@@ -13,3 +13,4 @@ chmod a+x /usr/lib64/virtualbox/*
 chmod a+r /usr/lib64/virtualbox/*
 chmod 755 /usr/lib64/virtualbox/VBox
 chmod 755 /usr/lib64/virtualbox/VBox
+for m in vbox{drv,netadp,netflt}; do modprobe $m; done

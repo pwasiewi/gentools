@@ -1,0 +1,19 @@
+pomoc() {
+  cat << EOF
+  Konwersja z wav na mp3 za pomocą lame -b 320
+  Podaj nazwę wspólną plików mp3 np. wav2mp3 grozanocy
+  Wygeneruje pliki grozanocy_??.mp3, gdzie ?? to numer porządkowy
+EOF
+}
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && pomoc &&  exit 1;
+j=$2;
+#for i in track??.cdda.wav;
+for i in *.wav;
+do 
+j=$((j+1));
+if [ "$j" -lt 10 ]; then
+lame -b 320 $i -o $1_0$j.mp3;
+else
+lame -b 320 $i -o $1_$j.mp3;
+fi
+done;

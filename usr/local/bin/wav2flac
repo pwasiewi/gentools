@@ -1,0 +1,19 @@
+pomoc() {
+  cat << EOF
+  Konwersja z wav na flac
+  Podaj nazwę wspólną plików flac np. wav2flac grozanocy
+  Wygeneruje pliki grozanocy_??.flac, gdzie ?? to numer porządkowy
+EOF
+}
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && pomoc &&  exit 1;
+j=$2;
+#for i in track??.cdda.wav;
+for i in *.wav;
+do 
+j=$((j+1));
+if [ "$j" -lt 10 ]; then
+sox -V3 $i $1_0$j.flac;
+else
+sox -V3 $i $1_$j.flac;
+fi
+done;

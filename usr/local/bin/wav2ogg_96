@@ -1,0 +1,19 @@
+pomoc() {
+  cat << EOF
+  Konwersja z wav na ogg za pomocą oggenc -m 96
+  Podaj nazwę wspólną plików ogg np. wav2ogg grozanocy
+  Wygeneruje pliki grozanocy_??.ogg, gdzie ?? to numer porządkowy
+EOF
+}
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && pomoc &&  exit 1;
+j=0;
+#for i in track??.cdda.wav;
+for i in *.wav;
+do 
+j=$((j+1));
+if [ "$j" -lt 10 ]; then
+oggenc -m 96 $i -o $1_0$j.ogg;
+else
+oggenc -m 96 $i -o $1_$j.ogg;
+fi
+done;

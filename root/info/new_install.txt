@@ -245,6 +245,12 @@ v a 8host
 #eselect profile set 8 #plasma 
 #eselect profile set 9 #plasma systemd
 
+vex dev-texlive/texlive-latexrecommended
+vex dev-texlive/texlive-latexextra
+vex dev-texlive/texlive-latex
+vex dev-texlive/texlive-langpolish
+e dev-texlive/texlive-latexrecommended dev-texlive/texlive-latexextra dev-texlive/texlive-latex dev-texlive/texlive-langpolish latex-beamer
+
 ##############################################################
 #KONIEC DODATKOWYCH OPCJI INSTALACJI
 ##############################################################

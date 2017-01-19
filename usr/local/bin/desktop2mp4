@@ -1,0 +1,9 @@
+#pogłaśnianie audio
+#ffmpeg -i filein.mkv -vcodec copy -acodec copy -ss 00:00:00 -t 00:12:29.81 fileout.mkv
+#for i in *.mkv; do echo ffmpeg -i $i -vol 512 -vcodec copy `basename $i .mkv`l.mkv; done
+#ffmpeg -i filein.mkv -vol 512  -vcodec copy fileout.mkv
+#ustawienia na della
+#ffmpeg -f alsa -i pulse -f x11grab -r 24 -s 1680x900 -i :0.0+0,50 -acodec libmp3lame -vcodec libx264  -threads 4 $1
+#nvidia 2 ekrany
+#ffmpeg -f alsa -i pulse -f x11grab -r 24 -s 1920x1050 -i :0.0+1280,0 -acodec libmp3lame -vcodec libx264 -preset veryslow -crf 35 -threads 4 $1
+ffmpeg -f alsa -i pulse -f x11grab -r 24 -s 1920x1080 -i :0.0+1280,0 -acodec libmp3lame -vcodec libx264 -preset veryfast -crf 35 -threads 4 $1

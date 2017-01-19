@@ -875,15 +875,15 @@ case "$2" in
     	umount_all      ;;
     cross)	
     	cross           ;;
-    1arm)	
+    arm1)	
     	1arm            ;;
-    2arm)	
+    arm2)	
     	2arm            ;;
-    3arm)	
+    arm3)	
     	3arm            ;;
-    4arm)	
+    arm4)	
     	4arm            ;;
-    5arm)	
+    arm5)	
     	5arm            ;;
     1)	
     	1etap           ;;

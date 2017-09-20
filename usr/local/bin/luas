@@ -1,0 +1,4 @@
+lualatex --shell-escape $1; 
+asy --tex lualatex `basename $1 .tex`*.asy
+lualatex --shell-escape $1; 
+qpdfview `basename $1 .tex`.pdf

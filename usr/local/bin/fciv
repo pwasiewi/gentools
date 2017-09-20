@@ -1,0 +1,11 @@
+if [ -z "$1" ]; then
+	docker run -d -v `pwd`/`mktemp -d -p . -t marekXXXX`:/freeciv -p 5556:5556 42n4/freeciv
+else
+	if [ -z "$2" ]; then
+		docker run -d -v `pwd`:/freeciv -p 5556:5556 42n4/freeciv "$1"
+	else
+		docker run -d -v `pwd`/"$2":/freeciv -p 5556:5556 42n4/freeciv "$1"
+	fi
+fi
+xhost +
+docker run -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix -v /dev/snd:/dev/snd --privileged 42n4/freeciv-client $DISPLAY "$@"

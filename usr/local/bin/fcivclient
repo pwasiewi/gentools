@@ -1,0 +1,2 @@
+xhost +
+docker run --rm -v /tmp/.X11-unix:/tmp/.X11-unix --device /dev/snd --privileged 42n4/freeciv-client $DISPLAY "$@"

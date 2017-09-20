@@ -1,0 +1,16 @@
+if [[ "$1" == "--help" || "$1" == "-h" || "$1" == "/?" ]]; then
+	echo fcivserver                   # start new game in random generated directory
+	echo fcivserver save.bz2 	  # load game in its own directory
+	echo fcivserver save.bz2 temp1224 # load game from directory temp1224
+fi
+if [ -z "$1" ]; then
+        RANDIR=$(mktemp -d -p . -t tempXXXX)
+	echo "Game started in $RANDIR"
+	docker run -d -v `pwd`/$RANDIR:/freeciv -p 5556:5556 42n4/freeciv
+else
+	if [ -z "$2" ]; then
+		docker run -d -v `pwd`:/freeciv -p 5556:5556 42n4/freeciv "$1"
+	else
+		docker run -d -v `pwd`/"$2":/freeciv -p 5556:5556 42n4/freeciv "$1"
+	fi
+fi

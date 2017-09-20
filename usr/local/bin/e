@@ -32,9 +32,9 @@ do
             echo "$0 [u:Update] [q:Quiet] [a:Ask|p:Print] [b:Binary] [t:Tree] [f:Fetch] [n:noDeps] [c:Remove] [g:keepGoing] [w:World|s:System|e:reCompile] [m:Sync|r:CleanAll|d:Config|k:Kernel]"
             ;;
         m|M)
-            echo emaint -A sync; eix-update
-            emaint -A sync && eix-update
-            #emaint -A sync && layman -s ALL && eix-update
+            echo "emerge --sync && layman -s ALL && eix-update"
+            #emaint -A sync && eix-update
+            emerge --sync && layman -s ALL && eix-update
             exit $?
             ;;
         c|C)

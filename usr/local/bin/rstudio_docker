@@ -1,0 +1,2 @@
+#https://github.com/rocker-org/rocker/wiki/Using-the-RStudio-image
+docker run -d -p 8787:8787 -e USER=guest -e USERID=1001  -e GROUPID=100  -v $(pwd):/home/guest 42n4/rstudio

@@ -1,0 +1,1 @@
+g++ -o `basename $1 .cpp` $1 -lOpenCL  `pkg-config --libs opencv` -lGL -lglut -lGLU -lboost_program_options

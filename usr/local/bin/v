@@ -185,7 +185,7 @@ fetch() {
 	[ ! -e "$CD_STAGEFILE" ] && wget -c $CD_STAGETARBALL
 }
 
-1etap() {
+0etap() {
 	umount_all
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
 	[ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
@@ -226,27 +226,35 @@ chmod 755 /usr/local/bin/v*
 cat >> /etc/portage/make.conf << 'EOF'
 
 #ABI_X86="64 32"  
+ACCEPT_LICENSE="*"
+RUBY_TARGETS="ruby22 ruby23 ruby24 ruby25"
+GRUB_PLATFORMS="emu pc"
+#USE_PYTHON='2.7'
+USE_PYTHON='2.7 3.4 3.5'
+PYTHON_SINGLE_TARGET="python2_7"
+#PYTHON_SINGLE_TARGET="python3_4"
+#PYTHON_SINGLE_TARGET="python3_5"
+PYTHON_TARGETS="python2_7 python3_4"
+PYTHON_ABIS="2.7 3.4"
+POSTGRES_TARGETS="postgres10"
+#-postgres9_2 -postgres9_3 -postgres9_4 -postgres9_5 -postgres9_6"
 CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3"
-ACCEPT_LICENSE="*" 
-RUBY_TARGETS="ruby21 ruby23" 
-GRUB_PLATFORMS="emu pc" 
-USE_PYTHON='2.7 3.4' 
-PYTHON_SINGLE_TARGET="python2_7" 
-PYTHON_TARGETS="python2_7 python3_4" 
-PYTHON_ABIS="2.7 3.4" 
 MAKEOPTS="-j4 -l8" 
 EMERGE_DEFAULT_OPTS="--jobs 4 --load-average 8 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=0" 
 PORTAGE_NICENESS="20" 
-#FEATURES="${FEATURES} sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
-FEATURES="-collision-protect sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
+#FEATURES="-collision-protect sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
+FEATURES="sandbox parallel-fetch metadata-transfer -compressdebug -splitdebug"
 #FEATURES="${FEATURES} distcc distcc-pump" 
+#For glibc to make valgrind work
+#FEATURES="$FEATURES splitdebug" 
+
 
 #PORTAGE_TMPDIR="/var/tmp/portage" 
 USE="${USE} -X -java -systemd -hardened -pic branding experimental extras -doc -acl -systemtap"
 USE="${USE} -kde plasma -gnome -gnome-keyring nautilus grub mediacenter"
 USE="${USE} -cryptsetup reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay"
-USE="${USE} device-mapper udev openrc kernel-patch -systemtap -pax_kernel acpi icu kvm fuse threads usb bluetooth network consolekit ssl wifi pcap -ipv6 -automount -gnutls -hal"
-USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost"
+USE="${USE} device-mapper udev openrc kernel-patch -systemtap -pax_kernel acpi icu kvm fuse threads usb bluetooth network consolekit ssl sslv3 wifi pcap -ipv6 -automount -gnutls -hal"
+USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi -webkit boost"
 
 #USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l"
 #USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype qrcode devil gegl introspection imagemagick"
@@ -276,7 +284,7 @@ ls -l /usr
 ls -l /usr
 [ ! -e /usr/portage ] && cd /usr && ln -sfn ../var/tmp/.portage portage
 ls -l /usr
-[ -d /usr/src ] && rmdir /usr/src 
+[ -d /usr/src ] && rm -rf /usr/src 
 [ ! -e /usr/src ] && cd /usr && ln -sfn ../var/tmp/.src64bit src
 [ -d /var/lib/layman ] && rmdir /var/lib/layman
 [ ! -e /var/lib/layman ] && cd /var/lib && ln -sfn ../../var/tmp/.layman layman
@@ -292,37 +300,54 @@ ln -sfn /var/tmp/distfiles /usr/portage/distfiles
 EOF
 	fi
 
+	chmod +x $PROFILETMP/vcportdir
+        mount_all
+	chroot $CHROOT /tmp/livecd/vcportdir
+	umount_all
+}
+
+1etap() {
+	umount_all
+	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
+
 	cat >> $PROFILETMP/vcportdir << 'EOF'
 echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
-eselect profile set 8 #plasma 
-#eselect profile set 9 #plasma systemd
+#eselect profile set 33 #plasma 
+eselect profile set 34 #plasma systemd
 env-update
 . /etc/profile
 cd /
 #wget -c $CONFIGFILE -Oconfig.txz
 tar Jxf config.txz
-e vim
 ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
 ln -sf /proc/self/mounts /etc/mtab
 
-sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
-sed -i 's/^#ABI/ABI/g' /etc/portage/make.conf
+#sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
+#sed -i 's/^#ABI/ABI/g' /etc/portage/make.conf
+mv /etc/portage/repos.conf/st*.conf ~
 
-vex sys-kernel/genkernel #musi byc na razie USE="-cryptsetup"
-vex app-portage/repoman
-vex sys-apps/portage
-vex app-portage/genlop 
-vex app-portage/layman 
-vex sys-boot/os-prober
-vex sys-kernel/linux-firmware
+e vim
+e gentoolkit genkernel-next repoman portage euses eix 
+
+#vex sys-kernel/genkernel-next #musi byc na razie USE="-cryptsetup"
+#vex app-portage/repoman
+#vex sys-apps/portage
+#vex app-portage/genlop 
+#vex app-portage/layman 
+#vex sys-boot/os-prober
+#vex sys-kernel/linux-firmware
+vex app-misc/pax-utils
 veu "sys-libs/ncurses -gpm"
+veu ">=sys-boot/grub-2.02 mount"
+veu ">=sys-apps/util-linux-2.30.2 static-libs"
 
-e genkernel repoman portage genlop euses eix os-prober linux-firmware dhcpcd
+e genlop os-prober linux-firmware dhcpcd a t
 
-vex sys-kernel/gentoo-sources
+#vex sys-kernel/gentoo-sources
 e gentoo-sources
+#eselect kernel set linux-4.9.72-gentoo #uwaga trzeba ustawić wcześniej
 cd /usr/src/linux
 make defconfig
 make kvmconfig
@@ -333,7 +358,7 @@ make kvmconfig
 make olddefconfig
 sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
 e k
-e k #drugi raz oldconfig czasami potrzebny dwa razy i ENTER z klawiatury
+#e k #drugi raz oldconfig czasami potrzebny dwa razy i ENTER z klawiatury
 umount /boot
 EOF
 	chmod +x $PROFILETMP/vcportdir
@@ -475,8 +500,8 @@ echo 'CFLAGS=""' > /etc/portage/env/empty1core
 echo 'CXXFLAGS=""' >> /etc/portage/env/empty1core
 echo 'LDFLAGS=""' >> /etc/portage/env/empty1core
 echo 'MAKEOPTS="-j1"' >> /etc/portage/env/empty1core
-echo "dev-qt/qtwebkit empty1core" >> /etc/portage/package.env/moje.env
-e qtwebkit #45 pakietow 60min
+echo "dev-qt/qtebkit empty1core" >> /etc/portage/package.env/moje.env
+#e qtwebkit #45 pakietow 60min
 echo 'Jak nie skompiluje sie qtwebkit, uzyc kompilacji na jednym rdzeniu:'
 echo 'MAKEOPTS="-j1" e qtwebkit'
 EOF
@@ -885,6 +910,8 @@ case "$2" in
     	4arm            ;;
     arm5)	
     	5arm            ;;
+    0)	
+    	0etap           ;;
     1)	
     	1etap           ;;
     2)	
@@ -901,6 +928,9 @@ case "$2" in
     	7etap           ;;
     8)	
     	8etap           ;;
+    0host)	
+    	(( HOST = 1 ))
+    	0etap           ;;
     1host)	
     	(( HOST = 1 ))
     	1etap           ;;

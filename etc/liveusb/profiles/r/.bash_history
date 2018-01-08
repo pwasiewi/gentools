@@ -5,11 +5,11 @@ epm -qai | grep -E "^Name|^Size"  >compw/size.txt
 cat compw/size.txt | sort -k2 -n
 module-rebuild rebuild
 lafilefixer --justfixit
-livecd-pw gxdoo enter
+v r e
 emerge `epm -qa | grep xf86| awk '{print "="$1}' -`
 mkfs -t vfat -n FreeDOS /dev/sdd
-qemu -hda /dev/sdd -cdrom /home/guest/pliki/fdbasecd.iso -boot d
-qemu -hda /dev/sdd -boot c
+qemu-system-i386 -hda /dev/sde -cdrom /usr/local/share/pliki/fdbasecd.iso -boot d
+qemu-system-i386 -hda /dev/sdd -boot c
 rlwrap sqlplus / as sysdba
 syslinux /dev/sdd1
 perl -MCPAN -e shell

@@ -913,6 +913,7 @@ case "$2" in
     0)	
     	0etap           ;;
     1)	
+     	0etap
     	1etap           ;;
     2)	
     	2etap           ;;
@@ -933,6 +934,7 @@ case "$2" in
     	0etap           ;;
     1host)	
     	(( HOST = 1 ))
+	0etap
     	1etap           ;;
     2host)	
     	(( HOST = 1 ))

@@ -343,7 +343,7 @@ veu "sys-libs/ncurses -gpm"
 veu ">=sys-boot/grub-2.02 mount"
 veu ">=sys-apps/util-linux-2.30.2 static-libs"
 
-e genlop os-prober linux-firmware dhcpcd a t
+e genlop os-prober linux-firmware dhcpcd
 
 #vex sys-kernel/gentoo-sources
 e gentoo-sources

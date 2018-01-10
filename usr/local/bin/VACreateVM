@@ -1,0 +1,44 @@
+VM=$1
+VBOS=$2
+VBFOLDER=$3
+ISO4VM=$4
+DISK_SIZE=$5
+[ -z $DISK_SIZE ] && DISK_SIZE=8192
+[ ! -d $VBFOLDER ] && mkdir -p $VBFOLDER
+cd $VBFOLDER
+VMFOLDER="${VBFOLDER}/${VM}"
+echo VBoxManage controlvm $VM poweroff
+VBoxManage controlvm $VM poweroff
+sleep 5
+echo VBoxManage unregistervm --delete $VM
+VBoxManage unregistervm --delete $VM 
+echo VBoxManage createvm --name $VM --register
+VBoxManage createvm --name $VM --register
+echo VBoxManage createhd --filename ${VMFOLDER}/${VM}_1.vdi --size $DISK_SIZE
+VBoxManage createhd --filename ${VMFOLDER}/${VM}_1.vdi --size $DISK_SIZE
+echo VBoxManage createhd --filename ${VMFOLDER}/${VM}_2.vdi --size 8192
+VBoxManage createhd --filename ${VMFOLDER}/${VM}_2.vdi --size 8192
+#VBoxManage list ostypes
+echo VBoxManage modifyvm $VM --ostype $VBOS
+VBoxManage modifyvm $VM --ostype $VBOS 
+echo VBoxManage modifyvm $VM --cpus 2 --memory 2048 --acpi on --x2apic on --vram 128 --accelerate3d on --graphicscontroller vboxvga
+VBoxManage modifyvm $VM --cpus 2 --memory 2048 --acpi on --x2apic on --vram 128 --accelerate3d on --graphicscontroller vboxvga
+#VBoxManage modifyvm $VM --audio alsa --audiocontroller ac97
+echo VBoxManage storagectl $VM --name IDE --add ide --controller PIIX4 --bootable on
+VBoxManage storagectl $VM --name IDE --add ide --controller PIIX4 --bootable on
+echo VBoxManage storageattach $VM --storagectl IDE --port 0 --device 0 --type dvddrive --tempeject on --medium $ISO4VM
+VBoxManage storageattach $VM --storagectl IDE --port 0 --device 0 --type dvddrive --tempeject on --medium $ISO4VM
+echo VBoxManage storagectl $VM --name SATA --add sata --controller IntelAhci --bootable on
+VBoxManage storagectl $VM --name SATA --add sata --controller IntelAhci --bootable on
+echo VBoxManage storageattach $VM --storagectl SATA --port 1 --device 0 --type hdd --medium ${VMFOLDER}/${VM}_1.vdi --discard on --nonrotational on
+VBoxManage storageattach $VM --storagectl SATA --port 1 --device 0 --type hdd --medium ${VMFOLDER}/${VM}_1.vdi --discard on --nonrotational on
+echo VBoxManage storageattach $VM --storagectl SATA --port 2 --device 0 --type hdd --medium ${VMFOLDER}/${VM}_2.vdi --discard on --nonrotational on
+VBoxManage storageattach $VM --storagectl SATA --port 2 --device 0 --type hdd --medium ${VMFOLDER}/${VM}_2.vdi --discard on --nonrotational on
+echo VBoxManage modifyvm $VM --ioapic on
+VBoxManage modifyvm $VM --ioapic on
+echo VBoxManage modifyvm $VM --boot1 dvd --boot2 disk --boot3 none --boot4 none
+VBoxManage modifyvm $VM --boot1 dvd --boot2 disk --boot3 none --boot4 none
+echo VBoxManage modifyvm $VM --nic1 nat --nictype1 82540EM --cableconnected1 on
+VBoxManage modifyvm $VM --nic1 nat --nictype1 82540EM --cableconnected1 on
+#echo VBoxManage modifyvm $VM --nic2 bridged  --nictype2 82540EM --bridgeadapter2 enp0s31f6 --cableconnected2 on
+#VBoxManage modifyvm $VM --nic2 bridged  --nictype2 82540EM --bridgeadapter2 enp0s31f6 --cableconnected2 on

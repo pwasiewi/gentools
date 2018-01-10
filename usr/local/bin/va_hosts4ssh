@@ -1,0 +1,43 @@
+server=$1
+[ -e /usr/bin/parallel-ssh ] && ln -sfn /usr/bin/parallel-ssh /usr/bin/pssh
+if [ -n "$server" ]; then    
+	#tu wpisuje uzyskane z dhcp ip
+	ip01=11
+	ip02=12
+	ip03=13
+	echo "127.0.0.1 localhost localhost.localdomain localhost4 localhost4.localdomain4" > /etc/hosts
+	echo "192.168.2.${ip01} ${server}1" >> /etc/hosts
+	echo "192.168.2.${ip02} ${server}2" >> /etc/hosts
+	echo "192.168.2.${ip03} ${server}3" >> /etc/hosts
+	echo "${server}1" >> /etc/ansible/hosts
+	echo "${server}2" >> /etc/ansible/hosts
+	echo "${server}3" >> /etc/ansible/hosts
+ 
+	ssh-keygen -t rsa -b 2048 -N '' -f ~/.ssh/id_rsa
+	echo StrictHostKeyChecking no >> ~/.ssh/config
+
+	#for node in ${server}1 ${server}2 ${server}3; do ssh-copy-id -i $node ; done
+	#http://unix.stackexchange.com/a/204986/23303
+    echo "root@192.168.2.${ip01}" > ./ips.txt
+    echo "root@192.168.2.${ip02}" >> ./ips.txt
+    echo "root@192.168.2.${ip03}" >> ./ips.txt
+    cat ~/.ssh/id_rsa.pub | pssh -h ./ips.txt -l remoteuser -A -I -i  \
+    '                                                                 \
+     umask 077;                                                       \
+     [ ! -d ~/.ssh ] && mkdir -p ~/.ssh;                              \
+	 echo StrictHostKeyChecking no >> ~/.ssh/config;                  \
+     afile=~/.ssh/authorized_keys;                                    \
+     cat - >> $afile;                                                 \
+     sort -u $afile -o $afile                                         \
+    '
+
+	scp /etc/hosts root@${server}2:/etc
+	scp /etc/hosts root@${server}3:/etc
+	scp /etc/ansible/hosts root@${server}2:/etc/ansible
+	scp /etc/ansible/hosts root@${server}3:/etc/ansible
+	ssh ${server}1 "echo ${server}1 > /etc/hostname"
+	ssh ${server}2 "echo ${server}2 > /etc/hostname"
+	ssh ${server}3 "echo ${server}3 > /etc/hostname"
+else
+	echo Server name argument required e.g: va_hosts4centos server
+fi 

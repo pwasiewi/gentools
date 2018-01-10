@@ -1,0 +1,19 @@
+auto lo
+iface lo inet loopback
+
+auto enp0s3
+iface enp0s3 inet static
+        address  10.0.2.15
+        netmask  255.255.255.0
+        gateway  10.0.2.2
+
+iface enp0s8 inet manual
+
+auto vmbr0
+iface vmbr0 inet static
+        address  192.168.2.71
+        netmask  255.255.255.0
+        gateway  192.168.2.1
+        bridge_ports enp0s8
+        bridge_stp off
+        bridge_fd 0

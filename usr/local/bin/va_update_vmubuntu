@@ -1,0 +1,48 @@
+wget https://apt.puppetlabs.com/puppetlabs-release-pc1-yakkety.deb
+dpkg -i puppetlabs-release-pc1-yakkety.deb
+apt-get update
+apt-get dist-upgrade -y
+apt-get install -y ceph-deploy curl iotop vim nano git bash-completion sg3-utils mc ethtool wpagui wireless-tools bonnie++ iperf sysbench ansible ntp ntpdate ntpstat rdate nmap aptitude openssh-server arp-scan gdebi-core puppet-master pssh traceroute debian-goodies wajig
+#puppet resource package puppet-master ensure=latest
+#apt install -y quota lm-sensors glusterfs-server 
+#wget http://prdownloads.sourceforge.net/webadmin/webmin_1.831_all.deb
+#gdebi webmin_1.831_all.deb -n
+#rm webmin_1.831_all.deb
+#curl http://ix.io/pnr > /etc/ntp.conf
+ntpdate 0.us.pool.ntp.org
+hwclock --systohc
+systemctl restart ntp
+systemctl enable ntp
+ufw status verbose
+ufw disable
+[ -f /etc/ansible/hosts ] && mv /etc/ansible/hosts /etc/ansible/hosts.orig -f
+echo "[web]" > /etc/ansible/hosts
+#echo server1  > /etc/ansible/hosts
+#echo server2 >> /etc/ansible/hosts
+#echo server3 >> /etc/ansible/hosts
+echo 'ansible all -s -m shell -a "$1"' > /usr/local/bin/ae
+chmod 700 /usr/local/bin/ae
+curl ix.io/client > /usr/local/bin/ix
+chmod +x /usr/local/bin/ix
+sed -i 's/prohibit-password/yes/g' /etc/ssh/sshd_config
+#VAGRANT STUFF
+useradd -ms /bin/bash vagrant
+adduser vagrant users
+echo "vagrant:vagrant" | chpasswd
+groupadd admin
+usermod -G admin vagrant
+echo 'Defaults    env_keep += "SSH_AUTH_SOCK"' >> /etc/sudoers
+echo '%admin ALL=NOPASSWD: ALL' >> /etc/sudoers
+apt-get install -y build-essential 
+#Instaluje sterowniki Virtualbox
+[ ! -d /mnt/dvd ] && mkdir /mnt/dvd
+mount -t iso9660 -o ro /dev/sr0 /mnt/dvd
+cd /mnt/dvd
+./VBoxLinuxAdditions.run
+su - vagrant /usr/local/bin/va_ssh4vagrant
+#wajig large
+#dpigs
+#apt remove -y linux-headers-4.8.0-22 linux-image-4.8.0-22-generic linux-image-extra-4.8.0-22-generic
+apt-get -y remove build-essential
+apt-get -y autoremove
+#dpkg --list | grep "^rc" | cut -d " " -f 3 | xargs sudo dpkg --purge

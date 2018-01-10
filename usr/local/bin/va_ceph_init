@@ -1,0 +1,43 @@
+#su - cephuser 
+ceph-deploy purge server1 server2 server3
+ceph-deploy purgedata server1 server2 server3
+ceph-deploy forgetkeys
+ceph-deploy new server1 server2 server3
+#ceph-deploy install --release jewel --no-adjust-repos server1 server2 server3
+#ceph-deploy install --release jewel server1 server2 server3
+ceph-deploy install --repo-url http://download.ceph.com/rpm-jewel/el7/ server1 server2 server3
+ceph-deploy --overwrite-conf mon create server1
+ceph-deploy --overwrite-conf mon create server2
+ceph-deploy --overwrite-conf mon create server3
+ceph --admin-daemon /var/run/ceph/ceph-mon.server1.asok mon_status
+#poczekaj kilka sekund
+sleep 5 
+cat /usr/local/bin/va_ceph.conf >> ./ceph.conf
+scp ./ceph.conf root@server1:/etc/ceph/ceph.conf
+scp ./ceph.conf root@server2:/etc/ceph/ceph.conf
+scp ./ceph.conf root@server3:/etc/ceph/ceph.conf
+ 
+for i in server1 server2 server3; do ceph-deploy disk zap $i:sdb; done
+ae "parted -s /dev/sdb mklabel gpt mkpart primary xfs 0% 100%"
+#sprawdź, czy na wszystkich serwerach się wykonało
+ceph-deploy gatherkeys server1
+ssh server2 ceph-deploy gatherkeys server2
+ssh server3 ceph-deploy gatherkeys server3
+ 
+#http://tracker.ceph.com/issues/13833
+#ae "chown ceph:ceph /dev/sda2"
+for i in server1 server2 server3; do
+ceph-deploy --overwrite-conf osd prepare $i:/dev/sdb1; done
+ 
+#poczekać chwilę
+for i in server1 server2 server3; do
+ceph-deploy --overwrite-conf osd activate $i:/dev/sdb1; done
+#sprawdzić "ceph -s", czy osd się dodały
+ 
+#ceph-deploy  --username ceph osd create osd3:/dev/sdb1
+ceph-deploy admin server1 server2 server3
+ae "chmod +r /etc/ceph/ceph.client.admin.keyring"
+ae "systemctl enable ceph-mon.target"
+ae "systemctl enable ceph-mds.target"
+ae "systemctl enable ceph-osd.target"
+ceph -s

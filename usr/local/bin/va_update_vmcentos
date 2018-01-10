@@ -1,0 +1,42 @@
+sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+echo StrictHostKeyChecking no >> ~/.ssh/config
+yum install -y epel-release
+rpm -Uvh http://download.ceph.com/rpm-jewel/el7/noarch/ceph-release-1-1.el7.noarch.rpm
+#https://apt.puppetlabs.com/
+#https://www.digitalocean.com/community/tutorials/how-to-install-puppet-4-in-a-master-agent-setup-on-centos-7
+rpm -Uvh https://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm
+#http://www.itzgeek.com/how-tos/linux/centos-how-tos/setup-chef-12-centos-7-rhel-7.html
+#http://linoxide.com/linux-how-to/chef-workstation-server-node-centos-7/
+yum install -y deltarpm
+yum update -y && yum upgrade -y
+yum install -y vim ansible nmap sg3_utils wget nano bash-completion ceph-deploy puppetserver puppet ansible sysbench iperf bonnie++ gcc bzip2 make kernel-devel-`uname -r`  net-tools ntp ntpdate ntp-doc traceroute pssh
+[ -f /etc/ansible/hosts ] && mv /etc/ansible/hosts /etc/ansible/hosts.orig -f
+echo "[web]" > /etc/ansible/hosts
+#echo server1 >> /etc/ansible/hosts
+#echo server2 >> /etc/ansible/hosts
+#echo server3 >> /etc/ansible/hosts
+echo 'ansible all -s -m shell -a "$1"' > /usr/local/bin/ae
+chmod 700 /usr/local/bin/ae
+ntpdate 0.us.pool.ntp.org
+hwclock --systohc
+systemctl enable ntpd && systemctl start ntpd
+curl ix.io/client > /usr/local/bin/ix
+chmod +x /usr/local/bin/ix
+groupadd admin
+usermod -G admin vagrant
+echo 'Defaults    env_keep += "SSH_AUTH_SOCK"' >> /etc/sudoers
+echo '%admin ALL=NOPASSWD: ALL' >> /etc/sudoers
+sed -i 's/ONBOOT=no/ONBOOT=yes/g' /etc/sysconfig/network-scripts/ifcfg-enp0s3
+echo NM_CONTROLLED=yes >> /etc/sysconfig/network-scripts/ifcfg-enp0s3
+#Instaluje sterowniki Virtualbox
+[ ! -d /mnt/dvd ] && mkdir /mnt/dvd
+mount -t iso9660 -o ro /dev/sr0 /mnt/dvd
+cd /mnt/dvd
+./VBoxLinuxAdditions.run
+su - vagrant /usr/local/bin/va_ssh4vagrant
+yum erase -y kernel kernel-devel
+yum clean all
+cd 
+curl https://pastebin.com/raw/FMxYTYhF | sed 's/\r//g' > VAskryptglownyCentos.txt
+curl https://pastebin.com/raw/anHdueta | sed 's/\r//g' > VAskryptfunkcje.sh
+sh VAskryptfunkcje.sh

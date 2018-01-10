@@ -1,0 +1,12 @@
+VM=$1
+echo VBoxManage storageattach $VM --storagectl IDE --port 0 --device 0 --type dvddrive --medium none
+VBoxManage storageattach $VM --storagectl IDE --port 0 --device 0 --type dvddrive --medium none
+#sprawdź wersję Virtualbox i pobierz właściwą płytę VBoxGuestAdditions.iso
+[ ! -f /mnt/dc/IMAGES/VBoxGuestAdditions.iso ] && wget http://download.virtualbox.org/virtualbox/5.1.18/VBoxGuestAdditions_5.1.18.iso -O /mnt/dc/IMAGES/VBoxGuestAdditions.iso
+echo VBoxManage storageattach $VM --storagectl IDE --port 0 --device 0 --type dvddrive --medium /mnt/dc/IMAGES/VBoxGuestAdditions.iso
+VBoxManage storageattach $VM --storagectl IDE --port 0 --device 0 --type dvddrive --medium /mnt/dc/IMAGES/VBoxGuestAdditions.iso
+#przekierowanie portów
+echo VBoxManage modifyvm $VM --natpf1 delete guestssh
+VBoxManage modifyvm $VM --natpf1 delete guestssh
+echo VBoxManage modifyvm $VM --natpf1 "guestssh,tcp,,2222,,22"
+VBoxManage modifyvm $VM --natpf1 "guestssh,tcp,,2222,,22"

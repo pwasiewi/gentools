@@ -24,6 +24,10 @@ mkfs.ext4 -b 4096 -E stride=2,stripe-width=384  /dev/sdxx
 tune2fs -O has_journal -o journal_data_writeback /dev/sdxx
 #for f in /sys/block/sd?/queue/rotational; do printf "$f is "; cat $f; done
 
+#btrfs
+mount -o relatime,compress=zlib
+compress-force=zstd
+btrfs filesystem defragment -r -v -czstd /
 
 pvcreate --dataalignment 512k /dev/sdxx
 pvcreate --dataalignment 1536k /dev/sdxx

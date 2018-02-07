@@ -16,3 +16,5 @@ Section "ServerFlags"
     Option "DontZap" "False"
 EndSection
 
+#virtualbox x11
+ln -sfn  /usr/include/bits/types/sigset_t.h /usr/include/bits/sigset.h

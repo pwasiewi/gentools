@@ -1,0 +1,3 @@
+After gcc update ABI recompile:
+revdep-rebuild --library 'libstdc++.so.6' -- --exclude gcc
+

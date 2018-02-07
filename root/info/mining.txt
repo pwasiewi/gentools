@@ -1,0 +1,7 @@
+geth account new
+nohup geth --rpc --rpccorsdomain localhost &
+ethminer -G  // -G for GPU, -M for benchmark
+tail -f nohup.log
+geth attach
+eth.getBalance(eth.coinbase)
+web3.fromWei(eth.getBalance(eth.coinbase), "ether")

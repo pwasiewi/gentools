@@ -1,0 +1,1 @@
+https://agentoss.wordpress.com/2011/02/28/how-to-create-a-bootable-linux-usb-drive-using-extlinux/

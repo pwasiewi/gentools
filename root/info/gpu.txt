@@ -1,0 +1,29 @@
+wget https://www.khronos.org/registry/OpenCL/api/2.1/cl.hpp -O /usr/include/CL/cl.hpp
+ln -sfn /usr/lib/libOpenCL.so /usr/lib/libOpenCL.so.1
+find . -type f -exec sed -i 's/5\/lib64/5\/lib32/g' {} +
+cd backend/src/; find . -type f -exec sed -i 's/5\/lib64/5\/lib32/g' {} +; chown -R portage:portage .; cd ../..
+
+ABI_X86="64" e =beignet-9999
+
+curl https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin/repo
+chmod a+x /usr/local/bin/repo
+
+wget https://www.khronos.org/registry/OpenCL/api/2.1/cl.hpp -O /usr/include/CL/cl.hpp
+ln -sfn  /usr/lib/libOpenCL.so  /usr/lib/libOpenCL.so.1
+
+https://github.com/RadeonOpenCompute/ROCm-OpenCL-Runtime/blob/amd-master/README.md
+repo init -u https://github.com/RadeonOpenCompute/ROCm-OpenCL-Runtime.git -b amd-master -m opencl.xml
+repo sync
+cp api/opencl/config/amdocl64.icd /etc/OpenCL/vendors/
+mkdir -p build && cd build
+cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+make
+
+wget https://github.com/RadeonOpenCompute/ROCK-Kernel-Driver/archive/roc-1.7.0.tar.gz
+cd /usr/src
+tar zxvf roc-1.7.0.tar.gz
+make rock-rel_defconfig
+MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --lvm --luks --no-clean all
+
+
+

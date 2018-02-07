@@ -227,10 +227,10 @@ cat >> /etc/portage/make.conf << 'EOF'
 
 #ABI_X86="64 32"  
 ACCEPT_LICENSE="*"
-RUBY_TARGETS="ruby22 ruby23 ruby24 ruby25"
+RUBY_TARGETS="ruby22 ruby23"
 GRUB_PLATFORMS="emu pc"
 #USE_PYTHON='2.7'
-USE_PYTHON='2.7 3.4 3.5'
+USE_PYTHON='2.7 3.4'
 PYTHON_SINGLE_TARGET="python2_7"
 #PYTHON_SINGLE_TARGET="python3_4"
 #PYTHON_SINGLE_TARGET="python3_5"
@@ -252,13 +252,13 @@ FEATURES="sandbox parallel-fetch metadata-transfer -compressdebug -splitdebug"
 #PORTAGE_TMPDIR="/var/tmp/portage" 
 USE="${USE} -X -java -systemd -hardened -pic branding experimental extras -doc -acl -systemtap"
 USE="${USE} -kde plasma -gnome -gnome-keyring nautilus grub mediacenter"
-USE="${USE} -cryptsetup reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay"
+USE="${USE} -cryptsetup reiserfs ntfs fat vfat ntfs reiserfs btrfs zstd dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay"
 USE="${USE} device-mapper udev openrc kernel-patch -systemtap -pax_kernel acpi icu kvm fuse threads usb bluetooth network consolekit ssl sslv3 wifi pcap -ipv6 -automount -gnutls -hal"
 USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi -webkit boost"
 
 #USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l"
 #USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype qrcode devil gegl introspection imagemagick"
-#USE="${USE} tools xnest xvfb tslib kms libkms dmx xcb dbus xrandr xorg sna vaapi uxa gbm glamor lcdfilter kdrive infinality xkb"
+#USE="${USE} tools xnest xvfb tslib kms libkms dmx xcb dbus xrandr xorg sna -vaapi uxa gbm glamor lcdfilter kdrive infinality xkb"
 #USE="${USE} nvidia uvm -cuda gpu egl -wayland osmesa xa vdpau vulkan opencl"
 #USE="${USE} lua llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic"
 #USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot"
@@ -280,13 +280,13 @@ EOF
 
 echo "nie na LIVEDVD, gdyz ramdisk jest maly i ulotny"
 ls -l /usr
-[ -d /usr/portage ] && rmdir /usr/portage
+[ -e /usr/portage ] && rm /usr/portage -rf
 ls -l /usr
 [ ! -e /usr/portage ] && cd /usr && ln -sfn ../var/tmp/.portage portage
 ls -l /usr
 [ -d /usr/src ] && rm -rf /usr/src 
 [ ! -e /usr/src ] && cd /usr && ln -sfn ../var/tmp/.src64bit src
-[ -d /var/lib/layman ] && rmdir /var/lib/layman
+[ -e /var/lib/layman ] && rm /var/lib/layman -rf
 [ ! -e /var/lib/layman ] && cd /var/lib && ln -sfn ../../var/tmp/.layman layman
 EOF
 	else
@@ -294,7 +294,7 @@ EOF
 cd /usr
 wget -c http://gentoo.prz.rzeszow.pl/snapshots/portage-latest.tar.xz
 tar Jxf portage-latest.tar.xz
-rmdir /usr/portage/distfiles
+[ -d /usr/portage/distfiles ] && rmdir /usr/portage/distfiles
 mkdir /var/tmp/distfiles
 ln -sfn /var/tmp/distfiles /usr/portage/distfiles
 EOF
@@ -307,15 +307,16 @@ EOF
 }
 
 1etap() {
+        ETAP=1etap
 	umount_all
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
 
-	cat >> $PROFILETMP/vcportdir << 'EOF'
+	cat >> $PROFILETMP/$ETAP << 'EOF'
 echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
-#eselect profile set 33 #plasma 
-eselect profile set 34 #plasma systemd
+#eselect profile set 19 #plasma 
+eselect profile set 20 #plasma systemd
 env-update
 . /etc/profile
 cd /
@@ -331,23 +332,31 @@ mv /etc/portage/repos.conf/st*.conf ~
 e vim
 e gentoolkit genkernel-next repoman portage euses eix 
 
-#vex sys-kernel/genkernel-next #musi byc na razie USE="-cryptsetup"
-#vex app-portage/repoman
-#vex sys-apps/portage
-#vex app-portage/genlop 
-#vex app-portage/layman 
-#vex sys-boot/os-prober
-#vex sys-kernel/linux-firmware
+vex sys-fs/btrfs-progs
+vex dev-libs/boost
+vex dev-util/boost-build
 vex app-misc/pax-utils
 veu "sys-libs/ncurses -gpm"
 veu ">=sys-boot/grub-2.02 mount"
 veu ">=sys-apps/util-linux-2.30.2 static-libs"
 
 e genlop os-prober linux-firmware dhcpcd
+EOF
 
+        if [ "$RAMDISK" == "0" ]; then
+            cat >> $PROFILETMP/$ETAP << 'EOF'
+sed -i 's/^\/dev\//\#\/dev\//g' /etc/fstab
+#auto ma max number kernela
+eselect kernel set `eselect kernel list | grep linux | wc -l`
+sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
+#usuwanie kompilacji kernela hosta
+#cd /usr/src/linux && make clean
+EOF
+        else
+            cat >> $PROFILETMP/$ETAP << 'EOF'
 #vex sys-kernel/gentoo-sources
 e gentoo-sources
-#eselect kernel set linux-4.9.72-gentoo #uwaga trzeba ustawić wcześniej
+eselect kernel set `eselect kernel list | grep linux | wc -l`
 cd /usr/src/linux
 make defconfig
 make kvmconfig
@@ -358,34 +367,37 @@ make kvmconfig
 make olddefconfig
 sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
 e k
-#e k #drugi raz oldconfig czasami potrzebny dwa razy i ENTER z klawiatury
+EOF
+        fi
+
+	cat >> $PROFILETMP/$ETAP << 'EOF'
 umount /boot
 EOF
-	chmod +x $PROFILETMP/vcportdir
+	chmod +x $PROFILETMP/$ETAP
         mount_all
-	chroot $CHROOT /tmp/livecd/vcportdir
+	chroot $CHROOT /tmp/livecd/$ETAP
 	umount_all
 }
 
 2etap(){
 	ETAP=2etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#kompilacja trwa 40min
-vex sys-libs/glibc
+#update na nowszy gcc - etap dodatkowy
+#kompilacja trwa 30min
 vex sys-devel/gcc
-vex dev-libs/boost
-vex dev-util/boost-build
+OLDGCC=`gcc-config -c | cut -d'-' -f 5`
 e gcc
 gcc-config -l
 gcc-config 2
 . /etc/profile
-fix_libtool_files.sh 4.9.3
-e glibc
-echo "dev-libs/boost empty" >> /etc/portage/package.env/moje.env
-echo 'CFLAGS=""' > /etc/portage/env/empty
-echo 'CXXFLAGS=""' >> /etc/portage/env/empty
-echo 'LDFLAGS=""' >> /etc/portage/env/empty
-e boost 
+env-update
+fix_libtool_files.sh ${OLDGCC}
+e libtool n
+#vex sys-libs/glibc
+#vex sys-libs/binutils-libs
+#vex sys-devel/binutils
+#e glibc n
+#e binutils binutils-libs libnsl n
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -401,17 +413,12 @@ EOF
 	ETAP=3etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
 #kompilacja trwa 2h
-veu "net-libs/libproxy -webkit"
-veu "media-libs/harfbuzz -graphite"
-veu "dev-util/cmake -qt5"
-veu "app-arch/p7zip -wxwidgets"
-veu "media-libs/mesa -vaapi"
-veu "gnome-base/librsvg -tools"
 sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
 sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
 sed -i 's/#USE="${USE} tools/USE="${USE} tools/g' /etc/portage/make.conf
 sed -i 's/bindist/-bindist/g' /etc/portage/make.conf
-e w #emerge -uND world  - upgrade world - 238 pakietow w ponad 2h
+sed -i 's/-X\ /X\ /g' /etc/portage/make.conf
+e w #emerge -uND world  - upgrade world - 214 pakietow w ponad 2h
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -500,7 +507,7 @@ echo 'CFLAGS=""' > /etc/portage/env/empty1core
 echo 'CXXFLAGS=""' >> /etc/portage/env/empty1core
 echo 'LDFLAGS=""' >> /etc/portage/env/empty1core
 echo 'MAKEOPTS="-j1"' >> /etc/portage/env/empty1core
-echo "dev-qt/qtebkit empty1core" >> /etc/portage/package.env/moje.env
+echo "dev-qt/qtwebkit empty1core" >> /etc/portage/package.env/moje.env
 #e qtwebkit #45 pakietow 60min
 echo 'Jak nie skompiluje sie qtwebkit, uzyc kompilacji na jednym rdzeniu:'
 echo 'MAKEOPTS="-j1" e qtwebkit'
@@ -934,7 +941,7 @@ case "$2" in
     	0etap           ;;
     1host)	
     	(( HOST = 1 ))
-	0etap
+	#0etap
     	1etap           ;;
     2host)	
     	(( HOST = 1 ))

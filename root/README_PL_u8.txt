@@ -55,38 +55,30 @@ passwd #ZMIANA HASLA NA ROOTA NA WLASNE
 ##############################################################
 #2etap podmiana gcc na nowsze i kompilacja boost
 v a 2host
-##kompilacja trwa 40min
-#vex sys-libs/glibc
+##update na nowszy gcc - etap dodatkowy
+##kompilacja trwa 30min
 #vex sys-devel/gcc
-#vex dev-libs/boost
-#vex dev-util/boost-build
+#OLDGCC=`gcc-config -c | cut -d'-' -f 5`
 #e gcc
 #gcc-config -l
 #gcc-config 2
 #. /etc/profile
-#fix_libtool_files.sh 4.9.3
-#e glibc
-#echo "dev-libs/boost empty" >> /etc/portage/package.env/moje.env
-#echo 'CFLAGS=""' > /etc/portage/env/empty
-#echo 'CXXFLAGS=""' >> /etc/portage/env/empty
-#echo 'LDFLAGS=""' >> /etc/portage/env/empty
-#e boost 
+#env-update
+#fix_libtool_files.sh ${OLDGCC}
+#e libtool n
+
 
 ##############################################################
 #3etap uaktualnienie systemu z odblokowanymi flagami USE
 v a 3host
 ##kompilacja trwa 2h
-#veu "net-libs/libproxy -webkit"
-#veu "media-libs/harfbuzz -graphite"
-#veu "dev-util/cmake -qt5"
-#veu "app-arch/p7zip -wxwidgets"
-#veu "media-libs/mesa -vaapi"
-#veu "gnome-base/librsvg -tools"
 #sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
 #sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
 #sed -i 's/#USE="${USE} tools/USE="${USE} tools/g' /etc/portage/make.conf
 #sed -i 's/bindist/-bindist/g' /etc/portage/make.conf
-#e w #emerge -uND world  - upgrade world - 238 pakietow w ponad 2h
+#sed -i 's/-X\ /X\ /g' /etc/portage/make.conf
+#e w #emerge -uND world  - upgrade world - 214 pakietow w ponad 2h
+
 
 ##############################################################
 #4etap instalujemy git i laymana do dodatkowych pakietow

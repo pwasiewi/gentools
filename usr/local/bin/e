@@ -1,7 +1,13 @@
 #!/bin/bash
 
 if [ "$#" == "0" ]; then
-            echo "$0 [u:Update] [q:Quiet] [a:Ask|p:Print] [b:Binary] [t:Tree] [f:Fetch] [n:noDeps] [c:Remove] [g:keepGoing] [w:World|s:System|e:reCompile] [m:Sync|r:CleanAll|d:Config|k:Kernel]"
+            echo "$0 [h:Help][u:Update] [q:Quiet] [a:Ask|p:Print] [b:Binary] [t:Tree] [f:Fetch] [n:noDeps] [c:Remove] [g:keepGoing] [w:World|s:System|e:reCompile] [m:Sync|r:CleanAll|d:Config|k:Kernel]"
+	    echo dispatch-conf
+            dispatch-conf
+	exit 1
+fi
+if [ "$1" == "h" ] || [ "$1" == "H" ]; then
+            echo "$0 [h:Help][u:Update] [q:Quiet] [a:Ask|p:Print] [b:Binary] [t:Tree] [f:Fetch] [n:noDeps] [c:Remove] [g:keepGoing] [w:World|s:System|e:reCompile] [m:Sync|r:CleanAll|d:Config|k:Kernel]"
 	    echo "np. e a w  --> <emerge -vaNDu world>"
 	    echo "e m  --> <emaint -A sync; layman -s ALL; eix-update"
 	    echo "e a s --> <emerge -vaNDu system>"

@@ -1,12 +1,9 @@
-cd /usr/lib; ln -sfn ../../var/libpg/postgresql /usr/lib/postgresql/; cd /usr/share ; ln -sfn ../../var/postgresql /usr/share/postgresql
-rm -rf /etc/ati; emerge ati-drivers; eselect opengl set ati; rm /etc/X11/xorg.conf; aticonfig --initial; depmod -a
-eselect opengl set xorg-x11; cp /etc/X11/xorg.conf.radeon /etc/X11/xorg.conf; rmmod fglrx
 eselect kernel set `eselect kernel list | grep linux | wc -l`
 epm -qai | grep -E "^Name|^Size"  >compw/size.txt 
 cat compw/size.txt | sort -k2 -n
 module-rebuild rebuild
 lafilefixer --justfixit
-livecd-pw gxdoo enter
+v r e
 emerge `epm -qa | grep xf86| awk '{print "="$1}' -`
 mkfs -t vfat -n FreeDOS /dev/sdd
 qemu-system-i386 -hda /dev/sde -cdrom /usr/local/share/pliki/fdbasecd.iso -boot d

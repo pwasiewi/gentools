@@ -563,7 +563,7 @@ EOF
 8etap(){
 	ETAP=8etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#kompilacja trwa 1h plus 1h upgrade po usunieciu flag use wstawionych veu
+#kompilacja trwa 1h plus upgrade po usunieciu flag use wstawionych veu
 #https://wiki.gentoo.org/wiki/Fontconfig#Explanation
 #41 aplikacje 8min
 e u konsole setxkbmap kde-apps/dolphin xdpyinfo xrandr xkill xterm alsamixergui media-video/plasma-mediacenter gparted freetype media-fonts/liberation-fonts pavucontrol
@@ -591,8 +591,11 @@ vex dev-db/mongodb
 #echo "dev-db/mongodb empty1core" >> /etc/portage/package.env/moje.env
 #45 apps 20min bez nodejs i octave
 e u cdrtools dvd+rw-tools libisoburn R octave nodejs opera mongodb
+vex x11-drivers/xf86-video-vboxvideo
+vex dev-util/kbuild
 vex app-emulation/virtualbox-guest-additions
-e app-emulation/virtualbox-guest-additions
+#e app-emulation/virtualbox-guest-additions
+e virtualbox 
 vex x11-drivers/xf86-video-virtualbox
 e u x11-drivers/xf86-video-virtualbox
 

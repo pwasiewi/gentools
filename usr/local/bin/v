@@ -589,7 +589,7 @@ vex dev-libs/libuv
 vex app-admin/mongo-tools 
 vex dev-db/mongodb 
 #echo "dev-db/mongodb empty1core" >> /etc/portage/package.env/moje.env
-#45 apps 
+#45 apps 20min bez nodejs i octave
 e u cdrtools dvd+rw-tools libisoburn R octave nodejs opera mongodb
 vex app-emulation/virtualbox-guest-additions
 e app-emulation/virtualbox-guest-additions
@@ -610,6 +610,11 @@ vex app-text/calibre
 vex media-gfx/gimp
 #e u calibre gimp vlc mplayer
 #e u skype google-chrome steam-launcher blender 
+#FINALNY UPDATE
+veu "gnome-base/libglade PYTHON_SINGLE_TARGET: -* python2_7"
+veu "app-text/asciidoc PYTHON_SINGLE_TARGET: -* python2_7"
+#14 apps 3min
+e w
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then

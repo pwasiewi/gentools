@@ -12,7 +12,7 @@ sudo su -
 #Skrypty do screencastów o sprawnej instalacji gentoo https://goo.gl/Ao9sUU
 #STARSZA WERSJA skryptów (PRZESTARZAŁA): wget -c https://goo.gl/zbNuuu  -O../config.txz
 #NOWSZA WERSJA skryptów: 
-wget -c https://goo.gl/iodpL6  -O../config.txz
+wget -c https://goo.gl/qyVBWB  -O../config.txz
 cd / && tar Jxvf config.txz && cd
 v a p #edytuj settings chroot na /dev/sda5 
 #UWAGA to dla dysku z wirtualboxa

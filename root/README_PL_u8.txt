@@ -20,7 +20,7 @@ v a p #edytuj settings chroot na /dev/sda5
 #czy opisuje on wlasciwy dysk
 #------------------------------------------------------------
 #UWAGA! USUWANIE PARTYCJI i DANYCH
-#for v_partition in $(parted -s /dev/sda print|awk '/^ / {print $1}') do parted -s /dev/sda rm ${v_partition} done
+#for v_partition in $(parted -s /dev/sda print|awk '/^ / {print $1}'); do parted -s /dev/sda rm ${v_partition}; done
 #ROZMIAR DYSKU: parted -s /dev/sda print|awk '/^Disk/ {print $3}'|sed 's/[Mm][Bb]//'
 #-POCZATEK-formatowanie dysku TYLKO w virtualboxie ----------
 parted -s /dev/sda mklabel gpt

@@ -30,10 +30,10 @@ parted /dev/sda mkpart primary ext4 205MiB 405MiB
 parted /dev/sda mkpart primary linux-swap 405MiB 1405MiB
 parted /dev/sda mkpart primary ext4 1405MiB 100%
 parted /dev/sda set 1 bios on
-mkfs.ext4 /dev/sda3
+mkfs.ext4 /dev/sda3 -F
 mkswap /dev/sda4
 swapon /dev/sda4
-mkfs.ext4 /dev/sda5
+mkfs.ext4 /dev/sda5 -F
 #-KONIEC-----------------------------------------------------
 #------------------------------------------------------------
 v a f #sciagnij stage3/4

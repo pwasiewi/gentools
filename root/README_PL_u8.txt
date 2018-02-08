@@ -82,26 +82,26 @@ v a 3host
 ##############################################################
 #4etap instalujemy git i laymana do dodatkowych pakietow
 v a 4host
-##kompilacja trwa 14min
+##kompilacja trwa 7 min
 #e u gpm app-misc/mc ntp
 #/etc/init.d/ntp-client start
 #/etc/init.d/gpm start
 #rc-update add gpm default
-#veu "dev-libs/libgpg-error static-libs"
-#veu "dev-libs/lzo static-libs"
-#veu "dev-libs/libgcrypt static-libs"
-#vex sys-libs/readline
-#vex app-shells/bash
-#e n readline #emerge --nodeps readline 
-#emerge @preserved-rebuild
-#vex dev-python/ssl-fetch
-#e u layman #okolo 32 pakietow po etapie 3 aktualizacji 238 pakietow
-##e u dev-vcs/git #juz zainstalowany przez laymana
+#e u layman #okolo 32 aplikacji po etapie 3 aktualizacji 238 aplikacji
+#sed -i 's/^check_official : Yes/check_official : no/' /etc/layman/layman.cfg
+##layman -L
+##layman -a kde
+##layman -a x11
+##layman -a sabayon 
+#eix-update
+#e w
+
 
 ##############################################################
 #5etap dodatkowe pakiety i update systemu po dodaniu overlayow
 v a 5host
-##kompilacja trwa 14min po etapie 3 aktualizacji
+##polecane programy - 103 aplikacji
+##kompilacja trwa 16min
 #vex sys-fs/mdadm
 #vex sys-fs/squahsfs-tools
 #vex net-analyzer/xprobe
@@ -110,94 +110,98 @@ v a 5host
 #vex app-admin/eclean-kernel
 #vex app-portage/diffmask
 #vex app-portage/install-mask
+#vex app-portage/gpytage
+#veu "dev-libs/libgpg-error static-libs"
+#veu "dev-libs/lzo static-libs"
+#veu "dev-libs/libgcrypt static-libs"
 ## https://wiki.gentoo.org/wiki/Recommended_applications
 ## https://wiki.gentoo.org/wiki/Recommended_tools
 ## https://wiki.gentoo.org/wiki/Useful_Portage_tools
-#e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie install-mask portpeek smart-live-rebuild ufed gpytage net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo #suspend p7zip sg3_utils testdisk logrotate gentoolkit gentoolkit-dev f2fs-tools 
-#curl ix.io/client > /usr/local/bin/ix
-#chmod +x /usr/local/bin/ix
-#emaint -A sync
-#sed -i 's/^check_official : Yes/check_official : no/' /etc/layman/layman.cfg
-#layman -L
-#layman -a kde
-#layman -a x11
-#layman -a sabayon 
-#eix-update
-#e w #emerge -uND world  - upgrade world - kompilacja max 10min 
+#sed -i 's/PYTHON_SINGLE_TARGET="python3_4"/PYTHON_SINGLE_TARGET="python2_7"/g' /etc/portage/make.conf
+#e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie install-mask portpeek smart-live-rebuild ufed gpytage net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
 
 ##############################################################
-#6etap kompilacja pakietu qtwebkit na jednym rdzeniu 
+#6etap kompilacja pakietu 
 v a 6host
-##kompilacja trwa 1h
-#veu "net-dialup/ppp ipv6"
+##kompilacja networkmanager
+##kompilacja trwa 12min
+#vex net-misc/modemmanager
 #veu "kde-plasma/plasma-desktop legacy-systray"
+#veu ">=sys-libs/libblockdev-2.14-r1 cryptsetup"
+#veu ">=net-dialup/ppp-2.4.7-r3 ipv6"
+#veu ">=media-sound/pulseaudio-11.1 gnome"
 #veu "media-plugins/alsa-plugins pulseaudio"
-#echo 'CFLAGS=""' > /etc/portage/env/empty1core
-#echo 'CXXFLAGS=""' >> /etc/portage/env/empty1core
-#echo 'LDFLAGS=""' >> /etc/portage/env/empty1core
-#echo 'MAKEOPTS="-j1"' >> /etc/portage/env/empty1core
-#echo "dev-qt/qtwebkit empty1core" >> /etc/portage/package.env/moje.env
-#e qtwebkit #45 pakietow 60min
-#echo 'Jak nie skompiluje sie qtwebkit, uzyc kompilacji na jednym rdzeniu:'
-#echo 'MAKEOPTS="-j1" e qtwebkit'
+#e networkmanager a t
+
 
 ##############################################################
 #7etap caly desktop plasma min. 80min
 v a 7host
+##kompilacja plasma-5.11 287 aplikacji
 ##kompilacja trwa 85min
-#echo "kde-plasma/plasma-desktop empty1core" >> /etc/portage/package.env/moje.env
-#e u plasma-desktop #243 nowe pakiety 56min
-#e u plasma-meta    #54 pakiety 13min
-#e u konsole setxkbmap kde-apps/dolphin xdpyinfo xrandr xkill xterm alsamixergui media-video/plasma-mediacenter pavucontrol gparted freetype media-fonts/liberation-fonts           #42 pakietow 12min
-##infinality use flag
-#eselect infinality set infinality
-#eselect lcdfilter set infinality-sharpened
+#vep sys-auth/elogind-235.2-r1
+#vep net-misc/networkmanager-1.10.2
+#vex kde-frameworks/extra-cmake-modules
+#vex kde-frameworks/networkmanager-qt
+##https://wiki.gentoo.org/wiki/Project:Python/PYTHON_TARGETS
+#sed -i 's/PYTHON_SINGLE_TARGET="python2_7"/PYTHON_SINGLE_TARGET="python3_4"/g' /etc/portage/make.conf
+#echo 'CFLAGS=""' > /etc/portage/env/empty1core
+#echo 'CXXFLAGS=""' >> /etc/portage/env/empty1core
+#echo 'LDFLAGS=""' >> /etc/portage/env/empty1core
+#echo 'MAKEOPTS="-j1"' >> /etc/portage/env/empty1core
+#echo "dev-libs/libappindicator empty1core" >> /etc/portage/package.env/moje.env
+#time emerge @kde-plasma-5.11
 
 ##############################################################
 #8etap dodatkowe pakiety, x11 virtualbox, nowy uzytkownik
 v a 8host
-##kompilacja trwa 1h 
-##plus czas na upgrade po usunieciu zbednych flag use wstawionych veu
+##kompilacja trwa 1h plus 1h upgrade po usunieciu flag use wstawionych veu
+##https://wiki.gentoo.org/wiki/Fontconfig#Explanation
+##41 aplikacje 8min
+#e u konsole setxkbmap kde-apps/dolphin xdpyinfo xrandr xkill xterm alsamixergui media-video/plasma-mediacenter gparted freetype media-fonts/liberation-fonts pavucontrol
 ##sieci
 #veu "dev-libs/nss utils"
-#e u x11-misc/bumblebee feh lm_sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn quagga #27 pakietow 4min
-#uzytkowe
+##5 min
+#e u x11-misc/bumblebee feh lm_sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn quagga 
+##uzytkowe
 #vex www-client/firefox-bin
 #vex app-emulation/lxc
 #vex app-emulation/docker
 #vex sys-process/criu
 #vex app-emulation/containerd
-#vex app-emulation/runc
-#e u firefox-bin app-emulation/docker lxc #12 pakietow 5min
-#usermod -aG docker guest
-##e w #6 pakietow 15min
+#vex app-emulation/docker-runc
+##17 aps 3min
+#e u firefox-bin app-emulation/docker lxc 
+##e w
+#vex dev-util/scons
+#vex net-libs/nghttp2
+#vex net-libs/http-parser
 #vex net-libs/nodejs
 #vex dev-libs/libuv
 #vex app-admin/mongo-tools 
-#vex dev-db/mongodb #na razie rezygnuje z kompilacji mongodb, gdyz trzeba na 1 rdzeniu
-#echo "dev-db/mongodb empty1core" >> /etc/portage/package.env/moje.env
-#e u cdrtools dvd+rw-tools libisoburn R octave nodejs opera #67 pakietow 30min
+#vex dev-db/mongodb 
+##echo "dev-db/mongodb empty1core" >> /etc/portage/package.env/moje.env
+##45 apps 
+#e u cdrtools dvd+rw-tools libisoburn R octave nodejs opera mongodb
+#vex app-emulation/virtualbox-guest-additions
+#e app-emulation/virtualbox-guest-additions
 #vex x11-drivers/xf86-video-virtualbox
-#e u =x11-drivers/xf86-video-virtualbox-5.1.6
-#echo "jesli blad kompilacji virtualbox drivera, to nalezy poprawic kod wykorzystujac ebuild wykonujacy instalacje etapami:"
-#echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild compile"
-#echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild install"
-#echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild qmerge"
-##po usunieciu za pomoca viu zbednych ograniczen z package.use/moje.use
-##kompilacja 14 pakietow trwa 1h, gdyz jest tam webkit-gtk
+#e u x11-drivers/xf86-video-virtualbox
 ##potem nalezy dodac uzytkownika
 #useradd -m -g users guest
-##passwd guest
 #echo 'exec startkde' > /home/guest/.xinitrc
 #chown -R guest:users /home/guest/
+#usermod -aG docker guest
 #usermod -aG wheel guest
 #usermod -aG audio guest
 #usermod -aG video guest
 #echo Wykonaj: passwd guest
-##vex app-text/calibre
-##vex media-gfx/gimp
+##passwd guest
+#vex app-text/calibre
+#vex media-gfx/gimp
 ##e u calibre gimp vlc mplayer
-##e u skype google-chrome steam-launcher ghc go blender 
+#e u skype google-chrome steam-launcher blender 
+
 ##############################################################
 
 II. INSTALACJA LUB URUCHOMIENIE WLASNEGO GENTOO USB

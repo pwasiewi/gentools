@@ -109,9 +109,9 @@ ISO=${PROFILE}/iso
 [ ! -e $ISO ] && mkdir -pv $ISO
 CLOOP_FILE=${ISO}/livecd.squashfs
 CD_DISTDIR=$DIST/distfiles 	# pliki zrodlowe
-CD_PORTDIR=$DIST/.portage  	# portage drzewo pakietow do pobrania
+CD_PORTDIR=$DIST/.portage  	# portage drzewo aplikacji do pobrania
 [ ! -e $CD_PORTDIR ] && mkdir -pv $CD_PORTDIR
-CD_LAYMDIR=$DIST/.layman  	# layman drzewo pakietow do pobrania
+CD_LAYMDIR=$DIST/.layman  	# layman drzewo aplikacji do pobrania
 [ ! -e $CD_LAYMDIR ] && mkdir -pv $CD_LAYMDIR
 HOST=""
 
@@ -223,6 +223,10 @@ echo "echo \"\$1\" >> /etc/portage/make.conf" > /usr/local/bin/vec
 echo "vim /etc/portage/make.conf" > /usr/local/bin/vic
 chmod 755 /usr/local/bin/v*
 
+curl ix.io/client > /usr/local/bin/ix
+chmod +x /usr/local/bin/ix
+echo 5 > /etc/portage/profile/eapi
+
 cat >> /etc/portage/make.conf << 'EOF'
 
 #ABI_X86="64 32"  
@@ -253,7 +257,7 @@ FEATURES="sandbox parallel-fetch metadata-transfer -compressdebug -splitdebug"
 USE="${USE} -X -java -systemd -hardened -pic branding experimental extras -doc -acl -systemtap"
 USE="${USE} -kde plasma -gnome -gnome-keyring nautilus grub mediacenter"
 USE="${USE} -cryptsetup reiserfs ntfs fat vfat ntfs reiserfs btrfs zstd dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay"
-USE="${USE} device-mapper udev openrc kernel-patch -systemtap -pax_kernel acpi icu kvm fuse threads usb bluetooth network consolekit ssl sslv3 wifi pcap -ipv6 -automount -gnutls -hal"
+USE="${USE} device-mapper udev openrc kernel-patch -elogind -systemtap -pax_kernel acpi icu kvm fuse threads usb bluetooth network consolekit ssl sslv3 wifi pcap -ipv6 -automount -gnutls -hal"
 USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi -webkit boost"
 
 #USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l"
@@ -335,6 +339,7 @@ e gentoolkit genkernel-next repoman portage euses eix
 vex sys-fs/btrfs-progs
 vex dev-libs/boost
 vex dev-util/boost-build
+vex sys-kernel/gentoo-sources
 vex app-misc/pax-utils
 veu "sys-libs/ncurses -gpm"
 veu ">=sys-boot/grub-2.02 mount"
@@ -351,6 +356,7 @@ eselect kernel set `eselect kernel list | grep linux | wc -l`
 sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
 #usuwanie kompilacji kernela hosta
 #cd /usr/src/linux && make clean
+vep sys-kernel/gentoo-sources
 EOF
         else
             cat >> $PROFILETMP/$ETAP << 'EOF'
@@ -412,13 +418,15 @@ EOF
 3etap(){
 	ETAP=3etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#kompilacja trwa 2h
+#update systemu
+#kompilacja trwa 80min
 sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
 sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
 sed -i 's/#USE="${USE} tools/USE="${USE} tools/g' /etc/portage/make.conf
 sed -i 's/bindist/-bindist/g' /etc/portage/make.conf
 sed -i 's/-X\ /X\ /g' /etc/portage/make.conf
-e w #emerge -uND world  - upgrade world - 214 pakietow w ponad 2h
+e w #emerge -uND world  - upgrade world
+emerge @preserved-rebuild
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -433,21 +441,30 @@ EOF
 4etap(){
 	ETAP=4etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#kompilacja trwa 14min
+#kompilacja trwa 7 min
 e u gpm app-misc/mc ntp
 /etc/init.d/ntp-client start
 /etc/init.d/gpm start
 rc-update add gpm default
-veu "dev-libs/libgpg-error static-libs"
-veu "dev-libs/lzo static-libs"
-veu "dev-libs/libgcrypt static-libs"
-vex sys-libs/readline
-vex app-shells/bash
-e n readline #emerge --nodeps readline 
-emerge @preserved-rebuild
-vex dev-python/ssl-fetch
-e u layman #okolo 32 pakietow po etapie 3 aktualizacji 238 pakietow
-#e u dev-vcs/git #juz zainstalowany przez laymana
+e u layman #okolo 32 aplikacji po etapie 3 aktualizacji 238 aplikacji
+sed -i 's/^check_official : Yes/check_official : no/' /etc/layman/layman.cfg
+EOF
+        if [ "$RAMDISK" == "0" ]; then
+            cat >> $PROFILETMP/$ETAP << 'EOF'
+#na razie nic dla kompilacji w chroocie ze wspólnymi z hostem katalogami
+EOF
+        else
+            cat >> $PROFILETMP/$ETAP << 'EOF'
+layman -L
+layman -a kde
+layman -a x11
+layman -a sabayon 
+EOF
+        fi
+
+        cat >> $PROFILETMP/$ETAP << 'EOF'
+eix-update
+e w
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -462,7 +479,8 @@ EOF
 5etap(){
 	ETAP=5etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#kompilacja trwa 14min po etapie 3 aktualizacji
+#polecane programy - 103 aplikacji
+#kompilacja trwa 16min
 vex sys-fs/mdadm
 vex sys-fs/squahsfs-tools
 vex net-analyzer/xprobe
@@ -471,20 +489,15 @@ vex dev-python/pymountboot
 vex app-admin/eclean-kernel
 vex app-portage/diffmask
 vex app-portage/install-mask
+vex app-portage/gpytage
+veu "dev-libs/libgpg-error static-libs"
+veu "dev-libs/lzo static-libs"
+veu "dev-libs/libgcrypt static-libs"
 # https://wiki.gentoo.org/wiki/Recommended_applications
 # https://wiki.gentoo.org/wiki/Recommended_tools
 # https://wiki.gentoo.org/wiki/Useful_Portage_tools
-e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie install-mask portpeek smart-live-rebuild ufed gpytage net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit gentoolkit-dev f2fs-tools 
-curl ix.io/client > /usr/local/bin/ix
-chmod +x /usr/local/bin/ix
-emaint -A sync
-sed -i 's/^check_official : Yes/check_official : no/' /etc/layman/layman.cfg
-layman -L
-layman -a kde
-layman -a x11
-layman -a sabayon 
-eix-update
-e w #emerge -uND world  - upgrade world - kompilacja max 10min 
+sed -i 's/PYTHON_SINGLE_TARGET="python3_4"/PYTHON_SINGLE_TARGET="python2_7"/g' /etc/portage/make.conf
+e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie install-mask portpeek smart-live-rebuild ufed gpytage net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -499,18 +512,15 @@ EOF
 6etap(){
 	ETAP=6etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#kompilacja trwa 1h
-veu "net-dialup/ppp ipv6"
+#kompilacja networkmanager
+#kompilacja trwa 12min
+vex net-misc/modemmanager
 veu "kde-plasma/plasma-desktop legacy-systray"
+veu ">=sys-libs/libblockdev-2.14-r1 cryptsetup"
+veu ">=net-dialup/ppp-2.4.7-r3 ipv6"
+veu ">=media-sound/pulseaudio-11.1 gnome"
 veu "media-plugins/alsa-plugins pulseaudio"
-echo 'CFLAGS=""' > /etc/portage/env/empty1core
-echo 'CXXFLAGS=""' >> /etc/portage/env/empty1core
-echo 'LDFLAGS=""' >> /etc/portage/env/empty1core
-echo 'MAKEOPTS="-j1"' >> /etc/portage/env/empty1core
-echo "dev-qt/qtwebkit empty1core" >> /etc/portage/package.env/moje.env
-#e qtwebkit #45 pakietow 60min
-echo 'Jak nie skompiluje sie qtwebkit, uzyc kompilacji na jednym rdzeniu:'
-echo 'MAKEOPTS="-j1" e qtwebkit'
+e networkmanager a t
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -525,15 +535,20 @@ EOF
 7etap(){
 	ETAP=7etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
+#kompilacja plasma-5.11 287 aplikacji
 #kompilacja trwa 85min
-echo "kde-plasma/plasma-desktop empty1core" >> /etc/portage/package.env/moje.env
-e u plasma-desktop #243 nowe pakiety 56min
-e u plasma-meta    #54 pakiety 13min
-e u konsole setxkbmap kde-apps/dolphin xdpyinfo xrandr xkill xterm alsamixergui media-video/plasma-mediacenter gparted freetype media-fonts/liberation-fonts           #42 pakietow 12min 
-#e u pavucontrol
-#infinality use flag
-eselect infinality set infinality
-eselect lcdfilter set infinality-sharpened
+vep sys-auth/elogind-235.2-r1
+vep net-misc/networkmanager-1.10.2
+vex kde-frameworks/extra-cmake-modules
+vex kde-frameworks/networkmanager-qt
+#https://wiki.gentoo.org/wiki/Project:Python/PYTHON_TARGETS
+sed -i 's/PYTHON_SINGLE_TARGET="python2_7"/PYTHON_SINGLE_TARGET="python3_4"/g' /etc/portage/make.conf
+echo 'CFLAGS=""' > /etc/portage/env/empty1core
+echo 'CXXFLAGS=""' >> /etc/portage/env/empty1core
+echo 'LDFLAGS=""' >> /etc/portage/env/empty1core
+echo 'MAKEOPTS="-j1"' >> /etc/portage/env/empty1core
+echo "dev-libs/libappindicator empty1core" >> /etc/portage/package.env/moje.env
+time emerge @kde-plasma-5.11
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -549,48 +564,52 @@ EOF
 	ETAP=8etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
 #kompilacja trwa 1h plus 1h upgrade po usunieciu flag use wstawionych veu
+#https://wiki.gentoo.org/wiki/Fontconfig#Explanation
+#41 aplikacje 8min
+e u konsole setxkbmap kde-apps/dolphin xdpyinfo xrandr xkill xterm alsamixergui media-video/plasma-mediacenter gparted freetype media-fonts/liberation-fonts pavucontrol
 #sieci
 veu "dev-libs/nss utils"
-e u x11-misc/bumblebee feh lm_sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn quagga #27 pakietow 4min
+#5 min
+e u x11-misc/bumblebee feh lm_sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn quagga 
 #uzytkowe
 vex www-client/firefox-bin
 vex app-emulation/lxc
 vex app-emulation/docker
 vex sys-process/criu
 vex app-emulation/containerd
-vex app-emulation/runc
-e u firefox-bin app-emulation/docker lxc #12 pakietow 5min
-usermod -aG docker guest
-#e w #6 pakietow 15min
+vex app-emulation/docker-runc
+#17 aps 3min
+e u firefox-bin app-emulation/docker lxc 
+#e w
+vex dev-util/scons
+vex net-libs/nghttp2
+vex net-libs/http-parser
 vex net-libs/nodejs
 vex dev-libs/libuv
 vex app-admin/mongo-tools 
-vex dev-db/mongodb #na razie rezygnuje z kompilacji mongodb, gdyz trzeba na 1 rdzeniu
-echo "dev-db/mongodb empty1core" >> /etc/portage/package.env/moje.env
-e u cdrtools dvd+rw-tools libisoburn R octave nodejs opera #67 pakietow 30min
+vex dev-db/mongodb 
+#echo "dev-db/mongodb empty1core" >> /etc/portage/package.env/moje.env
+#45 apps 
+e u cdrtools dvd+rw-tools libisoburn R octave nodejs opera mongodb
 vex app-emulation/virtualbox-guest-additions
 e app-emulation/virtualbox-guest-additions
 vex x11-drivers/xf86-video-virtualbox
 e u x11-drivers/xf86-video-virtualbox
-echo "jesli blad kompilacji virtualbox drivera, to nalezy poprawic kod wykorzystujac ebuild wykonujacy instalacje etapami:"
-echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild compile"
-echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild install"
-echo "ebuild /usr/local/portage/x11-drivers/xf86-video-virtualbox/xf86-video-virtualbox-5.1.6.ebuild qmerge"
-#po usunieciu za pomoca viu zbednych ograniczen z package.use/moje.use
-#kompilacja 14 pakietow trwa 1h, gdyz jest tam webkit-gtk
+
 #potem nalezy dodac uzytkownika
 useradd -m -g users guest
-#passwd guest
 echo 'exec startkde' > /home/guest/.xinitrc
 chown -R guest:users /home/guest/
+usermod -aG docker guest
 usermod -aG wheel guest
 usermod -aG audio guest
 usermod -aG video guest
 echo Wykonaj: passwd guest
-#vex app-text/calibre
-#vex media-gfx/gimp
+#passwd guest
+vex app-text/calibre
+vex media-gfx/gimp
 #e u calibre gimp vlc mplayer
-#e u skype google-chrome steam-launcher ghc go blender 
+#e u skype google-chrome steam-launcher blender 
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then

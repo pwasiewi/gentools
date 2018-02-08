@@ -144,7 +144,6 @@ mount_all() {
 	   done
 	fi
 	
-	chmod 1777 /dev/shm
 	for x in /dev /proc /sys /dev/pts $DIST/.portage $DIST/.src64bit $DIST/.layman $DIST/.packages ${CCACHEDIR}
 	do	
 		[ ! -e ${x} ] && mkdir -pv ${x}
@@ -153,6 +152,7 @@ mount_all() {
 	done
 	#echo mount -o bind $PROFILETMP $CHROOT/tmp/livecd
 	mount -o bind $PROFILETMP $CHROOT/tmp/livecd || chroot_die
+	chmod 1777 $CHROOT/dev/shm
 }
 
 umount_all() {

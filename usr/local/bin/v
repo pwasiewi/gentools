@@ -143,7 +143,8 @@ mount_all() {
 		mount -o bind ${x} ${CHROOT}${x} || chroot_die
 	   done
 	fi
-
+	
+	chmod 1777 /dev/shm
 	for x in /dev /proc /sys /dev/pts $DIST/.portage $DIST/.src64bit $DIST/.layman $DIST/.packages ${CCACHEDIR}
 	do	
 		[ ! -e ${x} ] && mkdir -pv ${x}
@@ -197,6 +198,8 @@ fetch() {
 	cp2konfig /config.txz $CD_PROFILE #trzeba miec /usr/local/bin/cp2konfig
 
 	cat > $PROFILETMP/vcportdir << 'EOF'
+#wget -c $CONFIGFILE -O/config.txz
+cd / && tar Jxf config.txz
 for i in keywords use mask env; do 
 [ -f /etc/portage/package.$i ] && mv /etc/portage/package.$i /etc/portage/package.$i.backup
 [ ! -e /etc/portage/package.$i ] && mkdir /etc/portage/package.$i
@@ -323,9 +326,6 @@ locale-gen
 eselect profile set 20 #plasma systemd
 env-update
 . /etc/profile
-cd /
-#wget -c $CONFIGFILE -Oconfig.txz
-tar Jxf config.txz
 ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
 ln -sf /proc/self/mounts /etc/mtab
 
@@ -418,7 +418,7 @@ EOF
 3etap(){
 	ETAP=3etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#update systemu
+#update systemu - etap konieczny
 #kompilacja trwa 80min
 sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
 sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
@@ -441,6 +441,7 @@ EOF
 4etap(){
 	ETAP=4etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
+#layman dodany - etap konieczny
 #kompilacja trwa 7 min
 e u gpm app-misc/mc ntp
 /etc/init.d/ntp-client start
@@ -479,7 +480,7 @@ EOF
 5etap(){
 	ETAP=5etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#polecane programy - 103 aplikacji
+#polecane programy - 103 aplikacji - etap dodatkowy
 #kompilacja trwa 16min
 vex sys-fs/mdadm
 vex sys-fs/squahsfs-tools
@@ -512,7 +513,7 @@ EOF
 6etap(){
 	ETAP=6etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#kompilacja networkmanager
+#kompilacja networkmanager - etap dodatkowy
 #kompilacja trwa 12min
 vex net-misc/modemmanager
 veu "kde-plasma/plasma-desktop legacy-systray"
@@ -535,7 +536,7 @@ EOF
 7etap(){
 	ETAP=7etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#kompilacja plasma-5.11 287 aplikacji
+#kompilacja plasma: 287 aplikacji - etap dodatkowy
 #kompilacja trwa 85min
 vep sys-auth/elogind-235.2-r1
 vep net-misc/networkmanager-1.10.2
@@ -548,7 +549,7 @@ echo 'CXXFLAGS=""' >> /etc/portage/env/empty1core
 echo 'LDFLAGS=""' >> /etc/portage/env/empty1core
 echo 'MAKEOPTS="-j1"' >> /etc/portage/env/empty1core
 echo "dev-libs/libappindicator empty1core" >> /etc/portage/package.env/moje.env
-time emerge @kde-plasma-5.11
+time emerge @kde-plasma
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -855,12 +856,12 @@ growisofs -Z /dev/sr0=${PROFILE}/livecd.iso
 
 chroot_mc() {
 cd ${PROFILE}
-mc
+[ -e /usr/bin/mc ] && mc || vim settings
 }
 
 profile_mc() {
 cd ${LIVECONF}/profiles/${CD_PROFILE}
-mc
+[ -e /usr/bin/mc ] && mc || vim settings
 }
 
 

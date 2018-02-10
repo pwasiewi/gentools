@@ -19,14 +19,13 @@ cd / && tar Jxvf config.txz && cd
 #na Ubuntu LiveDVD: apt install vim
 v a p #edytuj settings chroot na /dev/sda5 
 #RAMDISK=1 instalacja izolowana np. z Ubuntu bez wspolnego np. portage z hostem
-#UWAGA /dev/sda to dla dysku z wirtualboxa
-#uwaga na symbol /DEV/SDA
-#czy opisuje on wlasciwy dysk
+#UWAGA /dev/sda5 to partycja roota dla dysku z wirtualboxa
+#uwaga na symbol /DEV/SDA, czy opisuje on wlasciwy dysk
 #------------------------------------------------------------
 #UWAGA! USUWANIE PARTYCJI i DANYCH
 #for v_partition in $(parted -s /dev/sda print|awk '/^ / {print $1}'); do parted -s /dev/sda rm ${v_partition}; done
 #ROZMIAR DYSKU: parted -s /dev/sda print|awk '/^Disk/ {print $3}'|sed 's/[Mm][Bb]//'
-#-POCZATEK-formatowanie dysku TYLKO w virtualboxie ----------
+#-POCZATEK-ustawianie partycji w virtualboxie, kiedy dysk /dev/sda jest niezajęty
 parted -s /dev/sda mklabel gpt
 parted /dev/sda mkpart primary fat32 1MiB 5MiB
 parted /dev/sda mkpart primary fat32 5MiB 205MiB

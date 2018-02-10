@@ -18,13 +18,10 @@ cd / && tar Jxvf config.txz && cd
 #na Gentoo LiveDVD: emerge vim
 #na Ubuntu LiveDVD: apt install vim
 v a p #edytuj settings chroot na /dev/sda5 
-#RAMDISK=1 instalacja izolowana np. z Ubuntu bez wspolnego np. portage z hostem
+#RAMDISK=1 instalacja izolowana np. z UbuntuLiveDVD bez wspolnego np. portage z hostem
 #UWAGA /dev/sda5 to partycja roota dla dysku z wirtualboxa
 #uwaga na symbol /DEV/SDA, czy opisuje on wlasciwy dysk
 #------------------------------------------------------------
-#UWAGA! USUWANIE PARTYCJI i DANYCH
-#for v_partition in $(parted -s /dev/sda print|awk '/^ / {print $1}'); do parted -s /dev/sda rm ${v_partition}; done
-#ROZMIAR DYSKU: parted -s /dev/sda print|awk '/^Disk/ {print $3}'|sed 's/[Mm][Bb]//'
 #-POCZATEK-ustawianie partycji w virtualboxie, kiedy dysk /dev/sda jest niezajęty
 parted -s /dev/sda mklabel gpt
 parted /dev/sda mkpart primary fat32 1MiB 5MiB
@@ -38,16 +35,19 @@ mkswap /dev/sda4
 swapon /dev/sda4
 mkfs.ext4 /dev/sda5 -F
 #-KONIEC-----------------------------------------------------
+#W razie ponownych zmian usuwanie partycji:
+#for v_partition in $(parted -s /dev/sda print|awk '/^ / {print $1}'); do parted -s /dev/sda rm ${v_partition}; done
+#Rozmiar dysku: parted -s /dev/sda print|awk '/^Disk/ {print $3}'|sed 's/[Mm][Bb]//'
 #------------------------------------------------------------
 v a f #sciagnij stage3/4
 v a 1 #rozpakuj stage3/4, portage i popraw make.conf, vim
 v a e #chroot na nowy system gentoo
 #------------------------------------------------------------
-#-POCZATEK po v a e wpisz komendy (VirtualBox)---------------
+#-POCZATEK wpisywania komend: v a e -------------------------
 #jak potrzeba edytuj fstab: vim /etc/fstab
 #zmien haslo: passwd #ZMIANA HASLA NA ROOTA NA WLASNE
 #CTRL-d wychodzi z: v a e
-#-KONIEC - po v a e wpisz komendy (VirtualBox)---------------
+#-KONIEC   wpisywania komend: v a e -------------------------
 #------------------------------------------------------------
 #REBOOT i dalsza instalacja np. plasma-meta
 reboot

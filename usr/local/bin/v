@@ -876,10 +876,10 @@ rm -rf $CHROOT/usr/share/doc/docbook-xsl-stylesheets*
 cd $CHROOT/usr/share/locale
 rm -rf af am ang ar az be be@latin bg bn bn_IN br bs ca cs cs_CZ cy da dz el eo es es_AR et et_EE eu fa fi ga gl gr gu gu_IN he hi hr hy id is it it_IT ja ka kn ko ku ky li lt lv mg mi mk ml mn mr ms nb nb_NO ne nn no nso oc or pa pt pt_BR pt_PT ro ru rw si sk sl sq sr sr@Latn sr@ije sv sv_FI sv_SE ta te th tk tr tr_TR ug uz uz@cyrillic vi wa wo xh yi zh zh_CN zh_HK zh_TW zu
 cd $CHROOT/usr/share/doc
-mkdir /tmp/sharedoc
-mv R* gtk* slony* pg* postgres* phppg* octave* docker* lxc* /tmp/sharedoc 
-rm -rf $CHROOT/usr/share/doc/*
-mv /tmp/sharedoc/* .
+#mkdir /tmp/sharedoc
+#mv R* gtk* slony* pg* postgres* phppg* octave* docker* lxc* /tmp/sharedoc 
+#rm -rf $CHROOT/usr/share/doc/*
+#mv /tmp/sharedoc/* .
 ls
 cd
 }

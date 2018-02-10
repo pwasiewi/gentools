@@ -19,7 +19,7 @@ cd / && tar Jxvf config.txz && cd
 #na Ubuntu LiveDVD: apt install vim
 v a p #edytuj settings chroot na /dev/sda5 
 #RAMDISK=1 instalacja izolowana np. z Ubuntu bez wspolnego np. portage z hostem
-#UWAGA to dla dysku z wirtualboxa
+#UWAGA /dev/sda to dla dysku z wirtualboxa
 #uwaga na symbol /DEV/SDA
 #czy opisuje on wlasciwy dysk
 #------------------------------------------------------------
@@ -45,12 +45,13 @@ v a 1 #rozpakuj stage3/4, portage i popraw make.conf, vim
 v a e #chroot na nowy system gentoo
 #------------------------------------------------------------
 #-POCZATEK po v a e wpisz komendy (VirtualBox)---------------
-#jak potrzeba
-#edytuj fstab: vim /etc/fstab
+#jak potrzeba edytuj fstab: vim /etc/fstab
 #zmien haslo: passwd #ZMIANA HASLA NA ROOTA NA WLASNE
+#CTRL-d wychodzi z: v a e
 #-KONIEC - po v a e wpisz komendy (VirtualBox)---------------
 #------------------------------------------------------------
 #REBOOT i dalsza instalacja np. plasma-meta
+reboot
 
 ##############################################################
 #2etap podmiana gcc na nowsze i kompilacja boost

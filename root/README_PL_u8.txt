@@ -118,6 +118,7 @@ v a 5host
 #------------------------------------------------------------
 ##polecane programy - 103 aplikacji
 ##kompilacja trwa 16min
+vex sys-fs/reiserfsprogs
 #vex sys-fs/mdadm
 #vex sys-fs/squahsfs-tools
 #vex net-analyzer/xprobe

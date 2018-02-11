@@ -61,7 +61,9 @@ reboot
 
 ##############################################################
 #2etap podmiana gcc na nowsze i kompilacja boost
+#------------------------------------------------------------
 v a 2host
+#------------------------------------------------------------
 ##update na nowszy gcc - etap dodatkowy
 ##kompilacja trwa 30min
 #vex sys-devel/gcc
@@ -77,7 +79,9 @@ v a 2host
 
 ##############################################################
 #3etap uaktualnienie systemu z odblokowanymi flagami USE
+#------------------------------------------------------------
 v a 3host
+#------------------------------------------------------------
 ##kompilacja trwa 2h
 #sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
 #sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
@@ -89,7 +93,9 @@ v a 3host
 
 ##############################################################
 #4etap instalujemy git i laymana do dodatkowych pakietow
+#------------------------------------------------------------
 v a 4host
+#------------------------------------------------------------
 ##kompilacja trwa 7 min
 #e u gpm app-misc/mc ntp
 #/etc/init.d/ntp-client start
@@ -107,7 +113,9 @@ v a 4host
 
 ##############################################################
 #5etap dodatkowe pakiety i update systemu po dodaniu overlayow
+#------------------------------------------------------------
 v a 5host
+#------------------------------------------------------------
 ##polecane programy - 103 aplikacji
 ##kompilacja trwa 16min
 #vex sys-fs/mdadm
@@ -130,7 +138,9 @@ v a 5host
 
 ##############################################################
 #6etap kompilacja pakietu 
+#------------------------------------------------------------
 v a 6host
+#------------------------------------------------------------
 ##kompilacja networkmanager
 ##kompilacja trwa 12min
 #vex net-misc/modemmanager
@@ -144,7 +154,9 @@ v a 6host
 
 ##############################################################
 #7etap caly desktop plasma min. 80min
+#------------------------------------------------------------
 v a 7host
+#------------------------------------------------------------
 ##kompilacja plasma-5.11 287 aplikacji
 ##kompilacja trwa 85min
 #vep sys-auth/elogind-235.2-r1
@@ -162,7 +174,9 @@ v a 7host
 
 ##############################################################
 #8etap dodatkowe pakiety, x11 virtualbox, nowy uzytkownik
+#------------------------------------------------------------
 v a 8host
+#------------------------------------------------------------
 ##kompilacja trwa 1h plus 1h upgrade po usunieciu flag use wstawionych veu
 ##https://wiki.gentoo.org/wiki/Fontconfig#Explanation
 ##41 aplikacje 8min
@@ -271,7 +285,7 @@ Otrzymujemy system gotowy do dzialania.
 ##############################################################
 UZYTKOWANIE GENTOO
 
-emerge --sync
+emerge --sync #e m
 Sprowadza drzewo portage czyli nazwy pakietow (dokladnie plikow ebuild) i 
 ich zaleznosci
 
@@ -318,7 +332,7 @@ vim /etc/portage/profile/package.provided
 Zamieszczone tu tytuly pakietow nieobecnych, ktore "oszukuja"
 system, ze sa w nim nadal obecne lub powoduja brak aktualizacji 
 
-emerge -uND world 
+emerge -uND world  #e w
 Updatuje po sprowadzeniu najnowszego drzewa za pomoca wczesniejszego emerge --sync pakiety do nowszych wersji i ewentualnie zmienionych flag systemowych w /etc/make.conf i /etc/portage/package.use
 
 emerge -fuN world 
@@ -329,7 +343,7 @@ wszystko co potrzebne do nich zostalo sprowadzone opcja -f
 emerge -uNp world
 Wypisuje nazwy programow do skompilowania bez samego kompilowania
 
-emerge -uNpv world
+emerge -uNpv world 
 Wypisuje nazwy programow do skompilowania bez samego kompilowania wraz z
 flagami systemu portage, ktore zostana uzyte przy kompilacji programu
 
@@ -338,7 +352,7 @@ Wypisuje nazwy programow do skompilowania bez samego kompilowania wraz z
 flagami systemu portage, ktore zostana uzyte przy kompilacji programu oraz
 hierarchia pakietow zobrazowana w postaci wciec - semi-drzewa tekstowego 
 
-emerge -e world
+emerge -e world #e e w
 Rekompiluje od nowa kazdy zainstalowany program
 
 emerge liquorix-sources 

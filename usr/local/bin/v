@@ -374,7 +374,7 @@ make olddefconfig
 sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
 e k
 grub-install /dev/sda
-[ -e /usr/lib/systemd/systemd ] && echo 'GRUB_CMDLINE_LINUX="init=/usr/lib/systemd/systemd"' >> /etc/default/grub
+[ -e /usr/lib/systemd/systemd ] && echo 'GRUB_CMDLINE_LINUX="init=/usr/lib/systemd/systemd hpet=disable"' >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
 systemctl enable dhcpcd
 echo "Wejdź do chroot Gentoo: v a e"

@@ -12,7 +12,7 @@ sudo su -
 #Skrypty do screencastów o sprawnej instalacji gentoo https://goo.gl/Ao9sUU
 #STARSZA WERSJA skryptów (PRZESTARZAŁA): wget -c https://goo.gl/zbNuuu  -O/config.txz
 #NOWSZA WERSJA skryptów: 
-wget -c https://goo.gl/3tuKNC  -O/config.txz
+wget -c https://goo.gl/giboFk  -O/config.txz
 cd / && tar Jxvf config.txz && cd
 #zainstaluj vim, jak go nie ma
 #na Gentoo LiveDVD: emerge vim

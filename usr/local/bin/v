@@ -607,7 +607,7 @@ vex dev-util/kbuild
 vex app-emulation/virtualbox-guest-additions
 #e app-emulation/virtualbox-guest-additions
 #9min
-e virtualbox 
+e u virtualbox 
 vex x11-drivers/xf86-video-virtualbox
 e u x11-drivers/xf86-video-virtualbox
 

@@ -8,21 +8,27 @@ I. INSTALACJA Z OFICJALNEGO LIVEDVD/USB NA VIRTUALBOX
 
 ##############################################################
 #1etap
+#------------------------------------------------------------
 sudo su -
+#------------------------------------------------------------
 #Skrypty do screencastów o sprawnej instalacji gentoo https://goo.gl/Ao9sUU
 #STARSZA WERSJA skryptów (PRZESTARZAŁA): wget -c https://goo.gl/zbNuuu  -O/config.txz
 #NOWSZA WERSJA skryptów: 
+#------------------------------------------------------------
 wget -c https://goo.gl/giboFk  -O/config.txz
 cd / && tar Jxvf config.txz && cd
+#------------------------------------------------------------
 #zainstaluj vim, jak go nie ma
 #na Gentoo LiveDVD: emerge vim
 #na Ubuntu LiveDVD: apt install vim
+#------------------------------------------------------------
 v a p #edytuj settings chroot na /dev/sda5 
+#------------------------------------------------------------
 #RAMDISK=1 instalacja izolowana np. z UbuntuLiveDVD bez wspolnego np. portage z hostem
 #UWAGA /dev/sda5 to partycja roota dla dysku z wirtualboxa
 #uwaga na symbol /DEV/SDA, czy opisuje on wlasciwy dysk
-#------------------------------------------------------------
 #POCZATEK - ustawianie partycji w virtualboxie, kiedy dysk /dev/sda jest niezajęty
+#------------------------------------------------------------
 parted -s /dev/sda mklabel gpt
 parted /dev/sda mkpart primary fat32 1MiB 5MiB
 parted /dev/sda mkpart primary fat32 5MiB 205MiB
@@ -34,6 +40,7 @@ mkfs.ext4 /dev/sda3 -F
 mkswap /dev/sda4
 swapon /dev/sda4
 mkfs.ext4 /dev/sda5 -F
+#------------------------------------------------------------
 #KONIEC  - ustawianie partycji w virtualboxie-----------------
 #W razie ponownych zmian usuwanie partycji:
 #for v_partition in $(parted -s /dev/sda print|awk '/^ / {print $1}'); do parted -s /dev/sda rm ${v_partition}; done
@@ -48,8 +55,8 @@ v a e #chroot na nowy system gentoo
 #zmien haslo:                passwd #ZMIANA HASLA NA ROOTA NA WLASNE
 #CTRL-d wychodzi z:          v a e
 #KONIEC   wpisywania komend: v a e 
-#------------------------------------------------------------
 #REBOOT i dalsza instalacja np. plasma-meta
+#------------------------------------------------------------
 reboot
 
 ##############################################################

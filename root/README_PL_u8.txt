@@ -22,7 +22,7 @@ v a p #edytuj settings chroot na /dev/sda5
 #UWAGA /dev/sda5 to partycja roota dla dysku z wirtualboxa
 #uwaga na symbol /DEV/SDA, czy opisuje on wlasciwy dysk
 #------------------------------------------------------------
-#-POCZATEK-ustawianie partycji w virtualboxie, kiedy dysk /dev/sda jest niezajęty
+#POCZATEK-ustawianie partycji w virtualboxie, kiedy dysk /dev/sda jest niezajęty
 parted -s /dev/sda mklabel gpt
 parted /dev/sda mkpart primary fat32 1MiB 5MiB
 parted /dev/sda mkpart primary fat32 5MiB 205MiB
@@ -34,7 +34,7 @@ mkfs.ext4 /dev/sda3 -F
 mkswap /dev/sda4
 swapon /dev/sda4
 mkfs.ext4 /dev/sda5 -F
-#-KONIEC-----------------------------------------------------
+#KONIEC-ustawianie partycji w virtualboxie-----------------
 #W razie ponownych zmian usuwanie partycji:
 #for v_partition in $(parted -s /dev/sda print|awk '/^ / {print $1}'); do parted -s /dev/sda rm ${v_partition}; done
 #Rozmiar dysku: parted -s /dev/sda print|awk '/^Disk/ {print $3}'|sed 's/[Mm][Bb]//'
@@ -44,9 +44,9 @@ v a 1 #rozpakuj stage3/4, portage i popraw make.conf, vim
 v a e #chroot na nowy system gentoo
 #------------------------------------------------------------
 #-POCZATEK wpisywania komend: v a e -------------------------
-#jak potrzeba edytuj fstab: vim /etc/fstab
-#zmien haslo: passwd #ZMIANA HASLA NA ROOTA NA WLASNE
-#CTRL-d wychodzi z: v a e
+#jak potrzeba edytuj fstab:   vim /etc/fstab
+#zmien haslo:                 passwd #ZMIANA HASLA NA ROOTA NA WLASNE
+#CTRL-d wychodzi z:           v a e
 #-KONIEC   wpisywania komend: v a e -------------------------
 #------------------------------------------------------------
 #REBOOT i dalsza instalacja np. plasma-meta

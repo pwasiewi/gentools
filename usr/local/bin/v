@@ -333,8 +333,8 @@ ln -sf /proc/self/mounts /etc/mtab
 #sed -i 's/^#ABI/ABI/g' /etc/portage/make.conf
 mv /etc/portage/repos.conf/st*.conf ~
 
-e vim
-e gentoolkit genkernel-next repoman portage euses eix 
+e u vim
+e u gentoolkit genkernel-next repoman portage euses eix 
 
 vex sys-fs/btrfs-progs
 vex dev-libs/boost
@@ -345,7 +345,7 @@ veu "sys-libs/ncurses -gpm"
 veu ">=sys-boot/grub-2.02 mount"
 veu ">=sys-apps/util-linux-2.30.2 static-libs"
 
-e genlop os-prober linux-firmware dhcpcd grub
+e u genlop os-prober linux-firmware dhcpcd grub
 EOF
 
         if [ "$RAMDISK" == "0" ]; then
@@ -530,7 +530,7 @@ veu ">=sys-libs/libblockdev-2.14-r1 cryptsetup"
 veu ">=net-dialup/ppp-2.4.7-r3 ipv6"
 veu ">=media-sound/pulseaudio-11.1 gnome"
 veu "media-plugins/alsa-plugins pulseaudio"
-e networkmanager a t
+e u networkmanager
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then

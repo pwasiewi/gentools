@@ -15,7 +15,7 @@ sudo su -
 #STARSZA WERSJA skryptów (PRZESTARZAŁA): wget -c https://goo.gl/zbNuuu  -O/config.txz
 #NOWSZA WERSJA skryptów: 
 #------------------------------------------------------------
-wget -c https://goo.gl/SA39LL  -O/config.txz
+wget -c https://goo.gl/MK3UDZ  -O/config.txz
 cd / && tar Jxvf config.txz && cd
 #------------------------------------------------------------
 #zainstaluj vim, jak go nie ma

@@ -150,7 +150,7 @@ v a 6host
 #veu ">=net-dialup/ppp-2.4.7-r3 ipv6"
 #veu ">=media-sound/pulseaudio-11.1 gnome"
 #veu "media-plugins/alsa-plugins pulseaudio"
-#e networkmanager a t
+#e u networkmanager
 
 
 ##############################################################
@@ -172,16 +172,17 @@ v a 7host
 #echo 'MAKEOPTS="-j1"' >> /etc/portage/env/empty1core
 #echo "dev-libs/libappindicator empty1core" >> /etc/portage/package.env/moje.env
 #time emerge @kde-plasma-5.11
+#e u konsole kde-apps/dolphin media-video/plasma-mediacenter
 
 ##############################################################
 #8etap dodatkowe pakiety, x11 virtualbox, nowy uzytkownik
 #------------------------------------------------------------
 v a 8host
 #------------------------------------------------------------
-##kompilacja trwa 1h plus 1h upgrade po usunieciu flag use wstawionych veu
+##kompilacja trwa 1h plus upgrade po usunieciu flag use wstawionych veu
 ##https://wiki.gentoo.org/wiki/Fontconfig#Explanation
 ##41 aplikacje 8min
-#e u konsole setxkbmap kde-apps/dolphin xdpyinfo xrandr xkill xterm alsamixergui media-video/plasma-mediacenter gparted freetype media-fonts/liberation-fonts pavucontrol
+#e u setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol
 ##sieci
 #veu "dev-libs/nss utils"
 ##5 min
@@ -193,6 +194,7 @@ v a 8host
 #vex sys-process/criu
 #vex app-emulation/containerd
 #vex app-emulation/docker-runc
+#vex app-emulation/docker-proxy
 ##17 aps 3min
 #e u firefox-bin app-emulation/docker lxc 
 ##e w
@@ -204,10 +206,14 @@ v a 8host
 #vex app-admin/mongo-tools 
 #vex dev-db/mongodb 
 ##echo "dev-db/mongodb empty1core" >> /etc/portage/package.env/moje.env
-##45 apps 
+##45 apps 20min bez nodejs i octave
 #e u cdrtools dvd+rw-tools libisoburn R octave nodejs opera mongodb
+#vex x11-drivers/xf86-video-vboxvideo
+#vex dev-util/kbuild
 #vex app-emulation/virtualbox-guest-additions
-#e app-emulation/virtualbox-guest-additions
+##e app-emulation/virtualbox-guest-additions
+##9min
+#e u virtualbox 
 #vex x11-drivers/xf86-video-virtualbox
 #e u x11-drivers/xf86-video-virtualbox
 ##potem nalezy dodac uzytkownika
@@ -223,7 +229,13 @@ v a 8host
 #vex app-text/calibre
 #vex media-gfx/gimp
 ##e u calibre gimp vlc mplayer
-#e u skype google-chrome steam-launcher blender 
+##e u skype google-chrome steam-launcher blender 
+##FINALNY UPDATE
+##sed -i 's/PYTHON_SINGLE_TARGET="python2_7"/PYTHON_SINGLE_TARGET="python3_4"/g' /etc/portage/make.conf
+#veu "gnome-base/libglade PYTHON_SINGLE_TARGET: -* python2_7"
+#veu "app-text/asciidoc PYTHON_SINGLE_TARGET: -* python2_7"
+##14 apps 3min
+#e w
 
 ##############################################################
 

@@ -589,6 +589,7 @@ vex app-emulation/docker
 vex sys-process/criu
 vex app-emulation/containerd
 vex app-emulation/docker-runc
+vex app-emulation/docker-proxy
 #17 aps 3min
 e u firefox-bin app-emulation/docker lxc 
 #e w

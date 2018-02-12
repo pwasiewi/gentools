@@ -4,7 +4,7 @@ Aby uruchomic liveusb nalezy je zbootowac z wlaczona opcja w BIOSIE boot from
 dvd lub usb. 
 Wyrozniamy dwa rodzaje operacji 
 
-I. INSTALACJA Z OFICJALNEGO LIVEDVD/USB NA VIRTUALBOX
+I. INSTALACJA Z OFICJALNEGO LUB UBUNTU LIVEDVD/USB NA VIRTUALBOX
 
 ##############################################################
 #1etap

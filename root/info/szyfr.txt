@@ -1,0 +1,73 @@
+#https://riseup.net/en/security/message-security/openpgp/best-practices
+gpg --full-generate-key
+gpg --list-keys
+gpg --list-secret-keys --keyid-format LONG
+sec   rsa4096/<YOUR_KEY>
+gpg --armor --export <YOUR_KEY>
+gpg --armor --output ~/.gnupg/key<YOUR_KEY>.asc --export <YOUR_KEY>
+gpg --output ~/.gnupg/revoke<YOUR_KEY>.asc --gen-revoke <YOUR_KEY>
+gpg --keyserver keys.gnupg.net --keyserver-options honor-http-proxy --send-key <YOUR_KEY>
+wget -O ~/.gnupg/sks-keyservers.netCA.pem https://sks-keyservers.net/sks-keyservers.netCA.pem
+wget -O ~/.gnupg/gpg.conf https://gist.githubusercontent.com/42n4/278539c6d2f9c3ed4460fba5d7221f69/raw/1c29f7543b497a2f061182280134830993cf2f6d/gpg.conf
+gpg --keyserver --keyserver-options my-http-proxy --send-key <YOUR_KEY>
+#with proper gpg
+gpg --send-key <YOUR_KEY>
+gpg --search-keys <YOUR_PGP_EMAIL>
+#To create ASCII files, just add the --clearsign option to the beginning of the command. 
+gpg --output encrypted_doc.gpg --encrypt --recipient lmpinto@dei.uc.pt doc_to_encrypt
+gpg --output signed_doc.gpg --sign --recipient lmpinto@dei.uc.pt doc_to_sign
+gpg --output encrypted_doc.gpg --encrypt --sign --recipient lmpinto@dei.uc.pt doc_to_encrypt_and_sign
+gpg --output document --decrypt encrypted_doc.gpg
+
+keyservers:
+keys.gnupg.net
+hkp://subkeys.pgp.net (server pool)
+http://pgp.mit.edu
+hkp://pool.sks-keyservers.net (server pool, also supports secured key requests over TLS: hkps://hkps.pool.sks-keyservers.net)
+hkp://zimmermann.mayfirst.org (also supports secured key requests over TLS)
+http://keyserver.ubuntu.com
+
+mkdir ~/.ssh/github
+ssh-keygen -t rsa -b 4096 -N '' -C<YOUR_EMAIL> -f ~/.ssh/github/id_rsa
+
+#test github ssh
+ssh -vT git@github.com
+git remote set-url origin git@github.com:<Username>/<Project>.git
+#you can git push now
+
+echo 'SSH_ENV="$HOME/.ssh/environment"
+function start_agent {
+    echo "Initialising new SSH agent..."
+    OLD_UMASK=$(umask 077); /usr/bin/ssh-agent | sed 's/^echo/#echo/' > "${SSH_ENV}"; umask ${OLD_UMASK}
+    echo succeeded
+    . "${SSH_ENV}" > /dev/null
+    /usr/bin/ssh-add;
+}
+# Source SSH settings, if applicable
+if [ -f "${SSH_ENV}" ]; then
+    . "${SSH_ENV}" > /dev/null
+    ps -ef | grep ${SSH_AGENT_PID} | grep ssh-agent$ > /dev/null || {
+        start_agent;
+    }
+else
+    start_agent;
+fi' > ~/.bashrc
+echo 'if [ -f ~/.bashrc ]; then source ~/.bashrc; fi' > ~/.bash_profile
+
+
+#NIE działa systemctl ssh-agent
+#https://wiki.gentoo.org/wiki/Systemd
+[ ! -e ~/.local/share/systemd/user/ ] && mkdir -p ~/.local/share/systemd/user/
+echo '[Unit]
+Description=SSH key agent
+[Service]
+Type=forking
+Environment=SSH_AUTH_SOCK=%t/ssh-agent.socket
+ExecStart=/usr/bin/ssh-agent -a $SSH_AUTH_SOCK
+[Install]
+WantedBy=default.target' > ~/.local/share/systemd/user/ssh-agent.service
+echo 'export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"' > ~/.bash_profile
+echo 'AddKeysToAgent  yes' > ~/.ssh/config
+systemctl --user enable ssh-agent
+systemctl --user start ssh-agent
+

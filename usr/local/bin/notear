@@ -1,0 +1,2 @@
+xrandr --output  HDMI-A-3 --set TearFree on
+xrandr --properties | grep Tear

@@ -780,10 +780,10 @@ EOF
 
 genkernel() {
 	cat > $PROFILETMP/genkernel-build << EOF
-sed -i "s/CDROOT='0'/CDROOT='1'/g" /usr/share/genkernel/defaults/initrd.defaults
+sed -i 's/CDROOT="0"/CDROOT="1"/g' /usr/share/genkernel/defaults/initrd.defaults
 time MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --lvm --no-clean all
 ls
-sed -i "s/CDROOT='1'/CDROOT='0'/g" /usr/share/genkernel/defaults/initrd.defaults
+sed -i 's/CDROOT="1"/CDROOT="0"/g' /usr/share/genkernel/defaults/initrd.defaults
 EOF
 	chmod +x $PROFILETMP/genkernel-build
         mount_all

@@ -25,5 +25,13 @@ tar zxvf roc-1.7.0.tar.gz
 make rock-rel_defconfig
 MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --lvm --luks --no-clean all
 
+xrandr --output  HDMI-A-3 --set TearFree on
 
+#AMDGPU
+https://wiki.gentoo.org/wiki/Amdgpu#Feature_support
+https://forums-web2.gentoo.org/viewtopic-t-1051376.html?sid=7437e6c84b4a2963f9b27fa5205693c8
+https://github.com/Lucretia/vulkan-overlay/issues/22
+https://github.com/corngood/nixpkgs/tree/amdgpu-pro-16.40/pkgs/os-specific/linux/amdgpu-pro/patches
 
+https://www2.warwick.ac.uk/fac/cross_fac/complexity/people/staff/delgenio/amdgpuprogentoo
+e dev-libs/amdgpu-pro-opencl

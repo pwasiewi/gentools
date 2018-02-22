@@ -1,3 +1,9 @@
 tar cvf - dump |  lrzip -UL 9 > enron.lrz
 7z -r -mx9 -m0=PPMd -mmem=2400m a enron1.7z dump
 7z -r -mx9 a enron1.7z dump
+
+tar -Ipixz -cf foo.tpxz foo/
+lbzip2
+pbzip2
+pixz
+

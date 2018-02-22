@@ -1,0 +1,131 @@
+emerge -av vzdump vzstats vzctl vzquota ploop libvirt
+
+ip addr add 192.168.10.100/24 dev vethCOB3OK 
+iptables -t nat -A POSTROUTING -o enp0s31f6 -j MASQUERADE
+nft add rule nat postrouting oif enp0s31f6 masquerade
+
+
+lxc-start -n ubuntu-amd -o out.log
+lxc-stop -n ubuntu-amd
+
+vim /var/lib/lxc/ubuntu-amd/config
+
+#/var/lib/lxc/ubuntu-amd/config
+lxc.net.0.type = veth
+lxc.net.0.flags = up
+lxc.net.0.name = br0
+#lxc.net.0.name = eth0
+lxc.net.0.ipv4.address = 192.168.10.101/24
+lxc.net.0.ipv4.gateway = 192.168.10.100
+#lxc.net.0.hwaddr = 4a:49:43:49:79:bf
+#lxc.net.0.ipv4.address = 10.2.3.5/24
+
+
+#LXC >= 2.1 nowe zmienne
+Legacy Key                           | New Key                       | Comments
+-------------------------------------|-------------------------------|---------
+lxc.aa_profile                       | lxc.apparmor.profile          |
+lxc.aa_allow_incomplete              | lxc.apparmor.allow_incomplete |
+lxc.console                          | lxc.console.path              |
+lxc.devttydir                        | lxc.tty.dir                   |
+lxc.haltsignal                       | lxc.signal.halt               |
+lxc.id_map                           | lxc.idmap                     |
+lxc.init_cmd                         | lxc.init.cmd                  |
+lxc.init_gid                         | lxc.init.gid                  |
+lxc.init_uid                         | lxc.init.uid                  |
+lxc.kmsg                             | -                             | removed
+lxc.limit                            | lxc.prlimit                   |
+lxc.logfile                          | lxc.log.file                  |
+lxc.loglevel                         | lxc.log.level                 |
+lxc.mount                            | lxc.mount.fstab               |
+lxc.network                          | lxc.net                       |
+lxc.network.                         | lxc.net.[i].                  |
+lxc.network.flags                    | lxc.net.[i].flags             |
+lxc.network.hwaddr                   | lxc.net.[i].hwaddr            |
+lxc.network.ipv4                     | lxc.net.[i].ipv4.address      |
+lxc.network.ipv4.gateway             | lxc.net.[i].ipv4.gateway      |
+lxc.network.ipv6                     | lxc.net.[i].ipv6.address      |
+lxc.network.ipv6.gateway             | lxc.net.[i].ipv6.gateway      |
+lxc.network.link                     | lxc.net.[i].link              |
+lxc.network.macvlan.mode             | lxc.net.[i].macvlan.mode      |
+lxc.network.mtu                      | lxc.net.[i].mtu               |
+lxc.network.name                     | lxc.net.[i].name              |
+lxc.network.script.down              | lxc.net.[i].script.down       |
+lxc.network.script.up                | lxc.net.[i].script.up         |
+lxc.network.type                     | lxc.net.[i].type              |
+lxc.network.veth.pair                | lxc.net.[i].veth.pair         |
+lxc.network.vlan.id                  | lxc.net.[i].vlan.id           |
+lxc.pivotdir                         | -                             | removed
+lxc.pts                              | lxc.pty.max                   |
+lxc.rebootsignal                     | lxc.signal.reboot             |
+lxc.rootfs                           | lxc.rootfs.path               |
+lxc.se_context                       | lxc.selinux.context           |
+lxc.seccomp                          | lxc.seccomp.profile           |
+lxc.stopsignal                       | lxc.signal.stop               |
+lxc.syslog                           | lxc.log.syslog                |
+lxc.tty                              | lxc.tty.max                   |
+lxc.utsname                          | lxc.uts.name
+
+
+
+
+ *   CONFIG_CGROUP_FREEZER:	 is not set when it should be.
+ *   CONFIG_CGROUP_DEVICE:	 is not set when it should be.
+ *   CONFIG_CGROUP_CPUACCT:	 is not set when it should be.
+ *   CONFIG_CGROUP_SCHED:	 is not set when it should be.
+ *   CONFIG_CGROUP_PERF:	 is not set when it should be.
+ *   CONFIG_BLK_CGROUP:	 is not set when it should be.
+ *   CONFIG_NET_CLS_CGROUP:	 is not set when it should be.
+ *   CONFIG_NETPRIO_CGROUP:	 is not set when it should be.
+ *   CONFIG_CPUSETS:	 is not set when it should be.
+ *   CONFIG_RESOURCE_COUNTERS:	 is not set when it should be.
+ *   Optional depending on LXC configuration.
+ *   CONFIG_DEVPTS_MULTIPLE_INSTANCES:	 is not set when it should be.
+ *   CONFIG_MEMCG:	 is not set when it should be.
+ *   CONFIG_MEMCG_SWAP:	 is not set when it should be.
+ *   CONFIG_MEMCG_KMEM:	 is not set when it should be.
+
+
+[*] Networking support  --->
+        Networking options  --->
+            <*>   Open vSwitch
+
+            In case you ever want to use tagged VLANs
+            <*>   802.1Q VLAN Support
+            [*]     GVRP (GARP VLAN Registration Protocol) support
+
+            In case you ever want to setup QoS rules
+            [*]   QoS and/or fair queueing  --->
+                      <M> ...
+
+LXC konfiguracja
+
+	    * General setup
+	      * Control Group support
+	        -> Namespace cgroup subsystem
+	        -> Freezer cgroup subsystem
+	        -> Cpuset support
+	        -> Simple CPU accounting cgroup subsystem
+	        -> Resource counters
+	          -> Memory resource controllers for Control Groups
+	      * Group CPU scheduler
+	        -> Basis for grouping tasks (Control Groups)
+	      * Namespaces support
+	        -> UTS namespace
+	        -> IPC namespace
+	        -> User namespace
+	        -> Pid namespace
+	        -> Network namespace
+	    * Device Drivers
+	      * Character devices
+	        -> Support multiple instances of devpts
+	      * Network device support
+	        -> MAC-VLAN support
+	        -> Virtual ethernet pair device
+	    * Networking
+	      * Networking options
+	        -> 802.1d Ethernet Bridging
+	    * Security options
+	      -> File POSIX Capabilities
+      
+

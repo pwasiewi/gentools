@@ -1,0 +1,88 @@
+mkdir /var/tmp/.distcc
+
+http://forums.gentoo.org/viewtopic-t-705939.html
+wget --no-check-certificate https://weaver.gentooenterprise.com/hardened/gcc-4.3/stage3-amd64-hardened-4.3-20090401.tar.bz2 
+/etc/make.conf < _EOF_
+FEATURES="sandbox distcc parallel-fetch"
+DISTCC_DIR="/var/tmp/.distcc"
+MAKEOPTS="-j5"
+CFLAGS="-march=core2 -msse3 -Os -pipe -fomit-frame-pointer"
+CXXFLAGS="-march=core2 -msse3 -Os -pipe   -DNDEBUG  -DG_DISABLE_ASSERT"
+LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--warn-once"
+# WARNING: Changing your CHOST is not something that should be done lightly.
+# Please consult http://www.gentoo.org/doc/en/change-chost.xml before
+# changing.
+CHOST="x86_64-pc-linux-gnu"
+# These are the USE flags that were used in addition to what is provided by
+# the
+# profile used for building.
+USE="mmx sse sse2 sse3"
+GENTOO_MIRRORS="${GENTOO_MIRRORS} /usr/local/toolchain-overlay/distfiles"
+PORTDIR_OVERLAY="/usr/local/toolchain-overlay"
+PORTAGE_ECLASS_WARNING_ENABLE="0"
+PORT_LOGDIR="/var/log/portage"
+_EOF_
+
+/etc/resolv.conf
+/etc/locale.gen
+/etc/env.d/00.basic.orig
+emerge --metadata
+ln -sfn ../usr/portage/profiles/hardened/linux/amd64/10.0 /etc/make.profile
+emerge layman dev-util/git eix vim distcc subversion -u
+layman -L
+layman -a hardened-development
+[ ! -d /etc/portage ] && mkdir /etc/portage
+echo "=sys-devel/gcc-4.4*" >>/etc/portage/package.keywords
+echo "=sys-devel/gcc-4.4*" >>/etc/portage/package.unmask
+echo "=sys-libs/glibc-2.10*" >>/etc/portage/package.keywords
+echo "=sys-libs/glibc-2.10*" >>/etc/portage/package.unmask
+echo -e "[DEFAULT]\neclass-overrides = secure">>/etc/portage/repo.conf
+echo -e "[gentoo]\neclass-overrides = secure">>/etc/portage/repo.conf
+echo "=sys-apps/openrc-0.4*">>/etc/portage/package.keywords
+echo "=sys-fs/udev-14*">>/etc/portage/package.keywords
+echo "=sys-apps/baselayout-2*">>/etc/portage/package.keywords
+echo "=sys-apps/sysvinit-2.86*" >> /etc/portage/package.keywords
+echo "sys-apps/util-linux" >> /etc/portage/package.keywords
+echo "sys-fs/e2fsprogs" >> /etc/portage/package.keywords
+echo "sys-libs/e2fsprogs-libs" >> /etc/portage/package.keywords
+echo "sys-kernel/linux-headers" >> /etc/portage/package.keywords
+echo "sys-kernel/hardened-sources" >> /etc/portage/package.keywords
+echo "sys-fs/udev" >> /etc/portage/package.keywords
+echo "sys-apps/gradm" >> /etc/portage/package.keywords
+
+source /etc/profile; env-update
+sed -i 's/once/once,--hash-style=gnu/' /etc/make.conf
+emerge linux-headers glibc binutils gcc -1
+
+while read ebuild; do emerge -v1 "${ebuild}" || echo "${ebuild}" >>failed;
+done < <(emerge -ep --columns --color=n system| cut -d] -f2 | awk '{print$1}'
+| egrep -v "(glibc|/portage|binutils|gcc|linux-h)"|sed '1,4d')
+
+while read package; do emerge -1 ${package};done < <(cat failed)
+
+emerge syslog-ng ntp grub vixie-cron sysfsutils dhcpcd eix gentoolkit gradm
+mingetty portage-utils genlop gramd paxctl pax-utils genkernel squashfs-tools dmraid mc -u
+
+layman -a sunrise
+layman -a roslin
+eix-update
+
+echo "sys-apps/hal" >> /etc/portage/package.keywords
+echo "gnome-base/gnome-light" >> /etc/portage/package.keywords
+keywordeps gnome-base/gnome-light
+rc-update add hald default
+rc-update add dbus default
+rc-update add avahi-dnsconfd default
+
+echo "dev-db/postgresql-server" >> /etc/portage/package.keywords
+keywordeps dev-db/postgresql-server
+
+
+#OpenRC
+for i in root procfs mtab swap fsck;do [ ! -L /etc/runlevels/boot/${i} ] &&
+rc-update add ${i} boot;done
+[ ! -L /etc/init.d/net.eth0 ] && ln -s /etc/init.d/net.lo /etc/init.d/net.eth0
+
+adduser -m guest
+chown -R guest:guest /home/guest
+

@@ -1,0 +1,31 @@
+
+#RGA compile
+
+python Scripts/UpdateCommon.py
+cd Build\Linux
+./build_rcp.sh skip-hsaprofiler skip-32bitbuild boostlibdir /usr/lib/
+
+vim ../../../Common/Src/AMDTOSWrappers/SConscript
+
+env.Append(CPPFLAGS = '-fno-strict-aliasing ')
+env.Append(CPPFLAGS = '-Wno-error=maybe-uninitialized ')
+env.Append(CPPFLAGS = '-Wno-error=misleading-indentation ')
+
+env_no_c11.Append(CFLAGS = '-fno-strict-aliasing ')
+env_no_c11.Append(CFLAGS = '-Wno-error=maybe-uninitialized ')
+env_no_c11.Append(CFLAGS = '-Wno-error=misleading-indentation ')
+
+
+
+#CodeXL compile
+./buildCodeXLFullLinuxProjects -j8 CXL_build=debug CXL_boost_lib_dir=/usr/lib64 CXL_boost_include_dir=/usr/include
+
+#bin depends and a lot of more in Common/Libs
+Downloading https://github.com/GPUOpen-Tools/RCP/releases/download/v5.3/RadeonComputeProfiler-v5.3.6657.tgz into /var/tmp/COMPILE/OPENCL/CodeXL/Common/Lib/AMD/RCP/RadeonComputeProfiler-v5.3.6657.tgz
+
+Downloading https://github.com/GPUOpen-Tools/RCP/releases/download/v5.3/RCPProfileDataParser-v5.3.6657.tgz into /var/tmp/COMPILE/OPENCL/CodeXL/Common/Lib/AMD/RCP/RCPProfileDataParser-v5.3.6657.tgz
+
+Downloading https://github.com/GPUOpen-Tools/RGA/releases/download/1.2.0.0/rga-linux-1.2.tgz into /var/tmp/COMPILE/OPENCL/CodeXL/Common/Lib/AMD/RGA/rga-linux-1.2.tgz
+
+Downloading https://github.com/GPUOpen-Tools/GPA/releases/download/v2.23.1/GPUPerfAPI.2.23.1986-lnx.tgz into /var/tmp/COMPILE/OPENCL/CodeXL/Common/Lib/AMD/GPUPerfAPI/GPUPerfAPI.2.23.1986-lnx.tgz
+

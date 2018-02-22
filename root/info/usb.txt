@@ -1,1 +1,90 @@
 https://agentoss.wordpress.com/2011/02/28/how-to-create-a-bootable-linux-usb-drive-using-extlinux/
+
+http://syslinux.zytor.com/wiki/index.php/EXTLINUX
+
+Unlike SYSLINUX who installs on FAT formatted drives, EXTLINUX can be used for EXT2/3/4 and even btrfs formatted drives.
+
+EXTLINUX is easier to use than GRUB.
+
+Why use the EXT2 filesystem? It is recommended for flash drives as it is a non-journaled filesystem so the write operations are reduced compared to other journaled filesystems.
+
+See http://en.wikipedia.org/wiki/Ext2 for more info.
+
+First operation : partitioning our drive (as root)
+
+This will list the installed physical disk drives in your system :
+# fdisk -l
+
+On my particular setup, my USB drive is identified as /dev/sdc.
+
+Adapt to your own case.
+
+WARNING! The following will ERASE your USB drive! Be careful not to partition/format the wrong disk drive!
+
+We create an EXT2 partition (whole disk), and mark it as bootable.
+
+# fdisk /dev/sdc
+then enter the following input :
+
+o<ENTER>
+n<ENTER>
+p<ENTER>
+1<ENTER>
+<first cylinder, ENTER>
+<last cylinder, ENTER>
+t<ENTER>
+83<ENTER>  <-- partition type : Linux
+a<ENTER>
+1<ENTER>
+w<ENTER>
+
+Partitioning done, next we have to create the filesystem on the drive, on the /dev/sdc1 partition we just created :
+
+# mkfs -t ext2 /dev/sdc1 -L <label>
+
+<label> is the volume name.
+
+TIP: change a disk label
+# tune2fs -L <newlabel> /dev/sdc1
+
+Second part, the installation of EXTLINUX bootloader on the drive
+First we need to mount the drive (as root)
+# mkdir /mnt/usb
+# mount /dev/sdc1 /mnt/usb
+
+Download the latest SYSLINUX/EXTLINUX package (at the time of this writing it was 4.03)
+
+# wget http://www.kernel.org/pub/linux/utils/boot/syslinux/syslinux-4.03.tar.bz2
+# tar xvjf syslinux*.tar.bz2
+# cd syslinux*
+
+Install the MBR on the drive
+# cd mbr
+# cat mbr.bin >/dev/sdc
+
+then EXTLINUX
+# cd ../extlinux
+# ./extlinux --install /mnt/usb
+
+But we need to create an extlinux.conf file which will contain our bootloader instructions :
+
+# nano /mnt/usb/extlinux.conf
+
+DEFAULT linux
+LABEL linux
+SAY Now booting the kernel from SYSLINUX...
+KERNEL bzImage
+#  APPEND ro root=/dev/sdc1 initrd=initrd.img
+
+(The APPEND line is commented out in this example.)
+
+But we still need a Linux kernel file (named bzImage above) to copy to this drive!
+
+Why not using your Buildroot-generated kernel? 🙂
+
+See my other howto here.
+
+All the necessary files have been copied to our USB drive, we can unmount it now.
+# cd && umount /mnt/usb
+
+Now you can plug your drive and boot your new system!

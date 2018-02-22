@@ -4,8 +4,12 @@ git config --global user.email "pwasiewi@gmail.com"
 Pushing your local repository to Gitorious
 
 git checkout master
+git remote add masterset git@codaset.com:newfuntek/dataset.git
+git push master master
 git remote add origin https://....
 git push origin master
+
+git remote add isogithub git@github.com:pwasiewi/iso.git
 
 git init
 git add *.r
@@ -19,6 +23,7 @@ git log --stat
 git checkout --track -b gh-pages origin/gh-pages
 
 
+rm dataset/ -rf; git clone git@codaset.com:newfuntek/dataset.git; cd dataset/;
 git symbolic-ref HEAD refs/heads/github; rm .git/index; git add
 isowitfunkcje.r isowitdatasets.r; git clean -fdx; git commit -a;git remote add
 githubset git@github.com:pwasiewi/iso.git;git pull githubset master; git

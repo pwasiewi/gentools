@@ -1,0 +1,34 @@
+install.packages("devtools")
+library(devtools)
+install_github("myrepo", "myusername")
+
+export JAVA_HOME=/etc/java-config-2/current-system-vm
+export JAVA_CPPFLAGS='-I/etc/java-config-2/current-system-vm/include -I/etc/java-config-2/current-system-vm/include/linux'
+
+export R_JAVA_LD_LIBRARY_PATH=${JAVA_HOME}/lib/amd64/server:${JAVA_HOME}/lib/amd64:${JAVA_HOME}/../lib/amd64::/usr/java/packages/lib/amd64:/usr/lib64:/lib64:/lib:/usr/lib 
+
+
+install.packages("rJava")
+install.packages("JGR")
+
+then as a normal user
+
+C_NUMERIC=C
+export LC_NUMERIC
+
+/usr/lib/jvm/sun-jdk-1.6/jre/bin/java -Xmx512m -Djgr.load.pkgs=yes
+-Djgr.loader.ver="${JGR_LOADER_VER}" -Djava.library.path=".:
+${LD_LIBRARY_PATH}" -classpath "/usr/lib64/R/library/rJava/java/boot"
+-Drjava.path="/usr/lib64/R/library/rJava"
+-Drjava.class.path="/usr/lib64/R/library/rJava/jri/JRI.jar:/usr/lib64/R/library/iplots/java/iplots.jar:/usr/lib64/R/library/JGR/java/JGR.jar"
+-Dmain.class=org.rosuda.JGR.JGR RJavaClassLoader $*
+
+
+library(JGR)
+JGR()
+
+This got JGR started on my computer. I still have problems with
+dyn.load.
+
+Best regards
+

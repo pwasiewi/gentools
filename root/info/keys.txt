@@ -71,3 +71,7 @@ echo 'AddKeysToAgent  yes' > ~/.ssh/config
 systemctl --user enable ssh-agent
 systemctl --user start ssh-agent
 
+#AES in SSH
+openssl speed aes-128-cbc
+openssl engine -c -tt
+dd if=/dev/zero count=100 bs=1M | ssh -c aes128-cbc localhost "cat >/dev/null"

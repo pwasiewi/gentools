@@ -7,3 +7,10 @@ lbzip2
 pbzip2
 pixz
 
+tar cf - --exclude=\*.o -v directory | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on directory.tar.7z
+7za x -so $1 | tar xf -
+
+tar cf - -v $1 | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z
+#-aoa????
+
+7z a -mx=9 -ms=on archive.7z files_for_archiving/

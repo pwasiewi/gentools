@@ -18,6 +18,7 @@ chown -R oracle:oinstall /home/oracle
 mkfs.ext4 -E stripe_width=128,stride=128 /dev/sdxx
 tune2fs -O has_journal -o journal_data_writeback /dev/sdxx
 tar Jcvf portage`date +%y%m%d`.txz .portage; tar Jcvf layman`date +%y%m%d`.txz .layman
+8z portage`date +%y%m%d` .portage ; 8z layman`date +%y%m%d`.txz .layman
 grub-mkconfig -o /boot/grub/grub.cfg
 vim /usr/local/bin/DetectedX 
 vim /etc/modprobe.d/blacklist.conf

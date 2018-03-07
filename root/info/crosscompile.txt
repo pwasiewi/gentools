@@ -1,0 +1,40 @@
+#https://github.com/sakaki-/gentoo-on-rpi3-64bit/wiki/Set-Up-Your-Gentoo-PC-for-Cross-Compilation-with-crossdev
+
+mkdir -pv /usr/local/portage-crossdev/{profiles,metadata}
+echo 'crossdev' > /usr/local/portage-crossdev/profiles/repo_name
+echo 'masters = gentoo' > /usr/local/portage-crossdev/metadata/layout.conf
+chown -R portage:portage /usr/local/portage-crossdev 
+
+echo '[crossdev]
+
+location = /usr/local/portage-crossdev
+priority = 10
+masters = gentoo
+auto-sync = no' > /etc/portage/repos.conf/crossdev.conf
+
+crossdev -C aarch64-unknown-linux-gnu
+crossdev --stable -t aarch64-unknown-linux-gnu --genv 'USE="cxx multilib fortran -mudflap nls openmp -sanitize"'
+cd /usr/aarch64-unknown-linux-gnu/usr/ && ln -sfn lib64 lib 
+
+cd /usr/aarch64-unknown-linux-gnu/etc/portage && rm -f make.profile && ln -s /usr/portage/profiles/default/linux/arm64/17.0/desktop make.profile
+
+#??obsolete
+#emerge-wrapper --target aarch64-unknown-linux-gnu --init
+
+aarch64-unknown-linux-gnu-gcc --version
+aarch64-unknown-linux-gnu-c++ --version
+aarch64-unknown-linux-gnu-g++ --version
+gcc-config aarch64-unknown-linux-gnu-5.4.0
+source /etc/profile
+
+mkdir -pv kbuild && cd kbuild
+rm -rf linux
+git clone --depth 1 https://github.com/raspberrypi/linux.git -b rpi-4.16.y
+cd linux
+make ARCH=arm64 CROSS_COMPILE=aarch64-unknown-linux-gnu- distclean
+make ARCH=arm64 CROSS_COMPILE=aarch64-unknown-linux-gnu- bcmrpi3_defconfig
+#make ARCH=arm64 CROSS_COMPILE=aarch64-unknown-linux-gnu- menuconfig
+#nice -n 19 make ARCH=arm64 CROSS_COMPILE=aarch64-unknown-linux-gnu- -j$(nproc)
+nice -n 19 make ARCH=arm64 CROSS_COMPILE=aarch64-unknown-linux-gnu- -j8
+
+CFLAGS="-mlittle-endian -mabi=lp64 -march=armv8-a+crc"

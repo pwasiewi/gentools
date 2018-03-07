@@ -1,0 +1,5 @@
+if [ $# -eq 0 ]; then
+echo 7z nazwa_archiwum
+else
+7za x -so $1 | tar xf -
+fi

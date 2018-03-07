@@ -1,0 +1,14 @@
+#shopt -s dotglob
+#7z -r -mx9 -t7z -m0=lzma2 -mx=9 -aoa -mmt4 -mfb=1024 -md=1024m -ms=on a $1.7z $2/*
+#7z -r -mx9 -t7z -m0=lzma2 -mx=9 -aoa -mmt4 -mfb=1024 -md=1024m -ms=on a $1.7z $2/*
+if [ $# -eq 0 ]; then
+echo 8z nazwa_archiwum katalog
+else
+if [ $# -eq 1 ]; then
+echo "tar cf - -v $1 | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z"
+tar cf - -v $1 | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z
+else 
+echo "tar cf - -v $2 | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z"
+tar cf - -v $2 | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z
+fi
+fi

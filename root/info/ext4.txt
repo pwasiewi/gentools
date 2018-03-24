@@ -28,6 +28,9 @@ tune2fs -O has_journal -o journal_data_writeback /dev/sdxx
 mount -o relatime,compress=zlib
 compress-force=zstd
 btrfs filesystem defragment -r -v -czstd /
+btrfs filesystem resize 99G /mnt/key
+lvresize -L100G /dev/lvm/root
+btrfs filesystem resize max /mnt/key
 
 pvcreate --dataalignment 512k /dev/sdxx
 pvcreate --dataalignment 1536k /dev/sdxx

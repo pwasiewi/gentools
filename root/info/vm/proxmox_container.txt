@@ -1,0 +1,8 @@
+pveam update
+pveam available --section system
+pveam download local centos-7-default_20171212_amd64.tar.xz
+pveam list local
+pct create 504 local:vztmpl/centos-7-default_20171212_amd64.tar.xz -rootfs local-lvm:40
+lxc-attach -n 504
+passwd <new password>
+exit

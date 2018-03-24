@@ -1,0 +1,168 @@
+sudo apt install -y vim mc curl p7zip-full
+#zaznaczyć w Oprogramowanie i Aktualizacja->Opcje Programisty->xenial-proposed
+sudo apt-get install --install-recommends linux-generic-hwe-16.04 xserver-xorg-hwe-16.04 
+sudo apt install -y docker vagrant virtualbox cmake libboost-dev uswsusp
+sudo add-apt-repository ppa:obsproject/obs-studio -y
+sudo apt-get update && sudo apt-get install obs-studio -y
+
+#chrome and firefox beta PPA and atom editor
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
+sudo add-apt-repository ppa:mozillateam/firefox-next -y
+sudo add-apt-repository ppa:webupd8team/atom -y
+sudo apt-get update 
+sudo apt-get install -y google-chrome-stable firefox atom uncrustify
+
+sudo apt dist-upgrade -y
+sudo apt install ubuntu-gnome-desktop -y
+
+
+#Ubuntu 16.04 with proprietary AMD driver for OpenCL
+sudo apt-get remove --purge fglrx*
+#with webbrowser
+#https://support.amd.com/en-us/kb-articles/Pages/AMDGPU-PRO-Install.aspx
+#https://support.amd.com/en-us/kb-articles/Pages/Radeon-Software-for-Linux-Release-Notes.aspx
+#get amdgpu-pro-17.50-511655.tar.xz
+[ ! -e amdgpu ] && mkdir amdgpu && cd amdgpu
+tar Jxvf amdgpu-pro-17.50-511655.tar.xz
+cd amdpackages/amdgpu-pro-17.50-511655
+./amdgpu-pro-install -y --opencl=legacy,rocm
+cd .. 
+#reboot
+#get AMD-APP-SDKInstaller-v3.0.130.136-GA-linux64.tar.bz2 from  https://developer.amd.com/amd-license-agreement-appsdk
+tar jxvf AMD-APP-SDKInstaller-v3.0.130.136-GA-linux64.tar.bz2
+./AMD-APP-SDK-v3.0.130.136-GA-linux64.sh
+#/opt, logout and login
+
+#https://gist.github.com/daveselinger
+#ROCm AMD on Ubuntu 16.04
+#sudo apt-mark hold linux-image-generic linux-headers-generic
+usermod -a -G video guest
+wget -qO - http://repo.radeon.com/rocm/apt/debian/rocm.gpg.key | sudo apt-key add -
+sudo sh -c 'echo deb [arch=amd64] http://repo.radeon.com/rocm/apt/debian/ xenial main > /etc/apt/sources.list.d/rocm.list'
+sudo apt-get update
+sudo apt-get install -y libnuma-dev rocm-dkms rocm-opencl-dev
+[ ! -e rocsample ] && mkdir rocsample && cd rocsample
+wget https://raw.githubusercontent.com/bgaster/opencl-book-samples/master/src/Chapter_2/HelloWorld/HelloWorld.cpp
+ wget https://raw.githubusercontent.com/bgaster/opencl-book-samples/master/src/Chapter_2/HelloWorld/HelloWorld.cl
+g++ -I /opt/rocm/opencl/include/ ./HelloWorld.cpp -o HelloWorld -L/opt/rocm/opencl/lib/x86_64 -lOpenCL
+./HelloWorld
+cd ..
+
+# ROCM and hip on Ubuntu 16.04
+sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+sudo apt update
+sudo apt upgrade -y
+sudo apt install mesa-vdpau-drivers mesa-opencl-icd rocm-libs miopen-hip miopengemm -y
+sudo apt install -y g++-multilib libunwind-dev git cmake cmake-curses-gui vim emacs-nox curl wget rpm unzip bc
+cp -r /opt/rocm/hip/samples ~/hip-samples && cd ~/hip-samples/0_Intro/square/
+make
+./square.out
+
+#Kompilacja boosta z kodu źródłowego i generacja pakietów deb
+ln -sfn /usr/bin/make /usr/bin/gmake
+sudo apt-get install -y freeglut3 freeglut3-dev libglew1.5 libglew1.5-dev libglu1-mesa libglu1-mesa-dev libgl1-mesa-glx libgl1-mesa-dev 
+#sudo apt-get install -y devscripts debhelper dh-modaliases execstack dh-make dput git-core python pgpgpg libicu-dev bison flex docbook-to-man help2man xsltproc doxygen python-all-dev python3 python3-all-dev zlib1g-dev libbz2-dev gnupg pbuilder ubuntu-dev-tools bzr-builddeb apt-file
+#http://sitano.github.io/2014/08/10/rebuild-ubuntu-bzr-package/
+sudo apt-get install packaging-dev
+sudo apt install -y libccfits-dev libcfitsio-dev libcfitsio2
+mkdir boost-backport
+cd  boost-backport
+wget http://archive.ubuntu.com/ubuntu/pool/main/b/boost1.58/boost1.58_1.58.0+dfsg-5ubuntu3.1.dsc
+wget http://archive.ubuntu.com/ubuntu/pool/main/b/boost1.58/boost1.58_1.58.0+dfsg.orig.tar.gz
+wget http://archive.ubuntu.com/ubuntu/pool/main/b/boost1.58/boost1.58_1.58.0+dfsg-5ubuntu3.1.debian.tar.xz
+dpkg-source -x *dsc
+cd */
+export EDITOR=vim
+dch -i
+debuild -us -uc -b
+sudo dpkg -i *.deb
+#for i in `dpkg -l | grep libboost | awk '{print $2}'`; do sudo dpkg -P $i; done
+
+
+sudo apt-get install qtdeclarative5-dev qml-module-qtquick-controls
+apt install qtbase5-private-dev
+git clone git://code.qt.io/qt/qtwebchannel.git
+cd qtwebchannel
+qmake
+make
+
+## OPTIONAL (AND DOES NOT WORK) Install ROCM-OpenCL extensions
+## sudo apt install -y rocm-amdgpu-pro
+echo 'export LLVM_BIN=/opt/amdgpu-pro/bin' | sudo tee /etc/profile.d/amdgpu-pro.sh
+export LLVM_BIN=/opt/amdgpu-pro/bin
+
+sudo apt install curl -y
+wget https://repo.continuum.io/archive/Anaconda2-5.1.0-Linux-x86_64.sh
+sh ./Anaconda2-5.1.0-Linux-x86_64.sh
+export PATH=/opt/anaconda2/bin:$PATH
+conda install pygpu
+sudo apt-get install python-numpy python-scipy python-dev python-pip python-nose g++ libopenblas-dev git -y
+sudo pip install Theano
+pip install Theano
+
+wget http://deeplearning.net/tutorial/code/test.py
+wget -Otest1.py https://raw.githubusercontent.com/agulli/kerasBook/master/theano.simple.test.py
+
+export MKL_THREADING_LAYER=GNU
+THEANO_FLAGS=device=opencl0:0 python test1.py
+
+#AMD + OpenCL + Theano + Keras from scratch (IN PROGRESS) 
+sudo apt install linux-headers-generic cmake build-essential git
+sudo apt-get install libboost-all-dev libgtest-dev -y
+cd /usr/src/gtest
+sudo mkdir build
+cd build
+sudo cmake ..
+sudo make
+sudo mv libg* /usr/lib/
+cd ~/ACML
+
+https://github.com/GPUOpen-Tools/CodeXL/blob/master/BUILD.md
+https://github.com/MikalaiDrabovich/CodeXL
+https://github.com/GPUOpen-Tools/CodeXL/pull/163
+https://github.com/GPUOpen-Tools/CodeXL/issues/161
+
+sudo apt-get install -y gcc-multilib g++-multilib libglu1-mesa-dev mesa-common-dev libgtk2.0-dev zlib1g-dev libx11-dev:i386 scons libjpeg9-dev libfltk1.3-dev
+libboost-all-dev openjdk-8-jdk-headless 
+
+git clone --recursive https://github.com/GPUOpen-Tools/CodeXL
+cd CodeXL
+git submodule init
+git submodule update
+python CodeXL/Scripts/FetchDependencies.py
+cd CodeXL/Util/linux/
+./buildCodeXLFullLinuxProjects -j8
+
+
+mkdir debcodexl
+dpkg-deb -R  codexl_2.5-25_amd64.deb debcodexl
+cd debcodexl/opt/CodeXL_2.5-25
+tar zxvf CodeXLPwrProfDriverSource.tar.gz
+rm CodeXLPwrProfDriverSource.tar.gz
+#apply changes mentioned earlier to amdtPwrProf-6.01/Makefile 
+#and amdtPwrProf-6.01/inc/AMDTRawDataFileHeader.h
+tar zcvf CodeXLPwrProfDriverSource.tar.gz amdtPwrProf-6.01
+rm -rf amdtPwrProf-6.01 
+rm codexl_2.5-25_amd64.deb
+dpkg-deb -b debcodexl codexl_2.5-25_amd64.deb
+apt remove codexl -y; dpkg -i codexl_2.5-25_amd64.deb
+
+#http://edoceo.com/notabene/grub-probe-error-cannot-find-device-for-root
+sudo apt update && sudo apt install vim curl
+mkdir /mnt/dc; mount /dev/ubuntu-vg/root /mnt/dc
+cp /etc/resolv.conf /mnt/dc/@/etc/
+mount -o bind /dev /mnt/dc/@/dev/
+mount -t proc /proc /mnt/dc/@/proc
+mount -o bind /sys /mnt/dc/@/sys
+chroot /mnt/dc/@
+apt update && sudo apt install vim curl
+mv /usr/sbin/grub-probe /usr/sbin/grub-probe.orig
+curl edoceo.com/pub/grub-probe.sh > /usr/sbin/grub-probe
+chmod 0755 /usr/sbin/grub-probe
+
+https://forum.xda-developers.com/remix/remix-os/how-to-install-remix-os-alongside-t3352890
+sudo apt-add-repository ppa:danielrichter2007/grub-customizer
+sudo apt-get update
+sudo apt-get install grub-customizer
+

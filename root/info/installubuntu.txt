@@ -1,3 +1,6 @@
+########################################################################################
+#Nowa instalacja Ubuntu 16.04 - tylko taka pasuje do ROCm i CodeXL, które są opensource
+########################################################################################
 sudo apt install -y vim mc curl p7zip-full
 #zaznaczyć w Oprogramowanie i Aktualizacja->Opcje Programisty->xenial-proposed
 sudo apt-get install --install-recommends linux-generic-hwe-16.04 xserver-xorg-hwe-16.04 
@@ -5,7 +8,10 @@ sudo apt install -y docker vagrant virtualbox cmake libboost-dev uswsusp
 sudo add-apt-repository ppa:obsproject/obs-studio -y
 sudo apt-get update && sudo apt-get install obs-studio -y
 
+
+########################################################################################
 #chrome and firefox beta PPA and atom editor
+########################################################################################
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
 echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
 sudo add-apt-repository ppa:mozillateam/firefox-next -y
@@ -13,10 +19,16 @@ sudo add-apt-repository ppa:webupd8team/atom -y
 sudo apt-get update 
 sudo apt-get install -y google-chrome-stable firefox atom uncrustify
 
+########################################################################################
+#gnome for ubuntu
+########################################################################################
 sudo apt dist-upgrade -y
 sudo apt install ubuntu-gnome-desktop -y
 
+
+########################################################################################
 #Ubuntu 16.04 with proprietary AMD driver for OpenCL
+########################################################################################
 sudo apt-get remove --purge fglrx*
 #with webbrowser
 #https://support.amd.com/en-us/kb-articles/Pages/AMDGPU-PRO-Install.aspx
@@ -37,7 +49,9 @@ wget https://www.khronos.org/registry/OpenCL/api/2.1/cl.hpp -O /opt/AMDAPP/inclu
 echo libamdocl64.so > /etc/OpenCL/vendors/amdocl64.icd
 #/opt, logout and login
 
+########################################################################################
 #https://gist.github.com/daveselinger
+########################################################################################
 #ROCm AMD on Ubuntu 16.04
 #sudo apt-mark hold linux-image-generic linux-headers-generic
 usermod -a -G video guest
@@ -52,7 +66,9 @@ g++ -I /opt/rocm/opencl/include/ ./HelloWorld.cpp -o HelloWorld -L/opt/rocm/open
 ./HelloWorld
 cd ..
 
+########################################################################################
 # ROCM and hip on Ubuntu 16.04
+########################################################################################
 sudo add-apt-repository ppa:oibaf/graphics-drivers -y
 sudo apt update
 sudo apt upgrade -y
@@ -62,7 +78,9 @@ cp -r /opt/rocm/hip/samples ~/hip-samples && cd ~/hip-samples/0_Intro/square/
 make
 ./square.out
 
-#Kompilacja quasar 
+########################################################################################
+#Kompilacja quasar - przygotowanie
+########################################################################################
 ln -sfn /usr/bin/make /usr/bin/gmake
 sudo apt-get install -y freeglut3 freeglut3-dev libglew1.5 libglew1.5-dev libglu1-mesa libglu1-mesa-dev libgl1-mesa-glx libgl1-mesa-dev
 sudo apt install -y libboost-thread-dev libboost-regex-dev libboost-iostreams-dev libboost-filesystem-dev libboost-program-options-dev libboost-test-dev libboost-tools-dev libboost-math-dev scons 
@@ -77,7 +95,9 @@ cd mongo-cxx-driver-legacy-1.1.2
 scons install -Q -j 8 --c++11 --sharedclient
 cp -a build/install/* /usr
 
+########################################################################################
 #Kompilacja boosta z kodu źródłowego i generacja pakietów deb
+########################################################################################
 #sudo apt-get install -y devscripts debhelper dh-modaliases execstack dh-make dput git-core python pgpgpg libicu-dev bison flex docbook-to-man help2man xsltproc doxygen python-all-dev python3 python3-all-dev zlib1g-dev libbz2-dev gnupg pbuilder ubuntu-dev-tools bzr-builddeb apt-file
 #http://sitano.github.io/2014/08/10/rebuild-ubuntu-bzr-package/
 sudo apt-get install packaging-dev
@@ -95,6 +115,9 @@ sudo dpkg -i *.deb
 #for i in `dpkg -l | grep libboost | awk '{print $2}'`; do sudo dpkg -P $i; done
 
 
+########################################################################################
+#after QT break on Ubuntu 16.04
+########################################################################################
 sudo apt-get install qtdeclarative5-dev qml-module-qtquick-controls
 apt install qtbase5-private-dev
 git clone git://code.qt.io/qt/qtwebchannel.git
@@ -102,11 +125,16 @@ cd qtwebchannel
 qmake
 make
 
+########################################################################################
 ## OPTIONAL (AND DOES NOT WORK) Install ROCM-OpenCL extensions
+########################################################################################
 ## sudo apt install -y rocm-amdgpu-pro
 echo 'export LLVM_BIN=/opt/amdgpu-pro/bin' | sudo tee /etc/profile.d/amdgpu-pro.sh
 export LLVM_BIN=/opt/amdgpu-pro/bin
 
+########################################################################################
+#ML trial, better tensorflow for rocm
+########################################################################################
 sudo apt install curl -y
 wget https://repo.continuum.io/archive/Anaconda2-5.1.0-Linux-x86_64.sh
 sh ./Anaconda2-5.1.0-Linux-x86_64.sh
@@ -122,7 +150,9 @@ wget -Otest1.py https://raw.githubusercontent.com/agulli/kerasBook/master/theano
 export MKL_THREADING_LAYER=GNU
 THEANO_FLAGS=device=opencl0:0 python test1.py
 
+########################################################################################
 #AMD + OpenCL + Theano + Keras from scratch (IN PROGRESS) 
+########################################################################################
 sudo apt install linux-headers-generic cmake build-essential git
 sudo apt-get install libboost-all-dev libgtest-dev -y
 cd /usr/src/gtest
@@ -141,6 +171,9 @@ https://github.com/GPUOpen-Tools/CodeXL/issues/161
 sudo apt-get install -y gcc-multilib g++-multilib libglu1-mesa-dev mesa-common-dev libgtk2.0-dev zlib1g-dev libx11-dev:i386 scons libjpeg9-dev libfltk1.3-dev
 libboost-all-dev openjdk-8-jdk-headless 
 
+########################################################################################
+#Kompilacja CodeXL - ma binarne dependencies RCA 
+########################################################################################
 git clone --recursive https://github.com/GPUOpen-Tools/CodeXL
 cd CodeXL
 git submodule init
@@ -150,19 +183,43 @@ cd CodeXL/Util/linux/
 ./buildCodeXLFullLinuxProjects -j8
 
 
+########################################################################################
+#modyfikacja pakietu binarnego CodeXL
+########################################################################################
 mkdir debcodexl
 dpkg-deb -R  codexl_2.5-25_amd64.deb debcodexl
 cd debcodexl/opt/CodeXL_2.5-25
 tar zxvf CodeXLPwrProfDriverSource.tar.gz
 rm CodeXLPwrProfDriverSource.tar.gz
-#apply changes mentioned earlier to amdtPwrProf-6.01/Makefile 
-#and amdtPwrProf-6.01/inc/AMDTRawDataFileHeader.h
+#apply changes mentioned below to amdtPwrProf-6.01/Makefile 
+#the patch for amdtPwrProf-6.01 and amdtPwrProf-6.01/inc/AMDTRawDataFileHeader.h
+########################################################################################
+diff -r amdtPwrProf-6.01/inc/AMDTPwrProfCoreUtils.h amdtPwrProf-6.01.new/inc/AMDTPwrProfCoreUtils.h
+32c32
+< #include <asm/uaccess.h>
+---
+> #include <linux/uaccess.h>
+diff -r amdtPwrProf-6.01/inc/AMDTRawDataFileHeader.h amdtPwrProf-6.01.new/inc/AMDTRawDataFileHeader.h
+86c86,87
+< static const wchar_t g_RawFileMagicStr[] = L"_RAWHDR_";
+---
+> //static const wchar_t g_RawFileMagicStr[] = L"_RAWHDR_";
+> static const wchar_t g_RawFileMagicStr[] = {'_', 'R', 'A', 'W', 'H', 'D', 'R', '_'};
+diff -r amdtPwrProf-6.01/Makefile amdtPwrProf-6.01.new/Makefile
+36c36
+< EXTRA_CFLAGS=-I$(PWD)/inc -DKERNEL_MODULE -DLINUX -D_LINUX 
+---
+> EXTRA_CFLAGS=-I$(PWD)/inc -DKERNEL_MODULE -DLINUX -D_LINUX -Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types
+########################################################################################
 tar zcvf CodeXLPwrProfDriverSource.tar.gz amdtPwrProf-6.01
 rm -rf amdtPwrProf-6.01 
 rm codexl_2.5-25_amd64.deb
 dpkg-deb -b debcodexl codexl_2.5-25_amd64.deb
 apt remove codexl -y; dpkg -i codexl_2.5-25_amd64.deb
 
+########################################################################################
+#chroot, ale nie skutkuje grub-install z niego
+########################################################################################
 #http://edoceo.com/notabene/grub-probe-error-cannot-find-device-for-root
 sudo apt update && sudo apt install vim curl
 mkdir /mnt/dc; mount /dev/ubuntu-vg/root /mnt/dc
@@ -176,12 +233,15 @@ mv /usr/sbin/grub-probe /usr/sbin/grub-probe.orig
 curl edoceo.com/pub/grub-probe.sh > /usr/sbin/grub-probe
 chmod 0755 /usr/sbin/grub-probe
 
+########################################################################################
 https://forum.xda-developers.com/remix/remix-os/how-to-install-remix-os-alongside-t3352890
 sudo apt-add-repository ppa:danielrichter2007/grub-customizer
 sudo apt-get update
 sudo apt-get install grub-customizer
 
+########################################################################################
 #Instalacja R
+########################################################################################
 #https://askubuntu.com/questions/862403/install-the-lastest-version-of-rstudio
 #sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
 sudo apt-key adv --keyserver keyserver.ubuntu.com –recv-keys E084DAB9
@@ -190,13 +250,14 @@ sudo apt-get update
 sudo apt-get install r-base r-dev
 sudo apt-get install gdebi-core
 wget https://download1.rstudio.org/rstudio-xenial-1.1.442-amd64.deb
-sudo gdebi rstudio-1.1.442-amd64.deb
+sudo gdebi rstudio-xenial-1.1.442-amd64.deb
 apt install -y libcurl4-openssl-dev libssl-dev libxml2-dev
 sudo -i R
 install.packages("devtools",depend=TRUE)
 library(devtools)
 install_github("42n4/rmongodb")
 install_github("42n4/quasarcl")
+
 ########################################################################################
 ###KOMPILACJA R na ubuntu/debianie
 ########################################################################################
@@ -233,5 +294,10 @@ apt-get remove --purge -y $BUILDDEPS
 apt-get autoremove -y 
 apt-get autoclean -y 
 
+########################################################################################
 #kompilacja rozpakowanego pakietu R
+########################################################################################
 R CMD INSTALL . --preclean
+
+
+########################################################################################

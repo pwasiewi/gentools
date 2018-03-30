@@ -1,5 +1,5 @@
 ########################################################################################
-#Nowa instalacja Ubuntu 16.04 - tylko taka pasuje do ROCm i CodeXL, które są opensource
+#Nowa instalacja Ubuntu 16.04 - do binarnych pakietów ROCm i CodeXL, które są opensource
 ########################################################################################
 sudo apt install -y vim mc curl p7zip-full
 #zaznaczyć w Oprogramowanie i Aktualizacja->Opcje Programisty->xenial-proposed

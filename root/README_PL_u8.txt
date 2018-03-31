@@ -13,7 +13,7 @@ sudo su -
 #------------------------------------------------------------
 #Skrypty do screencastów o sprawnej instalacji gentoo https://goo.gl/Ao9sUU
 #------------------------------------------------------------
-#STARSZA WERSJA skryptów (PRZESTARZAŁA): wget -c https://goo.gl/zbNuuu  -O/config.txz
+#STARSZA WERSJA skryptów (PRZESTARZAŁA): wget -c http://bit.ly/gentools00  -O/config.txz
 #NOWSZA WERSJA skryptów: 
 wget -c http://bit.ly/gentools01 -O/config.txz
 cd / && tar Jxvf config.txz && cd

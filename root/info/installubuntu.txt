@@ -1,13 +1,13 @@
 ########################################################################################
 #Nowa instalacja Ubuntu 16.04 - tylko taka pasuje do ROCm i CodeXL, które są opensource
+#New brand installation of Ubuntu 16.04 
+#Update your mainboard BIOS!@!!
 ########################################################################################
 sudo apt install -y vim mc curl p7zip-full
-#zaznaczyć w Oprogramowanie i Aktualizacja->Opcje Programisty->xenial-proposed
 sudo apt-get install --install-recommends linux-generic-hwe-16.04 xserver-xorg-hwe-16.04 
 sudo apt install -y docker vagrant virtualbox cmake libboost-dev uswsusp
 sudo add-apt-repository ppa:obsproject/obs-studio -y
 sudo apt-get update && sudo apt-get install obs-studio -y
-
 
 ########################################################################################
 #chrome and firefox beta PPA and atom editor
@@ -20,11 +20,10 @@ sudo apt-get update
 sudo apt-get install -y google-chrome-stable firefox atom uncrustify
 
 ########################################################################################
-#gnome for ubuntu
+#update ubuntu before binary amdgpu-pro
 ########################################################################################
 sudo apt dist-upgrade -y
-sudo apt install ubuntu-gnome-desktop -y
-
+#Maybe already REBOOT?
 
 ########################################################################################
 #Ubuntu 16.04 with proprietary AMD driver for OpenCL
@@ -47,12 +46,24 @@ ln -sfn /opt/AMDAPPSDK-3.0 /opt/AMDAPP
 ln -sfn /opt/AMDAPPSDK-3.0 /opt/amdapp
 wget https://www.khronos.org/registry/OpenCL/api/2.1/cl.hpp -O /opt/AMDAPP/include/CL/cl.hpp
 echo libamdocl64.so > /etc/OpenCL/vendors/amdocl64.icd
-#/opt, logout and login
+#REBOOT
 
 ########################################################################################
-#https://gist.github.com/daveselinger
+#ubuntu gnome after amdgpu I advice
+########################################################################################
+sudo apt install ubuntu-gnome-desktop -y
+
+########################################################################################
+#ubuntu update with new beta proposed packages
+########################################################################################
+#zaznaczyć w Oprogramowanie i Aktualizacja->Opcje Programisty->xenial-proposed
+#mark in Software & Updates -> Developer Option -> xenial-proposed
+sudo apt upgrade -y
+
 ########################################################################################
 #ROCm AMD on Ubuntu 16.04
+#https://gist.github.com/daveselinger
+########################################################################################
 #sudo apt-mark hold linux-image-generic linux-headers-generic
 usermod -a -G video guest
 wget -qO - http://repo.radeon.com/rocm/apt/debian/rocm.gpg.key | sudo apt-key add -
@@ -77,6 +88,7 @@ sudo apt install -y g++-multilib libunwind-dev git cmake cmake-curses-gui vim em
 cp -r /opt/rocm/hip/samples ~/hip-samples && cd ~/hip-samples/0_Intro/square/
 make
 ./square.out
+#REBOOT and CHECK if it still works
 
 ########################################################################################
 #Kompilacja quasar - przygotowanie
@@ -96,7 +108,102 @@ scons install -Q -j 8 --c++11 --sharedclient
 cp -a build/install/* /usr
 
 ########################################################################################
-#Kompilacja boosta z kodu źródłowego i generacja pakietów deb
+#Instalacja R
+########################################################################################
+#https://askubuntu.com/questions/862403/install-the-lastest-version-of-rstudio
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
+sudo add-apt-repository 'deb [arch=amd64,i386] https://cran.rstudio.com/bin/linux/ubuntu xenial/' 
+sudo apt-get update
+sudo apt-get install -y r-base r-dev
+sudo apt-get install -y gdebi-core libcurl4-openssl-dev libssl-dev libxml2-dev libjpeg62
+wget https://download1.rstudio.org/rstudio-xenial-1.1.442-amd64.deb
+sudo gdebi rstudio-xenial-1.1.442-amd64.deb
+sudo -i R
+install.packages("devtools",depend=TRUE)
+library(devtools)
+install_github("42n4/rmongodb")
+install_github("42n4/quasarcl")
+
+########################################################################################
+#kompilacja rozpakowanego pakietu R
+########################################################################################
+R CMD INSTALL . --preclean
+
+########################################################################################
+#modyfikacja pakietu binarnego CodeXL
+########################################################################################
+mkdir debcodexl
+dpkg-deb -R  codexl_2.5-25_amd64.deb debcodexl
+cd debcodexl/opt/CodeXL_2.5-25
+tar zxvf CodeXLPwrProfDriverSource.tar.gz
+rm CodeXLPwrProfDriverSource.tar.gz
+#apply changes mentioned below to amdtPwrProf-6.01/Makefile 
+#the patch for amdtPwrProf-6.01 and amdtPwrProf-6.01/inc/AMDTRawDataFileHeader.h
+########################################################################################
+diff -r amdtPwrProf-6.01/inc/AMDTPwrProfCoreUtils.h amdtPwrProf-6.01.new/inc/AMDTPwrProfCoreUtils.h
+32c32
+< #include <asm/uaccess.h>
+---
+> #include <linux/uaccess.h>
+diff -r amdtPwrProf-6.01/inc/AMDTRawDataFileHeader.h amdtPwrProf-6.01.new/inc/AMDTRawDataFileHeader.h
+86c86,87
+< static const wchar_t g_RawFileMagicStr[] = L"_RAWHDR_";
+---
+> //static const wchar_t g_RawFileMagicStr[] = L"_RAWHDR_";
+> static const wchar_t g_RawFileMagicStr[] = {'_', 'R', 'A', 'W', 'H', 'D', 'R', '_'};
+diff -r amdtPwrProf-6.01/Makefile amdtPwrProf-6.01.new/Makefile
+36c36
+< EXTRA_CFLAGS=-I$(PWD)/inc -DKERNEL_MODULE -DLINUX -D_LINUX 
+---
+> EXTRA_CFLAGS=-I$(PWD)/inc -DKERNEL_MODULE -DLINUX -D_LINUX -Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types
+########################################################################################
+tar zcvf CodeXLPwrProfDriverSource.tar.gz amdtPwrProf-6.01
+rm -rf amdtPwrProf-6.01 
+rm codexl_2.5-25_amd64.deb
+dpkg-deb -b debcodexl codexl_2.5-25_amd64.deb
+apt remove codexl -y; dpkg -i codexl_2.5-25_amd64.deb
+
+########################################################################################
+### OPCJA 
+### KOMPILACJA R na ubuntu/debianie
+########################################################################################
+apt-get update  && apt-get install -y --no-install-recommends bash-completion ca-certificates file fonts-texgyre g++ gfortran gsfonts libbz2-1.0 libcurl3 libopenblas-dev libpangocairo-1.0-0 libpcre3 libpng16-16 libtiff5 liblzma5 locales make unzip zip zlib1g
+BUILDDEPS="curl default-jdk libbz2-dev libcairo2-dev libcurl4-openssl-dev libpango1.0-dev libjpeg-dev libicu-dev libpcre3-dev libpng-dev libreadline-dev libtiff5-dev liblzma-dev libx11-dev libxt-dev perl tcl8.5-dev tk8.5-dev texinfo texlive-extra-utils texlive-fonts-recommended texlive-fonts-extra texlive-latex-recommended x11proto-core-dev xauth xfonts-base xvfb zlib1g-dev"
+apt-get install -y --no-install-recommends $BUILDDEPS
+mkdir COMPILE
+cd COMPILE/
+curl -O https://cran.r-project.org/src/base/R-3/R-3.4.1.tar.gz
+tar -xf R-3.4.1.tar.gz 
+cd R-3.4.1/
+R_PAPERSIZE=a4 R_BATCHSAVE="--no-save --no-restore" R_BROWSER=xdg-open PAGER=/usr/bin/pager PERL=/usr/bin/perl R_UNZIPCMD=/usr/bin/unzip R_ZIPCMD=/usr/bin/zip R_PRINTCMD=/usr/bin/lpr LIBnn=lib AWK=/usr/bin/awk CFLAGS="-g -O2 -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2 -g" CXXFLAGS="-g -O2 -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2 -g" ./configure --enable-R-shlib --enable-memory-profiling --with-readline --with-blas="-lopenblas" --disable-nls --without-recommended-packages
+make
+make install
+echo "options(repos = c(CRAN = 'https://cran.rstudio.com/'), download.file.method = 'libcurl')" >> /usr/local/lib/R/etc/Rprofile.site
+mkdir -p /usr/local/lib/R/site-library
+chown root:staff /usr/local/lib/R/site-library
+chmod g+wx /usr/local/lib/R/site-library
+echo "R_LIBS_USER='/usr/local/lib/R/site-library'" >> /usr/local/lib/R/etc/Renviron
+echo "R_LIBS=\${R_LIBS-'/usr/local/lib/R/site-library:/usr/local/lib/R/library:/usr/lib/R/library'}" >> /usr/local/lib/R/etc/Renviron
+[ -z "$BUILD_DATE" ] && BUILD_DATE=$(TZ="Europe/Warsaw" date -I)
+#export BUILD_DATE="2018-03-28"
+MRAN=https://mran.microsoft.com/snapshot/${BUILD_DATE} 
+echo MRAN=$MRAN >> /etc/environment 
+export MRAN=$MRAN 
+echo "options(repos = c(CRAN='$MRAN'), download.file.method = 'libcurl')" >> /usr/local/lib/R/etc/Rprofile.site 
+## Use littler installation scripts
+Rscript -e "install.packages(c('littler', 'docopt'), repo = '$MRAN')" 
+ln -s /usr/local/lib/R/site-library/littler/examples/install2.r /usr/local/bin/install2.r 
+ln -s /usr/local/lib/R/site-library/littler/examples/installGithub.r /usr/local/bin/installGithub.r 
+ln -s /usr/local/lib/R/site-library/littler/bin/r /usr/local/bin/r 
+  ## Clean up from R source install
+apt-get remove --purge -y $BUILDDEPS
+apt-get autoremove -y 
+apt-get autoclean -y 
+
+
+########################################################################################
+### OPCJA 
+### Kompilacja boosta z kodu źródłowego i generacja pakietów deb
 ########################################################################################
 #sudo apt-get install -y devscripts debhelper dh-modaliases execstack dh-make dput git-core python pgpgpg libicu-dev bison flex docbook-to-man help2man xsltproc doxygen python-all-dev python3 python3-all-dev zlib1g-dev libbz2-dev gnupg pbuilder ubuntu-dev-tools bzr-builddeb apt-file
 #http://sitano.github.io/2014/08/10/rebuild-ubuntu-bzr-package/
@@ -114,6 +221,10 @@ debuild -us -uc -b
 sudo dpkg -i *.deb
 #for i in `dpkg -l | grep libboost | awk '{print $2}'`; do sudo dpkg -P $i; done
 
+########################################################################################
+##KONIEC INSTALACJI - PONIZEJ TESTY#####################################################
+##THE END OF INSTALLATION - BELOW TESTS#################################################
+########################################################################################
 
 ########################################################################################
 #after QT break on Ubuntu 16.04
@@ -182,41 +293,6 @@ python CodeXL/Scripts/FetchDependencies.py
 cd CodeXL/Util/linux/
 ./buildCodeXLFullLinuxProjects -j8
 
-
-########################################################################################
-#modyfikacja pakietu binarnego CodeXL
-########################################################################################
-mkdir debcodexl
-dpkg-deb -R  codexl_2.5-25_amd64.deb debcodexl
-cd debcodexl/opt/CodeXL_2.5-25
-tar zxvf CodeXLPwrProfDriverSource.tar.gz
-rm CodeXLPwrProfDriverSource.tar.gz
-#apply changes mentioned below to amdtPwrProf-6.01/Makefile 
-#the patch for amdtPwrProf-6.01 and amdtPwrProf-6.01/inc/AMDTRawDataFileHeader.h
-########################################################################################
-diff -r amdtPwrProf-6.01/inc/AMDTPwrProfCoreUtils.h amdtPwrProf-6.01.new/inc/AMDTPwrProfCoreUtils.h
-32c32
-< #include <asm/uaccess.h>
----
-> #include <linux/uaccess.h>
-diff -r amdtPwrProf-6.01/inc/AMDTRawDataFileHeader.h amdtPwrProf-6.01.new/inc/AMDTRawDataFileHeader.h
-86c86,87
-< static const wchar_t g_RawFileMagicStr[] = L"_RAWHDR_";
----
-> //static const wchar_t g_RawFileMagicStr[] = L"_RAWHDR_";
-> static const wchar_t g_RawFileMagicStr[] = {'_', 'R', 'A', 'W', 'H', 'D', 'R', '_'};
-diff -r amdtPwrProf-6.01/Makefile amdtPwrProf-6.01.new/Makefile
-36c36
-< EXTRA_CFLAGS=-I$(PWD)/inc -DKERNEL_MODULE -DLINUX -D_LINUX 
----
-> EXTRA_CFLAGS=-I$(PWD)/inc -DKERNEL_MODULE -DLINUX -D_LINUX -Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types
-########################################################################################
-tar zcvf CodeXLPwrProfDriverSource.tar.gz amdtPwrProf-6.01
-rm -rf amdtPwrProf-6.01 
-rm codexl_2.5-25_amd64.deb
-dpkg-deb -b debcodexl codexl_2.5-25_amd64.deb
-apt remove codexl -y; dpkg -i codexl_2.5-25_amd64.deb
-
 ########################################################################################
 #chroot, ale nie skutkuje grub-install z niego
 ########################################################################################
@@ -238,66 +314,6 @@ https://forum.xda-developers.com/remix/remix-os/how-to-install-remix-os-alongsid
 sudo apt-add-repository ppa:danielrichter2007/grub-customizer
 sudo apt-get update
 sudo apt-get install grub-customizer
-
-########################################################################################
-#Instalacja R
-########################################################################################
-#https://askubuntu.com/questions/862403/install-the-lastest-version-of-rstudio
-#sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
-sudo apt-key adv --keyserver keyserver.ubuntu.com –recv-keys E084DAB9
-sudo add-apt-repository 'deb [arch=amd64,i386] https://cran.rstudio.com/bin/linux/ubuntu xenial/'
-sudo apt-get update
-sudo apt-get install r-base r-dev
-sudo apt-get install gdebi-core
-wget https://download1.rstudio.org/rstudio-xenial-1.1.442-amd64.deb
-sudo gdebi rstudio-xenial-1.1.442-amd64.deb
-apt install -y libcurl4-openssl-dev libssl-dev libxml2-dev
-sudo -i R
-install.packages("devtools",depend=TRUE)
-library(devtools)
-install_github("42n4/rmongodb")
-install_github("42n4/quasarcl")
-
-########################################################################################
-###KOMPILACJA R na ubuntu/debianie
-########################################################################################
-apt-get update  && apt-get install -y --no-install-recommends bash-completion ca-certificates file fonts-texgyre g++ gfortran gsfonts libbz2-1.0 libcurl3 libopenblas-dev libpangocairo-1.0-0 libpcre3 libpng16-16 libtiff5 liblzma5 locales make unzip zip zlib1g
-BUILDDEPS="curl default-jdk libbz2-dev libcairo2-dev libcurl4-openssl-dev libpango1.0-dev libjpeg-dev libicu-dev libpcre3-dev libpng-dev libreadline-dev libtiff5-dev liblzma-dev libx11-dev libxt-dev perl tcl8.5-dev tk8.5-dev texinfo texlive-extra-utils texlive-fonts-recommended texlive-fonts-extra texlive-latex-recommended x11proto-core-dev xauth xfonts-base xvfb zlib1g-dev"
-apt-get install -y --no-install-recommends $BUILDDEPS
-mkdir COMPILE
-cd COMPILE/
-curl -O https://cran.r-project.org/src/base/R-3/R-3.4.1.tar.gz
-tar -xf R-3.4.1.tar.gz 
-cd R-3.4.1/
-R_PAPERSIZE=a4 R_BATCHSAVE="--no-save --no-restore" R_BROWSER=xdg-open PAGER=/usr/bin/pager PERL=/usr/bin/perl R_UNZIPCMD=/usr/bin/unzip R_ZIPCMD=/usr/bin/zip R_PRINTCMD=/usr/bin/lpr LIBnn=lib AWK=/usr/bin/awk CFLAGS="-g -O2 -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2 -g" CXXFLAGS="-g -O2 -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2 -g" ./configure --enable-R-shlib --enable-memory-profiling --with-readline --with-blas="-lopenblas" --disable-nls --without-recommended-packages
-make
-make install
-echo "options(repos = c(CRAN = 'https://cran.rstudio.com/'), download.file.method = 'libcurl')" >> /usr/local/lib/R/etc/Rprofile.site
-mkdir -p /usr/local/lib/R/site-library
-chown root:staff /usr/local/lib/R/site-library
-chmod g+wx /usr/local/lib/R/site-library
-echo "R_LIBS_USER='/usr/local/lib/R/site-library'" >> /usr/local/lib/R/etc/Renviron
-echo "R_LIBS=\${R_LIBS-'/usr/local/lib/R/site-library:/usr/local/lib/R/library:/usr/lib/R/library'}" >> /usr/local/lib/R/etc/Renviron
-[ -z "$BUILD_DATE" ] && BUILD_DATE=$(TZ="Europe/Warsaw" date -I)
-#export BUILD_DATE="2018-03-28"
-MRAN=https://mran.microsoft.com/snapshot/${BUILD_DATE} 
-echo MRAN=$MRAN >> /etc/environment 
-export MRAN=$MRAN 
-echo "options(repos = c(CRAN='$MRAN'), download.file.method = 'libcurl')" >> /usr/local/lib/R/etc/Rprofile.site 
-## Use littler installation scripts
-Rscript -e "install.packages(c('littler', 'docopt'), repo = '$MRAN')" 
-ln -s /usr/local/lib/R/site-library/littler/examples/install2.r /usr/local/bin/install2.r 
-ln -s /usr/local/lib/R/site-library/littler/examples/installGithub.r /usr/local/bin/installGithub.r 
-ln -s /usr/local/lib/R/site-library/littler/bin/r /usr/local/bin/r 
-  ## Clean up from R source install
-apt-get remove --purge -y $BUILDDEPS
-apt-get autoremove -y 
-apt-get autoclean -y 
-
-########################################################################################
-#kompilacja rozpakowanego pakietu R
-########################################################################################
-R CMD INSTALL . --preclean
 
 
 ########################################################################################

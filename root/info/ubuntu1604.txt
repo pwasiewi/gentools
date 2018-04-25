@@ -37,6 +37,8 @@ sudo apt-get remove --purge fglrx*
 tar Jxvf amdgpu-pro-17.50-511655.tar.xz
 cd amdpackages/amdgpu-pro-17.50-511655
 ./amdgpu-pro-install -y --opencl=rocm
+#./amdgpu-pro-install -y --opencl=rocm --headless
+#./amdgpu-pro-install -y --compute
 cd .. 
 #reboot
 #get AMD-APP-SDKInstaller-v3.0.130.136-GA-linux64.tar.bz2 from  https://developer.amd.com/amd-license-agreement-appsdk
@@ -47,6 +49,9 @@ ln -sfn /opt/AMDAPPSDK-3.0 /opt/amdapp
 wget https://www.khronos.org/registry/OpenCL/api/2.1/cl.hpp -O /opt/AMDAPP/include/CL/cl.hpp
 echo libamdocl64.so > /etc/OpenCL/vendors/amdocl64.icd
 #REBOOT
+#sudo apt-get install ocl-icd-libopencl1 ocl-icd-opencl-dev opencl-headers
+
+
 
 ########################################################################################
 #ubuntu gnome after amdgpu I advice

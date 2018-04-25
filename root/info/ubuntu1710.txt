@@ -1,0 +1,143 @@
+########################################################################################
+#Nowa instalacja Ubuntu 17.10 - tylko dla opencl ROCm
+#New brand installation of Ubuntu 17.10
+#Update your mainboard BIOS!@!!
+########################################################################################
+sudo apt install -y vim mc curl p7zip-full
+#sudo apt-get install --install-recommends linux-generic-hwe-17.10 xserver-xorg-hwe-17.10 
+sudo apt install -y docker vagrant virtualbox cmake libboost-dev uswsusp
+sudo add-apt-repository ppa:obsproject/obs-studio -y
+sudo apt-get update && sudo apt-get install obs-studio -y
+
+########################################################################################
+#chrome and firefox beta PPA and atom editor
+########################################################################################
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
+sudo add-apt-repository ppa:mozillateam/firefox-next -y
+sudo add-apt-repository ppa:webupd8team/atom -y
+sudo apt-get update 
+sudo apt-get install -y google-chrome-stable firefox atom uncrustify
+
+########################################################################################
+#update ubuntu before binary amdgpu-pro
+########################################################################################
+sudo apt dist-upgrade -y
+#Maybe already REBOOT?
+
+########################################################################################
+#Ubuntu 17.10 with proprietary opencl amd drivers 
+########################################################################################
+sudo apt-get remove --purge fglrx*
+#with webbrowser
+#https://support.amd.com/en-us/kb-articles/Pages/AMDGPU-PRO-Install.aspx
+#https://support.amd.com/en-us/kb-articles/Pages/Radeon-Software-for-Linux-Release-Notes.aspx
+#get amdgpu-pro-17.50-511655.tar.xz
+[ ! -e amdgpu ] && mkdir amdgpu && cd amdgpu
+tar Jxvf amdgpu-pro-17.50-511655.tar.xz
+cd amdpackages/amdgpu-pro-17.50-511655
+./amdgpu-pro-install -y --opencl=legacy,rocm --headless
+#./amdgpu-pro-install -y --compute
+cd .. 
+sudo apt-get install opencl-headers
+wget https://www.khronos.org/registry/OpenCL/api/2.1/cl.hpp -O /usr/include/CL/cl.hpp
+#REBOOT
+
+
+########################################################################################
+#ROCm AMD on Ubuntu 17.10
+#https://gist.github.com/daveselinger
+########################################################################################
+#sudo apt-mark hold linux-image-generic linux-headers-generic
+usermod -a -G video guest
+wget -qO - http://repo.radeon.com/rocm/apt/debian/rocm.gpg.key | sudo apt-key add -
+sudo sh -c 'echo deb [arch=amd64] http://repo.radeon.com/rocm/apt/debian/ xenial main > /etc/apt/sources.list.d/rocm.list'
+sudo apt-get update
+sudo apt-get install -y libnuma-dev rocm-dkms rocm-opencl-dev
+[ ! -e rocsample ] && mkdir rocsample && cd rocsample
+wget https://raw.githubusercontent.com/bgaster/opencl-book-samples/master/src/Chapter_2/HelloWorld/HelloWorld.cpp
+ wget https://raw.githubusercontent.com/bgaster/opencl-book-samples/master/src/Chapter_2/HelloWorld/HelloWorld.cl
+g++ -I /opt/rocm/opencl/include/ ./HelloWorld.cpp -o HelloWorld -L/opt/rocm/opencl/lib/x86_64 -lOpenCL
+./HelloWorld
+cd ..
+
+########################################################################################
+#ubuntu update with new beta proposed packages
+########################################################################################
+#zaznaczyć w Oprogramowanie i Aktualizacja->Opcje Programisty->xenial-proposed
+#mark in Software & Updates -> Developer Option -> xenial-proposed
+sudo apt upgrade -y
+
+########################################################################################
+#Kompilacja quasar - przygotowanie
+########################################################################################
+ln -sfn /usr/bin/make /usr/bin/gmake
+sudo apt-get install -y freeglut3 freeglut3-dev libglew1.5 libglew1.5-dev libglu1-mesa libglu1-mesa-dev libgl1-mesa-glx libgl1-mesa-dev
+sudo apt install -y libboost-thread-dev libboost-regex-dev libboost-iostreams-dev libboost-filesystem-dev libboost-program-options-dev libboost-test-dev libboost-tools-dev libboost-math-dev scons 
+sudo apt install -y libmongoc-dev mongodb juju-mongo-tools3.2
+#https://www.howtoforge.com/tutorial/install-mongodb-on-ubuntu-17.10/
+/usr/bin/mongod --quiet --config /etc/mongod.conf
+sudo apt install -y libccfits-dev libcfitsio-dev
+#pkg-config --list-all
+wget https://github.com/mongodb/mongo-cxx-driver/archive/legacy-1.1.2.tar.gz
+tar zxvf legacy-1.1.2.tar.gz
+cd mongo-cxx-driver-legacy-1.1.2
+scons install -Q -j 8 --c++11 --sharedclient
+cp -a build/install/* /usr
+
+########################################################################################
+#Instalacja R
+########################################################################################
+#https://askubuntu.com/questions/862403/install-the-lastest-version-of-rstudio
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
+sudo add-apt-repository 'deb [arch=amd64,i386] https://cran.rstudio.com/bin/linux/ubuntu artful/'
+sudo apt-get update
+sudo apt-get install -y r-base 
+sudo apt-get install -y gdebi-core libcurl4-openssl-dev libssl-dev libxml2-dev libjpeg62
+wget https://download1.rstudio.org/rstudio-xenial-1.1.442-amd64.deb
+sudo gdebi rstudio-xenial-1.1.442-amd64.deb
+sudo -i R
+install.packages("devtools",depend=TRUE)
+library(devtools)
+install_github("42n4/rmongodb")
+install_github("42n4/quasarcl")
+
+########################################################################################
+#kompilacja rozpakowanego pakietu R
+########################################################################################
+R CMD INSTALL . --preclean
+
+########################################################################################
+#modyfikacja pakietu binarnego CodeXL
+########################################################################################
+mkdir debcodexl
+dpkg-deb -R  codexl_2.5-25_amd64.deb debcodexl
+cd debcodexl/opt/CodeXL_2.5-25
+tar zxvf CodeXLPwrProfDriverSource.tar.gz
+rm CodeXLPwrProfDriverSource.tar.gz
+#apply changes mentioned below to amdtPwrProf-6.01/Makefile 
+#the patch for amdtPwrProf-6.01 and amdtPwrProf-6.01/inc/AMDTRawDataFileHeader.h
+########################################################################################
+diff -r amdtPwrProf-6.01/inc/AMDTPwrProfCoreUtils.h amdtPwrProf-6.01.new/inc/AMDTPwrProfCoreUtils.h
+32c32
+< #include <asm/uaccess.h>
+---
+> #include <linux/uaccess.h>
+diff -r amdtPwrProf-6.01/inc/AMDTRawDataFileHeader.h amdtPwrProf-6.01.new/inc/AMDTRawDataFileHeader.h
+86c86,87
+< static const wchar_t g_RawFileMagicStr[] = L"_RAWHDR_";
+---
+> //static const wchar_t g_RawFileMagicStr[] = L"_RAWHDR_";
+> static const wchar_t g_RawFileMagicStr[] = {'_', 'R', 'A', 'W', 'H', 'D', 'R', '_'};
+diff -r amdtPwrProf-6.01/Makefile amdtPwrProf-6.01.new/Makefile
+36c36
+< EXTRA_CFLAGS=-I$(PWD)/inc -DKERNEL_MODULE -DLINUX -D_LINUX 
+---
+> EXTRA_CFLAGS=-I$(PWD)/inc -DKERNEL_MODULE -DLINUX -D_LINUX -Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types
+########################################################################################
+tar zcvf CodeXLPwrProfDriverSource.tar.gz amdtPwrProf-6.01
+rm -rf amdtPwrProf-6.01 
+rm codexl_2.5-25_amd64.deb
+dpkg-deb -b debcodexl codexl_2.5-25_amd64.deb
+apt remove codexl -y; dpkg -i codexl_2.5-25_amd64.deb
+

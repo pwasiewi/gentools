@@ -8,7 +8,7 @@ if [ $# -eq 1 ]; then
 echo "tar cf - -v $1 | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z"
 tar cf - -v $1 | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z
 else 
-echo "tar cf - -v $2 | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z"
-tar cf - -v $2 | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z
+echo "tar cf - -v $@ | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z"
+tar cf - -v ${@:2} | 7z a -si -t7z -m0=lzma -mx=9 -mfb=1024 -md=1024m -ms=on $1.tar.7z
 fi
 fi

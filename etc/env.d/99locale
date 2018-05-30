@@ -1,5 +1,5 @@
-PATH="/opt/android-sdk-linux/platform-tools"
-ROOTPATH="/opt/android-sdk-linux/platform-tools"
+PATH="/opt/android-sdk/platform-tools"
+ROOTPATH="/opt/android-sdk/platform-tools"
 LANG="pl_PL.utf8"
 LC_ALL="pl_PL.utf8"
 LINGUAS="pl"

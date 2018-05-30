@@ -5,12 +5,12 @@ dev-libs/libixion-0.11.1
 dev-libs/liborcus-0.11.2
 
 #STABILITY
-sys-devel/gcc-5.4.0
-sys-libs/glibc-2.23-r2
-sys-devel/llvm-9999
-sys-devel/clang-9999
-dev-lang/perl-5.24.0-r1
-dev-lang/python-3.5.2
+#sys-devel/gcc-5.4.0
+#sys-libs/glibc-2.23-r2
+#sys-devel/llvm-9999
+#sys-devel/clang-9999
+#dev-lang/perl-5.24.0-r1
+#dev-lang/python-3.5.2
 
 #BASIC ADVANCED
 x11-drivers/ati-drivers-15.12-r1

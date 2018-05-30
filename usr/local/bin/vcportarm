@@ -27,12 +27,12 @@ chmod 755 /usr/local/bin/v*
 cat >> /etc/portage/make.conf << 'EOF'
 
 ACCEPT_LICENSE="*" 
-RUBY_TARGETS="ruby21 ruby23" 
+RUBY_TARGETS="ruby23" 
 GRUB_PLATFORMS="emu pc" 
-USE_PYTHON='2.7 3.4' 
+USE_PYTHON='2.7 3.6' 
 PYTHON_SINGLE_TARGET="python2_7" 
-PYTHON_TARGETS="python2_7 python3_4" 
-PYTHON_ABIS="2.7 3.4" 
+PYTHON_TARGETS="python2_7 python3_6" 
+PYTHON_ABIS="2.7 3.6" 
 MAKEOPTS="-j4 -l8" 
 EMERGE_DEFAULT_OPTS="--jobs 4 --load-average 8 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=0" 
 PORTAGE_NICENESS="20" 

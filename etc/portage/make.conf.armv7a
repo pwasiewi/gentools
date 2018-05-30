@@ -6,7 +6,7 @@ ROOT=/usr/${CHOST}/
 #ACCEPT_KEYWORDS="arm ~arm"
 ACCEPT_KEYWORDS="arm"
 USE="${ARCH} -pam -acl"
-#CFLAGS="-O2 -pipe -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=hard -fomit-frame-pointer"
+#CFLAGS="-O2 -pipe -mcpu=cortex-a7 -mtune=cortex-a7 -mfloat-abi=hard -mfpu=neon-vfpv4 -fomit-frame-pointer"
 CFLAGS="-O2 -pipe -fomit-frame-pointer"
 CXXFLAGS="${CFLAGS}"
 #FEATURES="-collision-protect sandbox buildpkg noman noinfo nodoc"

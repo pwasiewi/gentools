@@ -29,7 +29,7 @@ Komendy:
  2 	uruchom etap 2/8 instalacji - chroot z hosta: v a 2
  2host 	uruchom etap 2/8 instalacji juz po zbootowaniu lub w chroocie
  ec     wejdz (Enter) na qemu-user armv7a chroot: v r ec
- 1arm 	uruchom 1 etap armv7a: v r 1arm
+ arm1 	uruchom 1 etap armv7a: v r arm1
  -h|--help	Wyswietl ten ekran
 
 Piotr Wasiewicz 2005-2016
@@ -643,25 +643,27 @@ EOF
 }
 
 cross() {
-	echo USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
-	time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
+	echo USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r6 --kernel 4.16.12 -oO /usr/portage
+	time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r6 --kernel 4.16.12 -oO /usr/portage
+}
+
+crossfirst() {
+     	crossdev -C armv7a-hardfloat-linux-gnueabi -f
+     	crossdev -C armv7a-hardfloat-linux-gnueabi -f
+	cross
+	[ -e /usr/armv7a-hardfloat-linux-gnueabi.orig ] && rm -rf /usr/armv7a-hardfloat-linux-gnueabi.orig && cp -a /usr/armv7a-hardfloat-linux-gnueabi /usr/armv7a-hardfloat-linux-gnueabi.orig
 }
 
 1arm() {
 	umount_all
-	[ -e /usr/armv7a-hardfloat-linux-gnueabi ] && rm -rf /usr/armv7a-hardfloat-linux-gnueabi
-	#time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
-	cross
-     	mv /usr/armv7a-hardfloat-linux-gnueabi /usr/armv7a-hardfloat-linux-gnueabi.orig
+	[ -e /usr/armv7a-hardfloat-linux-gnueabi.orig ] && rm -rf /usr/armv7a-hardfloat-linux-gnueabi
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
 	[ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
 	echo ">>> Rozpakowuje Gentoo stage3..."
-	[ ! -e "$CHROOT/home" ] && tar xjpf "$CDLOC/$CD_STAGEFILE" -C $CHROOT || die "stage tarball extraction error"
-        #mv "$CDLOC/$CD_STAGEFILE" $CHROOT
+	[ ! -e "$CHROOT/home" ] && tar xjpf "$CDLOC/$CD_STAGEFILE" -C $CHROOT
 	# aby siec dzialala
 	cp /etc/resolv.conf ${CHROOT}/etc
  	ln -sfn /var/tmp/iso/r/chroot /usr/armv7a-hardfloat-linux-gnueabi
-	#time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi -S --gcc 4.9.3 --kernel 4.8.2 -oS /usr/portage
 	cross
 	cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s ../../usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile && cd /usr/armv7a-hardfloat-linux-gnueabi
 	ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
@@ -711,9 +713,10 @@ veu "sys-devel/distcc crossdev"
 vex sys-devel/crossdev
 vex sys-kernel/genkernel
 vex x11-libs/pango
-vep sys-devel/gcc-4.9.4
-vep sys-libs/ncurses-6.0-r1
-vep sys-apps/busybox-1.24.2
+vex sys-devel/gcc
+#vep sys-devel/gcc-4.9.4
+#vep sys-libs/ncurses-6.0-r1
+#vep sys-apps/busybox-1.24.2
 #vep dev-lang/perl-5.24.0-r2
 #vep sys-libs/readline-7.0
 #vep dev-util/ctags-5.8
@@ -886,13 +889,16 @@ rm -rf $CHROOT/usr/share/doc/freetds*
 rm -rf $CHROOT/usr/share/doc/docbook-xsl-stylesheets*
 cd $CHROOT/usr/share/locale
 rm -rf af am ang ar az be be@latin bg bn bn_IN br bs ca cs cs_CZ cy da dz el eo es es_AR et et_EE eu fa fi ga gl gr gu gu_IN he hi hr hy id is it it_IT ja ka kn ko ku ky li lt lv mg mi mk ml mn mr ms nb nb_NO ne nn no nso oc or pa pt pt_BR pt_PT ro ru rw si sk sl sq sr sr@Latn sr@ije sv sv_FI sv_SE ta te th tk tr tr_TR ug uz uz@cyrillic vi wa wo xh yi zh zh_CN zh_HK zh_TW zu
+
 cd $CHROOT/usr/share/doc
 #mkdir /tmp/sharedoc
-#mv R* gtk* slony* pg* postgres* phppg* octave* docker* lxc* /tmp/sharedoc 
-#rm -rf $CHROOT/usr/share/doc/*
+#mv R* gtk* slony* pg* postgres* phppg* octave* docker* lxc* zfs* spl*  /tmp/sharedoc 
+rm -rf $CHROOT/usr/share/doc/ghostscript-gpl*
+rm -rf $CHROOT/usr/share/doc/imagemagick*
 #mv /tmp/sharedoc/* .
 ls
 cd
+
 }
 
 chroot_e() {
@@ -947,6 +953,8 @@ case "$2" in
     	umount_all      ;;
     cross)	
     	cross           ;;
+    crossfirst)	
+    	crossfirst      ;;
     arm1)	
     	1arm            ;;
     arm2)	

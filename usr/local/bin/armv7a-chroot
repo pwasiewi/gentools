@@ -1,8 +1,8 @@
 #/etc/init.d/qemu-binfmt start
 
 #Next two lines are optional. Activate if the qemu-wrapper is used. Check that the wrapper location corresponds with the call at the end of line two
-echo '-1' > /proc/sys/fs/binfmt_misc/arm #deregister wrong arm
-echo ':arm:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\x00\xff\xfe\xff\xff\xff:/usr/local/bin/qemu-wrapper:' > /proc/sys/fs/binfmt_misc/register
+#echo '-1' > /proc/sys/fs/binfmt_misc/arm #deregister wrong arm
+#echo ':arm:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\x00\xff\xfe\xff\xff\xff:/usr/local/bin/qemu-wrapper:' > /proc/sys/fs/binfmt_misc/register
 
 cd /usr/armv7a-hardfloat-linux-gnueabi
 #cp /etc/resolv.conf etc/resolv.conf

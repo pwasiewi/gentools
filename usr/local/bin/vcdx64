@@ -1,0 +1,5 @@
+RANDIR=$(mktemp -d -p /etc -t portage.armXXXX)
+echo "[ -e /etc/portage.arm ] && mv /etc/portage.arm $RANDIR"
+[ -e /etc/portage.arm ] && mv /etc/portage.arm $RANDIR
+[ -e /etc/portage ] && mv /etc/portage /etc/portage.arm
+[ -e /etc/portage.host ] && mv /etc/portage.host /etc/portage

@@ -28,8 +28,10 @@ Komendy:
  r      przejdz do katalogu chroota i uruchom mc
  2 	uruchom etap 2/8 instalacji - chroot z hosta: v a 2
  2host 	uruchom etap 2/8 instalacji juz po zbootowaniu lub w chroocie
- arm1 	uruchom 1 etap armv7a: v r arm1
  cfg    pobierz repozytorium gentools skrypty
+ cross0 usuń i zrób toolchain armv7-a od nowa
+ cross1 zrób toolchain armv7-a jeszcze raz
+ arm1 	uruchom 1 etap armv7a: v r arm1
  fmt    skonfiguruj i uruchom qemu binfmt do krosskompilacji
  -h|--help	Wyswietl ten ekran
 
@@ -955,9 +957,9 @@ case "$2" in
     	umount_all      ;;
     cfg)	
     	config          ;;
-    cross)	
+    cross1)	
     	cross           ;;
-    crossfirst)	
+    cross0)	
     	crossfirst      ;;
     arm1)	
     	1arm            ;;

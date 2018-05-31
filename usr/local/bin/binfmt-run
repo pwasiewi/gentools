@@ -1,0 +1,7 @@
+[ -e /etc/binfmt.d/binfmt.conf ] && rm /etc/binfmt.d/binfmt.conf
+[ ! -e /etc/binfmt.d/qemu-arm-static.conf ] && echo ':arm:M::\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x28\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\x00\xff\xfe\xff\xff\xff:/usr/local/bin/qemu-wrapper:' > /etc/binfmt.d/qemu-arm-static.conf
+
+[ ! -e /etc/binfmt.d/qemu-aarch64-static.conf ] && echo ':aarch64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb7:\xff\xff\xff\xff\xff\xff\xff\xfc\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff:/usr/local/bin/qemu-wrapper:' > /etc/binfmt.d/qemu-aarch64-static.conf
+
+systemctl restart systemd-binfmt
+systemctl status systemd-binfmt

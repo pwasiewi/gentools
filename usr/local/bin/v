@@ -1,5 +1,5 @@
 #!/bin/bash
-# Piotr Wasiewicz 2005-2016
+# Piotr Wasiewicz 2005-2018
 # Fragments were taken from Gentoo official and unofficial scripts
 # Distributed under the GNU Public License version 2
 # Released under the GNU General Public License version 2
@@ -28,11 +28,12 @@ Komendy:
  r      przejdz do katalogu chroota i uruchom mc
  2 	uruchom etap 2/8 instalacji - chroot z hosta: v a 2
  2host 	uruchom etap 2/8 instalacji juz po zbootowaniu lub w chroocie
- ec     wejdz (Enter) na qemu-user armv7a chroot: v r ec
  arm1 	uruchom 1 etap armv7a: v r arm1
+ cfg    pobierz repozytorium gentools skrypty
+ fmt    skonfiguruj i uruchom qemu binfmt do krosskompilacji
  -h|--help	Wyswietl ten ekran
 
-Piotr Wasiewicz 2005-2016
+Piotr Wasiewicz 2005-2018
 Distributed under the GNU Public License version 2
 EOF
 }
@@ -642,9 +643,16 @@ EOF
 	fi
 }
 
+config() {
+wget -c https://github.com/pwasiewi/gentools/archive/master.zip -O/master.zip
+cd /
+[ -e gentools-master ] && rm -rf gentools-master
+[ -e master.zip ] && unzip master.zip && cd gentools-master && tar Jcf config.txz * && mv config.txz / && cd / && rm -rf gentools-master master.zip
+}
+
 cross() {
-	echo USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r6 --kernel 4.16.12 -oO /usr/portage
-	time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r6 --kernel 4.16.12 -oO /usr/portage
+	echo USE="-fortran nossp nopie hardened" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r6 --kernel 4.16.12 -oO /usr/portage
+	time USE="-fortran nossp nopie hardened" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r6 --kernel 4.16.12 -oO /usr/portage
 }
 
 crossfirst() {
@@ -728,13 +736,7 @@ EOF
 	umount_all
 
 	[ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host
-	cp2home /etc/portage/package.use r
-	cp2home /etc/portage/package.keywords r
-	cp2home /etc/portage/package.mask r
-	cp2home /etc/portage/package.env r
-	cp2home /etc/portage/env r
-	cp2home /etc/portage/profile r
-	#cp2home /usr/portage r
+	cp2home /etc/portage r
 }
 
 3arm() {
@@ -919,8 +921,8 @@ chroot_bis() {
 	chroot $CHROOT
 }
 
-armv7a_chroot() {
-	armv7a-chroot
+binfmt() {
+	binfmt-run
 }
 
 case "$2" in
@@ -941,8 +943,8 @@ case "$2" in
     	make_isocd      ;;
     e)  
     	chroot_e        ;;
-    ec)  
-    	armv7a_chroot   ;;
+    fmt)  
+    	binfmt   ;;
     r)  
     	chroot_mc       ;;
     p)  
@@ -951,6 +953,8 @@ case "$2" in
     	chroot_bis      ;;
     u)	
     	umount_all      ;;
+    cfg)	
+    	config          ;;
     cross)	
     	cross           ;;
     crossfirst)	

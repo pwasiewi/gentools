@@ -1,8 +1,6 @@
 DEVCHROOT=""
-CD_STAGEFILE="stage3-armv7a_hardfp-20160523.tar.bz2"
-CD_STAGETARBALL="http://gentoo.prz.rzeszow.pl/releases/arm/autobuilds/20160523/"$CD_STAGEFILE
-#CD_STAGEFILE="stage3-amd64-20161013.tar.bz2"
-#CD_STAGETARBALL="http://distfiles.gentoo.org/releases/amd64/autobuilds/20161013/"$CD_STAGEFILE
+CD_STAGEFILE="stage3-armv7a_hardfp-hardened-20171117.tar.bz2"
+CD_STAGETARBALL="http://distfiles.gentoo.org/experimental/arm/hardened/"$CD_STAGEFILE
 #####################################
 #Czy instalujemy z RAM dysku np. z liveusb/dvd?
 RAMDISK=1

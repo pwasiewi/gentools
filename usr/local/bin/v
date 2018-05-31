@@ -741,9 +741,9 @@ EOF
 
 3arm() {
         #trwa 40min
-        armv7a-1by1crossroot "ec U p vim"
-        armv7a-1by1crossroot "ec U p bc"
-        armv7a-1by1crossroot "ec U p genkernel"
+        time armv7a-1by1crossroot "ec u p vim"
+        time armv7a-1by1crossroot "ec u p bc"
+        time armv7a-1by1crossroot "ec u p genkernel"
     	cat > $PROFILETMP/vcportdir << EOF
 cd /usr/src
 [ ! -e linux-${KERNEL_ARM}.tar.gz ] && wget -O linux-${KERNEL_ARM}.tar.gz https://github.com/raspberrypi/linux/archive/${KERNEL_ARM}.tar.gz
@@ -771,16 +771,16 @@ EOF
         mount_all
 	chroot $CHROOT /tmp/livecd/vcportdir
 	umount_all
-        time armv7a-1by1crossroot "ec U p gentoolkit"
-        time armv7a-1by1crossroot "ec U p eix"
+        time armv7a-1by1crossroot "ec u p gentoolkit"
+        time armv7a-1by1crossroot "ec u p eix"
         time armv7a-1by1crossroot "ec p w"
-	time armv7a-1by1crossroot "ec U p distcc" #41min
+	time armv7a-1by1crossroot "ec u p distcc" #41min
 }
 
 5arm() {
  	#trwa ponad 3.5 godziny, gdyż llvm w chroocie 80min, mesa 46min, jeśli crosscompiler z hosta by je compilował byłoby z 10razy krócej
-	time armv7a-1by1crossroot "ec U p xorg-server" #160min na gentoo
-	time armv7a-1by1crossroot "ec U p openbox"
+	time armv7a-1by1crossroot "ec u p xorg-server" #160min na gentoo
+	time armv7a-1by1crossroot "ec u p openbox"
 }
 
 genkernel() {
@@ -944,7 +944,7 @@ case "$2" in
     e)  
     	chroot_e        ;;
     fmt)  
-    	binfmt   ;;
+    	binfmt   	;;
     r)  
     	chroot_mc       ;;
     p)  

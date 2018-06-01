@@ -53,7 +53,7 @@ genformathdemo /dev/sda
 v a f #sciagnij stage3/4
 #etap trwa 23min
 time v a 1 #rozpakuj stage3/4, portage i popraw make.conf, vim
-v a e #chroot na nowy system gentoo
+v a e #chroot na nowy system gentoo do zmiany hasła
 
 #------------------------------------------------------------
 #POCZATEK wpisywania komend: v a e 

@@ -29,7 +29,6 @@ cd / && tar Jxvf config.txz && cd
 #na Gentoo LiveDVD: emerge vim
 
 #na Ubuntu LiveDVD: apt install vim
-
 #------------------------------------------------------------
 
 v a p #edytuj settings chroot na /dev/sda5 

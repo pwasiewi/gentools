@@ -1,5 +1,6 @@
 if [ "$#" == "0" ]; then
-echo Podaj nazwę dysku np. /dev/sde
+echo Skrypt formatuje dysk do instalacji gentoo 
+echo Podaj nazwę dysku np. /dev/sdx
 echo WSZYSTKIE DANE ZOSTANĄ USUNIĘTE!
 echo 5 partycji zostanie założonych i sformatowanych
 else

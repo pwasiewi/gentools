@@ -1,0 +1,5 @@
+wget -c https://github.com/pwasiewi/gentools/archive/master.zip -O/master.zip
+cd /
+[ -e gentools-master ] && rm -rf gentools-master
+[ -e master.zip ] && unzip -qq master.zip && cd gentools-master && tar Jcf config.txz * && mv config.txz / && cd / && rm -rf gentools-master master.zip
+

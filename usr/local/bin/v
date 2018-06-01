@@ -787,7 +787,6 @@ EOF
 	time armv7a-1by1crossroot "ec u p openbox"
 }
 
-
 5arm() {
     	cat > $PROFILETMP/vcportdir << EOF
 cd /usr/src
@@ -995,6 +994,8 @@ case "$2" in
     	5arm            ;;
     0)	
     	0etap           ;;
+    1etap)	
+    	1etap           ;;
     1)	
      	0etap
     	1etap           ;;

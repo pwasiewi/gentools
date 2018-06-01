@@ -3,10 +3,11 @@
 #swapoff ${1}4
 #for v_partition in $(parted -s $1 print|awk '/^ / {print $1}'); do parted -s /dev/sda rm ${v_partition}; done
 if [ "$#" == "0" ]; then
-echo Skrypt formatuje dysk do instalacji gentoo 
+echo Skrypt robi partycje dysku do instalacji gentoo 
 echo Podaj nazwę dysku np. /dev/sdx
 echo WSZYSTKIE DANE ZOSTANĄ USUNIĘTE!
 echo 5 partycji zostanie założonych i sformatowanych
+echo USUWANIE PARTYCJI ZAKOMENTOWANE w skrypcie
 exit 1
 else
 parted -s ${1} mklabel gpt

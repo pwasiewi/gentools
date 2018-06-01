@@ -775,15 +775,20 @@ vep sys-libs/readline-7.0_p3
 vep sys-libs/gdbm-1.13-r2
 vep app-shells/bash-4.4_p12
 vep dev-lang/perl-5.24.3-r1
+vep x11-libs/gtk+-3.22.29
+vep app-editors/vim-8.0.1298
 EOF
 	chmod +x $PROFILETMP/vcportdir
         mount_all
 	chroot $CHROOT /tmp/livecd/vcportdir
 	umount_all
- 	#trwa 172min, gdyż kompilacja mesa w qemu chroocie trwa 52min, jeśli crosscompiler z hosta by je compilował byłoby z 10razy krócej
+ 	#trwa 172min, gdyż kompilacja m.in. mesa w qemu chroocie trwa 52min, jeśli crosscompiler z hosta by je kompilował byłoby z 10razy krócej
 	time armv7a-1by1crossroot "ec u p distcc"
+        #trwa 30min i nie wszystko się skompiluje, zatem może to pominąć
         time armv7a-1by1crossroot "ec p w"
+        #trwa 4min
 	time armv7a-1by1crossroot "ec u p xorg-server" 
+        #trwa 1min
 	time armv7a-1by1crossroot "ec u p openbox"
 }
 

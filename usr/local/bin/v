@@ -999,7 +999,7 @@ case "$2" in
     	5arm            ;;
     0)	
     	0etap           ;;
-    1etap)	
+    1e)	
     	1etap           ;;
     1)	
      	0etap

@@ -13,10 +13,8 @@ sudo su -
 #------------------------------------------------------------
 #Skrypty do screencastów o sprawnej instalacji gentoo http://bit.ly/gentools
 #------------------------------------------------------------
-#STARSZA WERSJA skryptów (PRZESTARZAŁA): wget -c http://bit.ly/gentools00  -O/config.txz
+#STARSZA WERSJA skryptów (PRZESTARZAŁA): wget -c http://bit.ly/gentools01  -O/config.txz
 #NOWSZA WERSJA skryptów: 
-wget -c http://bit.ly/gentools01 -O/config.txz
-#LUB
 wget https://raw.githubusercontent.com/pwasiewi/gentools/master/usr/local/bin/gentoolcfg
 chmod 755 ./gentoolcfg
 ./gentoolcfg #utworzy /config.txz ze źródeł z gentools repozytorium

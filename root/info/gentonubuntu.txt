@@ -9,20 +9,27 @@ I. INSTALACJA Z OFICJALNEGO LUB UBUNTU LIVEDVD/USB NA VIRTUALBOX
 ##############################################################
 #1etap
 #------------------------------------------------------------
+
 sudo su -
+
 #------------------------------------------------------------
 #Skrypty do screencastów o sprawnej instalacji gentoo http://bit.ly/gentools
 #------------------------------------------------------------
 #STARSZA WERSJA skryptów (PRZESTARZAŁA): wget -c http://bit.ly/gentools01  -O/config.txz
 #NOWSZA WERSJA skryptów: 
+
 wget https://raw.githubusercontent.com/pwasiewi/gentools/master/usr/local/bin/gentoolcfg
 chmod 755 ./gentoolcfg
 ./gentoolcfg #utworzy /config.txz ze źródeł z gentools repozytorium
 cd / && tar Jxvf config.txz && cd
+
 #------------------------------------------------------------
 #zainstaluj vim, jak go nie ma
+
 #na Gentoo LiveDVD: emerge vim
+
 #na Ubuntu LiveDVD: apt install vim
+
 #------------------------------------------------------------
 
 v a p #edytuj settings chroot na /dev/sda5 

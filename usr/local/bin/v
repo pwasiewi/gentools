@@ -649,7 +649,7 @@ config() {
 wget -c https://github.com/pwasiewi/gentools/archive/master.zip -O/master.zip
 cd /
 [ -e gentools-master ] && rm -rf gentools-master
-[ -e master.zip ] && unzip master.zip && cd gentools-master && tar Jcf config.txz * && mv config.txz / && cd / && rm -rf gentools-master master.zip
+[ -e master.zip ] && unzip -qq master.zip && cd gentools-master && tar Jcf config.txz * && mv config.txz / && cd / && rm -rf gentools-master master.zip
 }
 
 cross() {
@@ -771,12 +771,16 @@ EOF
     	cat > $PROFILETMP/vcportdir << EOF
 sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
 vex media-libs/fontconfig
+vep sys-libs/readline-7.0_p3
+vep sys-libs/gdbm-1.13-r2
+vep app-shells/bash-4.4_p12
+vep dev-lang/perl-5.24.3-r1
 EOF
 	chmod +x $PROFILETMP/vcportdir
         mount_all
 	chroot $CHROOT /tmp/livecd/vcportdir
 	umount_all
- 	#trwa ponad 3.5 godziny, gdyż llvm w chroocie 80min, mesa 46min, jeśli crosscompiler z hosta by je compilował byłoby z 10razy krócej
+ 	#trwa 172min, gdyż kompilacja mesa w qemu chroocie trwa 52min, jeśli crosscompiler z hosta by je compilował byłoby z 10razy krócej
 	time armv7a-1by1crossroot "ec u p distcc"
         time armv7a-1by1crossroot "ec p w"
 	time armv7a-1by1crossroot "ec u p xorg-server" 

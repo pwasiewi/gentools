@@ -661,7 +661,8 @@ crossfirst() {
      	crossdev -C armv7a-hardfloat-linux-gnueabi -f
      	crossdev -C armv7a-hardfloat-linux-gnueabi -f
 	cross
-	[ -e /usr/armv7a-hardfloat-linux-gnueabi.orig ] && rm -rf /usr/armv7a-hardfloat-linux-gnueabi.orig && cp -a /usr/armv7a-hardfloat-linux-gnueabi /usr/armv7a-hardfloat-linux-gnueabi.orig
+	[ -e /usr/armv7a-hardfloat-linux-gnueabi.orig ] && rm -rf /usr/armv7a-hardfloat-linux-gnueabi.orig 
+	cp -a /usr/armv7a-hardfloat-linux-gnueabi /usr/armv7a-hardfloat-linux-gnueabi.orig
 }
 
 1arm() {

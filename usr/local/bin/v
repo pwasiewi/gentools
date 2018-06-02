@@ -693,6 +693,9 @@ crossfirst() {
 	quickpkg qemu --include-config y
 	ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
 	gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
+	cd /usr/armv7a-hardfloat-linux-gnueabi/lib
+	ln -sfn ld-2.23.so ld-linux-armhf.so.3
+	ln -sfn libc-2.23.so  libc.so.6
 }
 
 

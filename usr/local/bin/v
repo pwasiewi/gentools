@@ -654,7 +654,7 @@ cd /
 
 cross() {
 	echo USE="-fortran nossp nopie hardened" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r6 --kernel 4.16.12 -oO /usr/portage
-	time USE="-fortran nossp nopie hardened" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r6 --kernel 4.16.12 -oO /usr/portage
+	time USE="-fortran nossp" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r6 --kernel 4.16.12 -oO /usr/portage
 }
 
 crossfirst() {
@@ -693,17 +693,13 @@ crossfirst() {
 	quickpkg qemu --include-config y
 	ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
 	gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
-	cd /usr/armv7a-hardfloat-linux-gnueabi/lib
-	ln -sfn ld-2.23.so ld-linux-armhf.so.3
-	ln -sfn libc-2.23.so  libc.so.6
 }
 
 
 2arm() {
     cat > $PROFILETMP/vcportdir << 'EOF'
 cd /usr
-wget -c http://gentoo.prz.rzeszow.pl/snapshots/portage-latest.tar.xz
-tar Jxf portage-latest.tar.xz
+emerge-webrsync
 [ -e /usr/portage/distfiles ] && rmdir /usr/portage/distfiles
 [ ! -e /var/tmp/distfiles ] && mkdir /var/tmp/distfiles
 ln -sfn /var/tmp/distfiles /usr/portage/distfiles

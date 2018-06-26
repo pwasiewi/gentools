@@ -1,4 +1,4 @@
-Witam na LIVEUSB! (link easy to remember: http://bit.ly/gen22ls)
+Welcome to LIVEUSB gentools! (link easy to remember: http://bit.ly/gen22ls)
 
 Aby uruchomic liveusb nalezy je zbootowac z wlaczona opcja w BIOSIE boot from
 dvd lub usb. 

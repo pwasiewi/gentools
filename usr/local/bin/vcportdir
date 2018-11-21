@@ -11,7 +11,7 @@ done
 [ ! -e /etc/portage/profile/package.provided ] && touch /etc/portage/profile/package.provided;
 [ ! -e /usr/local/portage ] && mkdir -p /usr/local/portage/metadata/
 echo "masters = gentoo" > /usr/local/portage/metadata/layout.conf
-
+echo "vim /etc/portage/package.env/moje.env /etc/portage/package.env/systemowe.env" > /usr/local/bin/vie
 echo "echo \"\$1\" >> /etc/portage/package.keywords/moje.keywords" > /usr/local/bin/vex
 echo "vim /etc/portage/package.keywords/moje.keywords /etc/portage/package.keywords/systemowe.keywords" > /usr/local/bin/vix
 echo "echo \"\$1\" >> /etc/portage/package.use/moje.use" > /usr/local/bin/veu
@@ -26,33 +26,40 @@ chmod 755 /usr/local/bin/v*
 
 cat >> /etc/portage/make.conf << 'EOF'
 
-ACCEPT_LICENSE="*" 
-#ABI_X86="64 32"  
-RUBY_TARGETS="ruby21 ruby23" 
-GRUB_PLATFORMS="emu pc" 
-USE_PYTHON='2.7 3.4' 
-PYTHON_SINGLE_TARGET="python2_7" 
-PYTHON_TARGETS="python2_7 python3_4" 
-PYTHON_ABIS="2.7 3.4" 
+ACCEPT_LICENSE="*"
+ABI_X86="64 32"
+#RUBY_TARGETS="ruby23"
+RUBY_TARGETS="ruby23 ruby24 ruby25"
+GRUB_PLATFORMS="emu pc"
+PYTHON_SINGLE_TARGET="python2_7"
+#PYTHON_SINGLE_TARGET="python3_6"
+PYTHON_TARGETS="python2_7 python3_6"
+PYTHON_ABIS="2.7 3.6"
+USE_PYTHON='2.7 3.6'
+PHP_TARGETS="php7-0"
+POSTGRES_TARGETS="postgres10"
 MAKEOPTS="-j4 -l8" 
-EMERGE_DEFAULT_OPTS="--jobs 4 --load-average 8 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=0" 
+EMERGE_DEFAULT_OPTS="--jobs 4 --load-average 8 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=3" 
 PORTAGE_NICENESS="20" 
-FEATURES="${FEATURES} sandbox parallel-fetch metadata-transfer fail-clean -compressdebug -splitdebug" 
+FEATURES="${FEATURES} sandbox parallel-fetch metadata-transfer fail-clean -compressdebug" 
+#For glibc to make valgrind work
+#FEATURES="$FEATURES splitdebug"
 CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3"
 
 PORTAGE_TMPDIR="/var/tmp/portage" 
-USE="${USE} -X -java -systemd -hardened -pic branding experimental extras -doc -acl -systemtap"
-USE="${USE} -kde plasma gnome gnome-keyring nautilus grub mediacenter"
-USE="${USE} -cryptsetup reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay"
-USE="${USE} device-mapper udev openrc kernel-patch -systemtap -pax_kernel acpi icu kvm fuse threads usb bluetooth network consolekit ssl wifi pcap -ipv6 -automount -gnutls -hal"
-USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost"
 
-#USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l"
-#USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype qrcode devil gegl introspection imagemagick"
+USE="${USE} -X -java -systemd -hardened -pic jit pgo graphite branding experimental extras -doc -acl -systemtap"
+USE="${USE} -kde plasma gnome gnome-keyring nautilus grub mediacenter"
+USE="${USE} reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay lvm vnc acl"
+USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu cryptsetup kvm fuse threads usb bluetooth network consolekit ssl sslv3 wifi pcap -ipv6 -automount -gnutls -hal ldap policykit ovs"
+USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c++14"
+
+#USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk jack v4l zip"
+#USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype qrcode devil gegl introspection imagemagick gif qml"
 #USE="${USE} tools xnest xvfb tslib kms libkms dmx xcb dbus xrandr xorg sna vaapi uxa gbm glamor lcdfilter kdrive infinality xkb"
-#USE="${USE} nvidia uvm -cuda gpu egl -wayland osmesa xa vdpau vulkan opencl"
-#USE="${USE} lua llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic"
-#USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot"
+#USE="${USE} nvidia uvm -cuda gpu egl wayland osmesa xa vdpau vulkan opencl tinfo gles"
+#USE="${USE} lua script llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic -hardened"
+#USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot mercurial googledrive"
 
 VIDEO_CARDS="nvidia intel radeon fglrx nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu" 
 PORTDIR_OVERLAY="/usr/local/portage $PORTDIR_OVERLAY" 

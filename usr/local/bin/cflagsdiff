@@ -1,0 +1,9 @@
+pomoc() {
+  cat << EOF
+  Porównanie flag gcc procesorów: nocona core2 nehalem corei7 westmere sandybridge corei7-avx ivybridge core-avx-i haswell core-avx2 broadwell skylake skylake-avx512 cannonlake icelake-client icelake-server bonnell atom silvermont slm knl knm x86-64 eden-x2 nano nano-1000 nano-2000 nano-3000 nano-x2 eden-x4 nano-x4 k8 k8-sse3 opteron opteron-sse3 athlon64 athlon64-sse3 athlon-fx amdfam10 barcelona bdver1 bdver2 bdver3 bdver4 znver1 btver1 btver2 native
+  Podaj dwie nazwy procesorów: cflagsdiff btver1 core2
+EOF
+}
+( [ $# -eq 0 ] || [ $# -eq 1  ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && pomoc &&  exit 1;
+
+diff -u <(gcc -march=$1 -Q --help=target) <(gcc -march=$2 -Q --help=target) | grep "^[-|+] "

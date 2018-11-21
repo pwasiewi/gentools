@@ -1,0 +1,35 @@
+#!/bin/bash
+pomoc() {
+  cat << EOF
+Przyjmuje dwa argumenty:
+1 - liczba haseł do wygenerowania
+2 - długość hasła (domyślnie 8)
+i generuje 3*$2+4 haseł różnymi trzema metodami 
+EOF
+}
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && pomoc &&  exit 1;
+if [ $# -eq 1  ]; then
+LI=$1
+DL=8
+elif [ $# -eq 2  ]; then
+LI=$1
+DL=$2
+fi
+
+echo Generacja: pwgen -cynB1
+pwgen -cynB1 $DL $LI
+echo Generacja: egrep /dev/urandom
+egrep -aio -m $LI "[!@#$%^&*A-Za-z0-9]{$DL}" /dev/urandom
+echo Generacja: /dev/urandom tr
+cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w $DL | head -n $LI
+echo Generacja: date sha256sum base64
+date +%s | sha256sum | base64 | head -c $DL; echo;
+echo Generacja: strings /dev/urandom
+strings /dev/urandom | grep -o '[[:alnum:]]' | head -n $DL | tr -d '\n'; echo
+echo Generacja: na lewą rękę
+</dev/urandom tr -dc '12345!@#$%qwertQWERTasdfgASDFGzxcvbZXCVB' | head -c$DL; echo ""
+echo Generacja: strings /dev/urandom
+gpg --gen-random --armor 1 6
+echo Generacja: openssl base64
+openssl rand -base64 6
+echo

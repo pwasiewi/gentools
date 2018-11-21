@@ -407,9 +407,6 @@ gcc-config 2
 env-update
 fix_libtool_files.sh ${OLDGCC}
 e libtool n
-#vex sys-libs/glibc
-#vex sys-libs/binutils-libs
-#vex sys-devel/binutils
 #e glibc n
 #e binutils binutils-libs libnsl n
 EOF
@@ -428,6 +425,11 @@ EOF
 	cat > $PROFILETMP/$ETAP << 'EOF'
 #update systemu - etap konieczny
 #kompilacja trwa 80min
+vex sys-libs/glibc
+vex sys-libs/binutils-libs
+vex sys-devel/binutils
+veu "media-libs/mesa -vaapi"
+veu "dev-lang/python sqlite"
 sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
 sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
 sed -i 's/#USE="${USE} tools/USE="${USE} tools/g' /etc/portage/make.conf
@@ -452,9 +454,6 @@ EOF
 #layman dodany - etap konieczny
 #kompilacja trwa 7 min
 e u gpm app-misc/mc ntp
-/etc/init.d/ntp-client start
-/etc/init.d/gpm start
-rc-update add gpm default
 e u layman #okolo 32 aplikacji po etapie 3 aktualizacji 238 aplikacji
 sed -i 's/^check_official : Yes/check_official : no/' /etc/layman/layman.cfg
 EOF
@@ -468,12 +467,16 @@ layman -L
 layman -a kde
 layman -a x11
 layman -a sabayon 
+layman -a lto-overlay
 EOF
         fi
 
         cat >> $PROFILETMP/$ETAP << 'EOF'
 eix-update
 e w
+#/etc/init.d/ntp-client start
+#/etc/init.d/gpm start
+#rc-update add gpm default
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then

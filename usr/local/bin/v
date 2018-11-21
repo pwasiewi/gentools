@@ -318,8 +318,8 @@ EOF
         ETAP=1etap
 	umount_all
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
-
-	cat >> $PROFILETMP/$ETAP << 'EOF'
+        #[ -e $PROFILETMP/$ETAP ] && rm $PROFILETMP/$ETAP
+	cat > $PROFILETMP/$ETAP << 'EOF'
 echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
@@ -357,11 +357,9 @@ eselect kernel set `eselect kernel list | grep linux | wc -l`
 sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
 #usuwanie kompilacji kernela hosta
 #cd /usr/src/linux && make clean
-#vep sys-kernel/gentoo-sources
 EOF
         else
             cat >> $PROFILETMP/$ETAP << 'EOF'
-#vex sys-kernel/gentoo-sources
 e gentoo-sources
 eselect kernel set `eselect kernel list | grep linux | wc -l`
 cd /usr/src/linux
@@ -383,12 +381,12 @@ echo "Edytuj jak potrzebne:   /etc/fstab oraz /etc/default/grub"
 echo "Zmień koniecznie hasło: passwd"
 echo "Wyjdź z chroot Gentoo : CTRL-d"
 echo "Zrebootuj:              reboot"
+umount /boot
 EOF
         fi
 
-	cat >> $PROFILETMP/$ETAP << 'EOF'
-umount /boot
-EOF
+#	cat >> $PROFILETMP/$ETAP << 'EOF'
+#EOF
 	chmod +x $PROFILETMP/$ETAP
         mount_all
 	chroot $CHROOT /tmp/livecd/$ETAP
@@ -1001,7 +999,7 @@ case "$2" in
     	5arm            ;;
     0)	
     	0etap           ;;
-    1e)	
+    01)	
     	1etap           ;;
     1)	
      	0etap

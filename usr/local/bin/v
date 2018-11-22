@@ -299,9 +299,10 @@ ls -l /usr
 EOF
 	else
 	    cat >> $PROFILETMP/vcportdir << 'EOF'
-cd /usr
-wget -c ftp://ftp.vectranet.pl/gentoo/snapshots/portage-latest.tar.xz
-tar Jxf portage-latest.tar.xz
+#cd /usr
+#wget -c ftp://ftp.vectranet.pl/gentoo/snapshots/portage-latest.tar.xz
+#tar Jxf portage-latest.tar.xz
+emerge-webrsync
 [ -d /usr/portage/distfiles ] && rmdir /usr/portage/distfiles
 [ ! -d /var/tmp/distfiles ] && mkdir /var/tmp/distfiles
 ln -sfn /var/tmp/distfiles /usr/portage/distfiles
@@ -334,8 +335,10 @@ ln -sf /proc/self/mounts /etc/mtab
 #sed -i 's/^#ABI/ABI/g' /etc/portage/make.conf
 mv /etc/portage/repos.conf/st*.conf ~
 
+#emerge --sync
 e u vim
-e u gentoolkit genkernel-next repoman portage euses eix 
+e u eix
+e u gentoolkit genkernel-next repoman portage euses
 
 vex sys-fs/btrfs-progs
 vex dev-libs/boost

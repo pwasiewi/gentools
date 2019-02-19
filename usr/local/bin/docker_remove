@@ -1,1 +1,9 @@
-docker rm -f `docker ps -aq`
+#!/bin/bash
+out=$(docker ps -aq)
+echo $out
+if [[ $out ]]; then
+   echo docker rm -f $out
+   docker rm -f $out
+else
+   echo Docker not found
+fi

@@ -1,6 +1,6 @@
 #!/bin/bash
 out=$(docker ps -aq)
-echo $out
+#echo $out
 if [[ $out ]]; then
    echo docker rm -f $out
    docker rm -f $out

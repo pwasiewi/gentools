@@ -1,0 +1,1 @@
+nohup wget -np -r -m -k -x -c --proxy=on --follow-ftp   --accept=txt,html,htm,asp,shtml,php,phtml,php3,jpg,gif,zip,tgz,jar,ps,pdf,swf,clj,tar.gz,xdf,csv $1&

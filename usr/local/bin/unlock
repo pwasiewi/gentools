@@ -1,0 +1,10 @@
+pomoc() {
+  cat << EOF
+  Podaj nazwę partycji i katalog w /mnt np.: unlock sde3 ca
+EOF
+}
+( [ $# -le 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && pomoc &&  exit 1;
+blkid -o device /dev/`basename $1` && cryptsetup luksOpen /dev/`basename $1` sz`basename $1`
+blkid -o device /dev/mapper/sz`basename $1` && mount /dev/mapper/sz`basename $1` /mnt/$2
+#blkid -o device /dev/mapper/sz`basename $1` && umount /dev/mapper/sz`basename $1`
+#blkid -o device /dev/mapper/sz`basename $1` && cryptsetup close /dev/mapper/sz`basename $1`

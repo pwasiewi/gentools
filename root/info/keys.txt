@@ -2,14 +2,16 @@
 gpg --full-generate-key
 gpg --list-keys
 gpg --list-secret-keys --keyid-format LONG
-sec   rsa4096/<YOUR_KEY>
+#sec   rsa4096/<YOUR_KEY>
+gpg --delete-secret-key <YOUR_KEY>
+gpg --delete-key <YOUR_KEY>
 gpg --armor --export <YOUR_KEY>
 gpg --armor --output ~/.gnupg/key<YOUR_KEY>.asc --export <YOUR_KEY>
+#safe cancelling of key, u cannot use it for new encrypting
 gpg --output ~/.gnupg/revoke<YOUR_KEY>.asc --gen-revoke <YOUR_KEY>
 gpg --keyserver keys.gnupg.net --keyserver-options honor-http-proxy --send-key <YOUR_KEY>
 wget -O ~/.gnupg/sks-keyservers.netCA.pem https://sks-keyservers.net/sks-keyservers.netCA.pem
 wget -O ~/.gnupg/gpg.conf https://gist.githubusercontent.com/42n4/278539c6d2f9c3ed4460fba5d7221f69/raw/1c29f7543b497a2f061182280134830993cf2f6d/gpg.conf
-gpg --keyserver --keyserver-options my-http-proxy --send-key <YOUR_KEY>
 #with proper gpg
 gpg --send-key <YOUR_KEY>
 gpg --search-keys <YOUR_PGP_EMAIL>
@@ -54,8 +56,6 @@ else
 fi' > ~/.bashrc
 echo 'if [ -f ~/.bashrc ]; then source ~/.bashrc; fi' > ~/.bash_profile
 
-
-#NIE działa systemctl ssh-agent
 #https://wiki.gentoo.org/wiki/Systemd
 [ ! -e ~/.local/share/systemd/user/ ] && mkdir -p ~/.local/share/systemd/user/
 echo '[Unit]

@@ -75,3 +75,10 @@ systemctl --user start ssh-agent
 openssl speed aes-128-cbc
 openssl engine -c -tt
 dd if=/dev/zero count=100 bs=1M | ssh -c aes128-cbc localhost "cat >/dev/null"
+
+
+#ONLYKEY
+wget https://raw.githubusercontent.com/trustcrypto/trustcrypto.github.io/master/49-onlykey.rules -O /etc/udev/rules.d/49-onlykey.rules
+
+
+

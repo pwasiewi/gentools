@@ -1,0 +1,3 @@
+for i in  qtdbus qtnetwork qtxml qttest qtgui qtwidgets qtprintsupport qtdeclarative designer; do emerge  -1 --nodeps $i; done
+eselect qtgraphicssystem list
+

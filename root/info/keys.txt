@@ -1,27 +1,83 @@
-#https://riseup.net/en/security/message-security/openpgp/best-practices
+# KLUCZEPGP
+# https://github.com/drduh/YubiKey-Guide
+# https://support.yubico.com/support/solutions/articles/15000006420-using-your-yubikey-with-openpgp
 gpg --full-generate-key
-gpg --list-keys
+addkey 8 E S Q 4096 0 y y 
+your_name your@email O(key)
+# sec   rsa4096/<YOUR_KEY>
+export KEYID=<YOUR_KEY>
+#add subkeys
+gpg --expert --edit-key $KEYID
+# subkey to sign
+addkey 4 Q 4096 1y y y 
+# subkey to encrypt
+addkey 6 Q 4096 1y y y 
+# subkeuy to authenticate
+addkey 8 S E A Q 1y y y  
+# again uid
+# adduid N C E
+save
+
+#edycja yubikey
+gpg --card-status
+gpg --card-edit
+admin help name lang <pl> sex url login passwd
+2 (ustaw pin)
+Q list quit
+
+#yubikey add pgp key
+gpg --edit-key piotrwasiewiczeu@gmail.com
+toggle
+key 1 (choose sign)
+#backup klucza
+keytocard
+key 1 #unset
+key 2
+keytocard (choose encrypt)
+key 2 #unset
+key 3
+keytocard (choose authenticate)
+save
+
+# https://riseup.net/en/security/message-security/openpgp/best-practices
+# https://help.ubuntu.com/community/GnuPrivacyGuardHowto
+# https://www.jabberwocky.com/software/paperkey/
+gpg --list-keys --keyid-format LONG
 gpg --list-secret-keys --keyid-format LONG
-#sec   rsa4096/<YOUR_KEY>
-gpg --delete-secret-key <YOUR_KEY>
-gpg --delete-key <YOUR_KEY>
-gpg --armor --export <YOUR_KEY>
-gpg --armor --output ~/.gnupg/key<YOUR_KEY>.asc --export <YOUR_KEY>
-#safe cancelling of key, u cannot use it for new encrypting
-gpg --output ~/.gnupg/revoke<YOUR_KEY>.asc --gen-revoke <YOUR_KEY>
-gpg --keyserver keys.gnupg.net --keyserver-options honor-http-proxy --send-key <YOUR_KEY>
+# sec   rsa4096/<YOUR_KEY>
+# or
+# pub   rsa4096/<YOUR_KEY>
+export KEYID=<YOUR_KEY>
+# save backups in the encrypted place
+gpg --armor --export-secret-key  $KEYID > privatekey.key
+gpg --armor --export-secret-keys $KEYID > privatemastersub.key
+gpg --armor --export-secret-subkeys $KEYID > privatesub.key
+gpg --armor --export $KEYID > publicmastersub.key
+# remove your key from local gpg repo
+gpg --delete-secret-key $KEYID
+gpg --delete-key $KEYID
+# recover your private key from the hidden file
+gpg --import privatekey.txt
+# to revoke your key - save it safely
+gpg --output ./revoke$KEYID.asc --gen-revoke $KEYID
+# import revoke file and send key to servers - it will make your key useless
+# wysłanie klucza gpg na public serwer (tylko część publiczna)
+gpg --keyserver keys.gnupg.net --keyserver-options honor-http-proxy --send-key $KEYID
 wget -O ~/.gnupg/sks-keyservers.netCA.pem https://sks-keyservers.net/sks-keyservers.netCA.pem
 wget -O ~/.gnupg/gpg.conf https://gist.githubusercontent.com/42n4/278539c6d2f9c3ed4460fba5d7221f69/raw/1c29f7543b497a2f061182280134830993cf2f6d/gpg.conf
-#with proper gpg
-gpg --send-key <YOUR_KEY>
+# with proper gpg
+gpg --send-key $KEYID
+gpg --keyserver pgp.mit.edu --send-key $KEYID
+gpg --keyserver keys.gnupg.net --send-key $KEYID
+gpg --keyserver hkps://keyserver.ubuntu.com:443 --send-key $KEYID
+#search for your key on servers
 gpg --search-keys <YOUR_PGP_EMAIL>
-#To create ASCII files, just add the --clearsign option to the beginning of the command. 
+# To create ASCII files, just add the --clearsign option to the beginning of the command. 
 gpg --output encrypted_doc.gpg --encrypt --recipient lmpinto@dei.uc.pt doc_to_encrypt
 gpg --output signed_doc.gpg --sign --recipient lmpinto@dei.uc.pt doc_to_sign
 gpg --output encrypted_doc.gpg --encrypt --sign --recipient lmpinto@dei.uc.pt doc_to_encrypt_and_sign
 gpg --output document --decrypt encrypted_doc.gpg
-
-keyservers:
+# Keyservers:
 keys.gnupg.net
 hkp://subkeys.pgp.net (server pool)
 http://pgp.mit.edu
@@ -29,13 +85,48 @@ hkp://pool.sks-keyservers.net (server pool, also supports secured key requests o
 hkp://zimmermann.mayfirst.org (also supports secured key requests over TLS)
 http://keyserver.ubuntu.com
 
+#USES OF PGP KEY
+echo "test message string" | gpg --encrypt --armor --recipient $KEYID -o encrypted.txt
+gpg --decrypt --armor encrypted.txt
+
+echo "test message string" | gpg --armor --clearsign > signed.txt
+gpg --verify signed.txt
+
+
+# KLUCZE SSH
 mkdir ~/.ssh/github
 ssh-keygen -t rsa -b 4096 -N '' -C<YOUR_EMAIL> -f ~/.ssh/github/id_rsa
 
-#test github ssh
+# test github ssh
 ssh -vT git@github.com
 git remote set-url origin git@github.com:<Username>/<Project>.git
-#you can git push now
+# you can git push now
+
+
+# AES in SSH
+openssl speed aes-128-cbc
+openssl engine -c -tt
+dd if=/dev/zero count=100 bs=1M | ssh -c aes128-cbc localhost "cat >/dev/null"
+
+
+# ONLYKEY
+wget https://raw.githubusercontent.com/trustcrypto/trustcrypto.github.io/master/49-onlykey.rules -O /etc/udev/rules.d/49-onlykey.rules
+
+
+# https://keybase.io/pwasiewi
+keybase id pwasiewi
+keybase logout
+keybase login pwasiewi
+keybase prove pwasiewi
+keybase status
+keybase device
+keybase device list
+keybase passphrase recover
+keybase pgp drop ID
+keybase pgp select
+keybase pgp import
+keybase pgp gen
+
 
 echo 'SSH_ENV="$HOME/.ssh/environment"
 function start_agent {
@@ -56,7 +147,7 @@ else
 fi' > ~/.bashrc
 echo 'if [ -f ~/.bashrc ]; then source ~/.bashrc; fi' > ~/.bash_profile
 
-#https://wiki.gentoo.org/wiki/Systemd
+# https://wiki.gentoo.org/wiki/Systemd
 [ ! -e ~/.local/share/systemd/user/ ] && mkdir -p ~/.local/share/systemd/user/
 echo '[Unit]
 Description=SSH key agent
@@ -70,15 +161,3 @@ echo 'export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"' > ~/.bash_profil
 echo 'AddKeysToAgent  yes' > ~/.ssh/config
 systemctl --user enable ssh-agent
 systemctl --user start ssh-agent
-
-#AES in SSH
-openssl speed aes-128-cbc
-openssl engine -c -tt
-dd if=/dev/zero count=100 bs=1M | ssh -c aes128-cbc localhost "cat >/dev/null"
-
-
-#ONLYKEY
-wget https://raw.githubusercontent.com/trustcrypto/trustcrypto.github.io/master/49-onlykey.rules -O /etc/udev/rules.d/49-onlykey.rules
-
-
-

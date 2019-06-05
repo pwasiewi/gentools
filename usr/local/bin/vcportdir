@@ -28,8 +28,7 @@ cat >> /etc/portage/make.conf << 'EOF'
 
 ACCEPT_LICENSE="*"
 ABI_X86="64 32"
-#RUBY_TARGETS="ruby23"
-RUBY_TARGETS="ruby23 ruby24 ruby25"
+RUBY_TARGETS="ruby24 ruby25"
 GRUB_PLATFORMS="emu pc"
 PYTHON_SINGLE_TARGET="python2_7"
 #PYTHON_SINGLE_TARGET="python3_6"
@@ -37,10 +36,10 @@ PYTHON_TARGETS="python2_7 python3_6"
 PYTHON_ABIS="2.7 3.6"
 USE_PYTHON='2.7 3.6'
 PHP_TARGETS="php7-0"
-POSTGRES_TARGETS="postgres10"
+POSTGRES_TARGETS="postgres11"
 MAKEOPTS="-j4 -l8" 
 EMERGE_DEFAULT_OPTS="--jobs 4 --load-average 8 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=3" 
-PORTAGE_NICENESS="20" 
+PORTAGE_NICENESS="19" 
 FEATURES="${FEATURES} sandbox parallel-fetch metadata-transfer fail-clean -compressdebug" 
 #For glibc to make valgrind work
 #FEATURES="$FEATURES splitdebug"

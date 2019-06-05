@@ -1,0 +1,27 @@
+dev-util/codeblocks
+dev-go/blackfriday
+dev-go/go-md2man
+dev-go/sanitized-anchor-name
+app-emulation/containerd
+app-emulation/runc
+app-emulation/docker
+app-emulation/docker-machine
+app-emulation/docker-proxy
+app-emulation/lxd
+app-emulation/vagrant
+app-admin/mongo-tools
+dev-libs/mongo-c-driver
+dev-db/mongodb
+dev-util/valgrind
+
+emerge infinality-ultimate-meta
+
+e nvidia-drivers
+
+for i in `layman -l | awk '{print $2}'`; do layman -d $i; layman -a $i; done
+eix-update
+
+e u yubikey-personalization-gui sys-auth/yubico-piv-tool sys-auth/pam_yubico dev-python/yubiotp app-crypt/yubikey-manager-qt app-crypt/yubikey-manager trezord python-trezor sys-apps/pcsc-tools
+
+e u  google-chrome google-chrome-beta vivaldi-snapshot google-chrome-unstable opera-developer dev-texlive/texlive-fontsrecommended firefox-bin dev-texlive/texlive-latexrecommended dev-texlive/texlive-pstricks dev-texlive/texlive-formatsextra dev-texlive/texlive-fontsextra dev-texlive/texlive-latexextra media-fonts/noto dev-texlive/texlive-fontsextra
+

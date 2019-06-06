@@ -92,6 +92,16 @@ gpg --decrypt --armor encrypted.txt
 echo "test message string" | gpg --armor --clearsign > signed.txt
 gpg --verify signed.txt
 
+gpg --list-keys
+git config --global user.signingKey $KEYID
+# write to ~/.gitconfig
+git config --global commit.gpgsign true
+git config alias.cs "commit -S"
+git log --show-signature
+git show --show-signature
+git verify-commit --raw $COMMIT_ID
+# https://github.com/git/git/blob/master/Documentation/pretty-formats.txt#L153-L224
+git log --show-signature --pretty=format:"%H %ae %n %G?  %GS %GK"
 
 # KLUCZE SSH
 mkdir ~/.ssh/github
@@ -126,6 +136,20 @@ keybase pgp drop ID
 keybase pgp select
 keybase pgp import
 keybase pgp gen
+# after starting keybase encrypted repo
+git clone keybase://private/pwasiewi/encrypted
+
+
+cryptsetup luksFormat /dev/sde3
+cryptsetup open /dev/sdf3 encrypted
+mkfs.btrfs /dev/mapper/encrypted
+cryptsetup close /dev/mapper/encrypted
+# podaj nazwę partycji w btrfs zlib i katalog w /mnt np.: unzlib sde3 ca
+unzlib sde3 ca 
+# zablokuj zaszyfrowany usb
+lock sde3 ca 
+
+
 
 
 echo 'SSH_ENV="$HOME/.ssh/environment"

@@ -72,6 +72,7 @@ gpg --keyserver keys.gnupg.net --send-key $KEYID
 gpg --keyserver hkps://keyserver.ubuntu.com:443 --send-key $KEYID
 #search for your key on servers
 gpg --search-keys <YOUR_PGP_EMAIL>
+# gpg --receive-keys $KEYID
 # To create ASCII files, just add the --clearsign option to the beginning of the command. 
 gpg --output encrypted_doc.gpg --encrypt --recipient lmpinto@dei.uc.pt doc_to_encrypt
 gpg --output signed_doc.gpg --sign --recipient lmpinto@dei.uc.pt doc_to_sign
@@ -94,9 +95,10 @@ gpg --verify signed.txt
 
 gpg --list-keys
 git config --global user.signingKey $KEYID
+git config user.signingKey $KEYID
 # write to ~/.gitconfig
 git config --global commit.gpgsign true
-git config alias.cs "commit -S"
+git config alias.cs "commit -S -a"
 git log --show-signature
 git show --show-signature
 git verify-commit --raw $COMMIT_ID
@@ -150,38 +152,11 @@ unzlib sde3 ca
 lock sde3 ca 
 
 
+export GPG_TTY="$(tty)"
+#export SSH_AUTH_SOCK="/run/user/$UID/gnupg/S.gpg-agent.ssh"
+export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
+gpg-connect-agent updatestartuptty /bye
 
-
-echo 'SSH_ENV="$HOME/.ssh/environment"
-function start_agent {
-    echo "Initialising new SSH agent..."
-    OLD_UMASK=$(umask 077); /usr/bin/ssh-agent | sed 's/^echo/#echo/' > "${SSH_ENV}"; umask ${OLD_UMASK}
-    echo succeeded
-    . "${SSH_ENV}" > /dev/null
-    /usr/bin/ssh-add;
-}
-# Source SSH settings, if applicable
-if [ -f "${SSH_ENV}" ]; then
-    . "${SSH_ENV}" > /dev/null
-    ps -ef | grep ${SSH_AGENT_PID} | grep ssh-agent$ > /dev/null || {
-        start_agent;
-    }
-else
-    start_agent;
-fi' > ~/.bashrc
-echo 'if [ -f ~/.bashrc ]; then source ~/.bashrc; fi' > ~/.bash_profile
 
 # https://wiki.gentoo.org/wiki/Systemd
-[ ! -e ~/.local/share/systemd/user/ ] && mkdir -p ~/.local/share/systemd/user/
-echo '[Unit]
-Description=SSH key agent
-[Service]
-Type=forking
-Environment=SSH_AUTH_SOCK=%t/ssh-agent.socket
-ExecStart=/usr/bin/ssh-agent -a $SSH_AUTH_SOCK
-[Install]
-WantedBy=default.target' > ~/.local/share/systemd/user/ssh-agent.service
-echo 'export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"' > ~/.bash_profile
-echo 'AddKeysToAgent  yes' > ~/.ssh/config
-systemctl --user enable ssh-agent
-systemctl --user start ssh-agent
+# add gpg to systemd

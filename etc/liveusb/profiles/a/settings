@@ -1,6 +1,6 @@
 DEVCHROOT="/dev/sda5"
-CD_STAGEFILE="stage4-amd64-systemd-20180528.tar.bz2"
-CD_STAGETARBALL="http://gentoo.prz.rzeszow.pl/releases/amd64/autobuilds/current-stage4-amd64-systemd/"$CD_STAGEFILE
+CD_STAGEFILE="stage4-amd64-systemd-20190903.tar.xz"
+CD_STAGETARBALL="http://ftp.fi.muni.cz/pub/linux/gentoo/releases/amd64/autobuilds/current-stage4-amd64-systemd/"$CD_STAGEFILE
 #####################################
 #Czy instalujemy z RAM dysku np. z liveusb/dvd?
 RAMDISK=1

@@ -194,7 +194,7 @@ fetch() {
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
 	[ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
 	echo ">>> Rozpakowuje Gentoo stage3..."
-	[ ! -e "$CHROOT/home" ] && tar xjpf "$CDLOC/$CD_STAGEFILE" -C $CHROOT || die "stage tarball extraction error"
+	[ ! -e "$CHROOT/home" ] && tar xJpf "$CDLOC/$CD_STAGEFILE" -C $CHROOT || die "stage tarball extraction error"
         #mv "$CDLOC/$CD_STAGEFILE" $CHROOT
 	# aby siec dzialala
 	cp /etc/resolv.conf ${CHROOT}/etc
@@ -253,7 +253,6 @@ FEATURES="${FEATURES} sandbox parallel-fetch metadata-transfer fail-clean -compr
 #For glibc to make valgrind work
 #FEATURES="$FEATURES splitdebug"
 CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3"
-
 
 #PORTAGE_TMPDIR="/var/tmp/portage" 
 

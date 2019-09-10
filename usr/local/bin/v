@@ -527,6 +527,9 @@ EOF
 6etap(){
 	ETAP=6etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
+vex net-libs/libmbim
+vex net-libs/libqmi
+vex dev-libs/openssl
 vex games-action/minetest
 vex games-action/minetest_game
 veu "games-action/minetest curl leveldb ncurses nls postgres server sound truetype dedicated doc jsoncpp luajit -redis -spatial"

@@ -306,10 +306,15 @@ ln -sfn /var/tmp/distfiles /usr/portage/distfiles
 EOF
 	fi
 
-	chmod +x $PROFILETMP/vcportdir
-        mount_all
-	chroot $CHROOT /tmp/livecd/vcportdir
-	umount_all
+        chmod +x $PROFILETMP/vcportdir
+        if [ "$HOST" == "1" ]; then
+                $PROFILETMP/vcportdir
+        else
+                mount_all
+                chroot $CHROOT /tmp/livecd/vcportdir
+                umount_all
+        fi
+
 }
 
 1etap() {
@@ -387,12 +392,14 @@ umount /boot
 EOF
         fi
 
-#	cat >> $PROFILETMP/$ETAP << 'EOF'
-#EOF
 	chmod +x $PROFILETMP/$ETAP
-        mount_all
-	chroot $CHROOT /tmp/livecd/$ETAP
-	umount_all
+	if [ "$HOST" == "1" ]; then
+		$PROFILETMP/$ETAP
+	else
+        	mount_all
+		chroot $CHROOT /tmp/livecd/$ETAP
+		umount_all
+	fi
 }
 
 2etap(){

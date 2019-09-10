@@ -543,7 +543,7 @@ vex dev-libs/openssl
 vex games-action/minetest
 vex games-action/minetest_game
 veu "games-action/minetest curl leveldb ncurses nls postgres server sound truetype dedicated doc jsoncpp luajit -redis -spatial"
-e games-action/minetest games-action/minetest_game
+e u games-action/minetest games-action/minetest_game
 cd /usr/share/minetest/games/minetest_game/mods
 #mesecons.net
 for i in dreambuilder_modpack ; do [ ! -d $i ] && git clone https://gitlab.com/VanessaE/$i; done;

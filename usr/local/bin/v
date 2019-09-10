@@ -526,15 +526,17 @@ EOF
 6etap(){
 	ETAP=6etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#kompilacja networkmanager - etap dodatkowy
-#kompilacja trwa 12min
-vex net-misc/modemmanager
-veu "kde-plasma/plasma-desktop legacy-systray"
-veu ">=sys-libs/libblockdev-2.14-r1 cryptsetup"
-veu ">=net-dialup/ppp-2.4.7-r3 ipv6"
-veu ">=media-sound/pulseaudio-11.1 gnome"
-veu "media-plugins/alsa-plugins pulseaudio"
-e u networkmanager
+vex games-action/minetest
+vex games-action/minetest_game
+veu "games-action/minetest curl leveldb ncurses nls postgres server sound truetype dedicated doc jsoncpp luajit -redis -spatial"
+e games-action/minetest games-action/minetest_game
+cd /usr/share/minetest/games/minetest_game/mods
+#mesecons.net
+for i in dreambuilder_modpack ; do [ ! -d $i ] && git clone https://gitlab.com/VanessaE/$i; done;
+#aliveai depends on technic, 3d_armor, mesecons and smartshop
+[ ! -d smartshop ] && git clone https://github.com/AiTechEye/smartshop
+[ ! -d aliveai ] && git clone https://github.com/AiTechEye/aliveai
+for i in loot orbs_of_time; do [ ! -d $i ] && git clone https://github.com/minetest-mods/$i; done;
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -549,6 +551,15 @@ EOF
 7etap(){
 	ETAP=7etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
+#kompilacja networkmanager - etap dodatkowy
+#kompilacja trwa 12min
+vex net-misc/modemmanager
+veu "kde-plasma/plasma-desktop legacy-systray"
+veu ">=sys-libs/libblockdev-2.14-r1 cryptsetup"
+veu ">=net-dialup/ppp-2.4.7-r3 ipv6"
+veu ">=media-sound/pulseaudio-11.1 gnome"
+veu "media-plugins/alsa-plugins pulseaudio"
+e u networkmanager
 #kompilacja plasma: 287 aplikacji - etap dodatkowy
 #kompilacja trwa 85min
 vep sys-auth/elogind-235.2-r1

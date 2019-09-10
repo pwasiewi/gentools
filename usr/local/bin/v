@@ -187,9 +187,6 @@ fetch() {
 	echo Przeladowuje stage3 $CD_STAGEFILE
 	cd $CDLOC;
 	[ ! -e "$CD_STAGEFILE" ] && wget -c $CD_STAGETARBALL
-}
-
-0etap() {
 	umount_all
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
 	[ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
@@ -199,7 +196,9 @@ fetch() {
 	# aby siec dzialala
 	cp /etc/resolv.conf ${CHROOT}/etc
 	cp2konfig /config.txz $CD_PROFILE #trzeba miec /usr/local/bin/cp2konfig
+}
 
+0etap() {
 	cat > $PROFILETMP/vcportdir << 'EOF'
 #wget -c $CONFIGFILE -O/config.txz
 cd / && tar Jxf config.txz

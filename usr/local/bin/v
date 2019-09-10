@@ -256,10 +256,10 @@ CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3"
 
 #PORTAGE_TMPDIR="/var/tmp/portage" 
 
-USE="${USE} -X -java -systemd -hardened -pic jit pgo graphite branding experimental extras -doc -acl -systemtap"
+USE="${USE} -X -java systemd -hardened -pic jit -pgo -graphite branding experimental extras -doc -acl -systemtap"
 USE="${USE} -kde plasma gnome gnome-keyring nautilus grub mediacenter"
 USE="${USE} reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay lvm vnc acl"
-USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu cryptsetup kvm fuse threads usb bluetooth network consolekit ssl sslv3 wifi pcap -ipv6 -automount -gnutls -hal ldap policykit ovs"
+USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu cryptsetup kvm fuse threads usb bluetooth network -consolekit ssl sslv3 wifi pcap -ipv6 -automount -gnutls -hal ldap policykit ovs"
 USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c++14"
 
 #USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk jack v4l zip"
@@ -269,7 +269,7 @@ USE="${USE} -qt4 qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c+
 #USE="${USE} lua script llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic -hardened"
 #USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot mercurial googledrive"
 
-VIDEO_CARDS="nvidia intel radeon fglrx nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu" 
+VIDEO_CARDS="intel radeon nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu" 
 PORTDIR_OVERLAY="/usr/local/portage $PORTDIR_OVERLAY" 
 APACHE2_MODULES="actions alias auth_basic authn_alias authn_anon authn_core authn_dbm authn_file authz_core authz_dbm authz_groupfile authz_host authz_owner authz_user autoindex cache cgi cgid dav dav_fs dav_lock deflate dir env expires ext_filter file_cache filter headers include info log_config logio mime mime_magic negotiation rewrite setenvif socache_shmcb speling status unique_id unixd userdir usertrack vhost_alias access_compat asis auth_digest authn_dbd cache_disk dbd dumpio ident imagemap" 
 PORTAGE_ECLASS_WARNING_ENABLE="0" 
@@ -370,6 +370,7 @@ make kvmconfig
 ./scripts/config --disable DM_DEBUG_BLOCK_STACK_TRACING
 ./scripts/config --enable SND_INTEL8X0
 ./scripts/config --enable SND_HDA_GENERIC
+./scripts/config --set-val CONFIG_SND_HDA_PREALLOC_SIZE 2048
 make olddefconfig
 sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
 e k
@@ -407,9 +408,6 @@ gcc-config 2
 . /etc/profile
 env-update
 fix_libtool_files.sh ${OLDGCC}
-e libtool n
-#e glibc n
-#e binutils binutils-libs libnsl n
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -424,6 +422,9 @@ EOF
 3etap(){
 	ETAP=3etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
+e libtool n
+#e glibc n
+#e binutils binutils-libs libnsl n
 #update systemu - etap konieczny
 #kompilacja trwa 80min
 vex sys-libs/glibc

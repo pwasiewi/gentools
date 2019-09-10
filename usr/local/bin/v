@@ -195,6 +195,9 @@ fetch() {
         #mv "$CDLOC/$CD_STAGEFILE" $CHROOT
 	# aby siec dzialala
 	cp /etc/resolv.conf ${CHROOT}/etc
+	wget https://raw.githubusercontent.com/pwasiewi/gentools/master/usr/local/bin/gentoolcfg
+	chmod 755 ./gentoolcfg
+	./gentoolcfg #utworzy /config.txz ze źródeł z gentools repozytorium
 	cp2konfig /config.txz $CD_PROFILE #trzeba miec /usr/local/bin/cp2konfig
 }
 
@@ -327,7 +330,8 @@ echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
 #eselect profile set 19 #plasma 
-eselect profile set 20 #plasma systemd
+eselect profile set 20 #plasma systemd 17.1
+#eselect profile set 14 #plasma systemd 17.0
 env-update
 . /etc/profile
 ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime

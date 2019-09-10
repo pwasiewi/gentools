@@ -1,0 +1,3 @@
+#modprobe fuse
+#encfs `pwd`/$1 `pwd`/$2
+fusermount -u `pwd`/$1

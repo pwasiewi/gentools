@@ -1,0 +1,2 @@
+modprobe fuse
+encfs `pwd`/$1 `pwd`/$2

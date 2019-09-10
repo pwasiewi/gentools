@@ -371,6 +371,7 @@ make kvmconfig
 ./scripts/config --enable SND_INTEL8X0
 ./scripts/config --enable SND_HDA_GENERIC
 ./scripts/config --set-val CONFIG_SND_HDA_PREALLOC_SIZE 2048
+./scripts/config --enable  CONFIG_INPUT_MOUSEDEV
 make olddefconfig
 sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
 e k

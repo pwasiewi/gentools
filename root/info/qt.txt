@@ -1,3 +1,2 @@
-for i in  qtdbus qtnetwork qtxml qttest qtgui qtwidgets qtprintsupport qtdeclarative designer; do emerge  -1 --nodeps $i; done
-eselect qtgraphicssystem list
-
+for i in qtcore qtscript qtpaths kde-frameworks/kxmlgui qtsvg qtdbus qtbluetooth qtpositioning qtnetwork qtvirtualkeyboard qdbus qtsql qtconcurrent qtmultimedia qtdeclarative qtsensors qtwayland qtx11extras qtxmlpatterns qtquickcontrols2 qtprintsupport qtwidgets qtgui qtquickcontrols qttest qtwebchannel linguist-tools qtgraphicaleffects designer qtopengl qtsvg qtwayland qtprintsupport qtwidgets qtquickcontrols linguist-tools; do emerge  -1 --nodeps $i; done
+for i in qtdeclarative linguist-tools qtquickcontrols2 qttranslations qtxmlpatterns; do emerge  -1 --nodeps $i; done

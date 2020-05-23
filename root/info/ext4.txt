@@ -1,3 +1,6 @@
+https://www.thomas-krenn.com/en/wiki/Analyzing_a_Faulty_Hard_Disk_using_Smartctl
+e smartmontools sdparm
+
 http://kirneh.eu/gentoo-on-gpt-software-raid-lvm-with-grub-2-on-non-efi-system/
 mkfs.reiser4 -o create=ccreg40 /dev/xxx
 mkfs.reiser4 -o create=ccreg40,compress=gzip1 /dev/xxx
@@ -58,3 +61,5 @@ mkfs.ext4 /dev/sde1 -L Gen8
 tune2fs /dev/sde1 -i0
 tune2fs /dev/sde1 -m0 -O sparse_super
 tune2fs -O ^has_journal /dev/sde1
+
+

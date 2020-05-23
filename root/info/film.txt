@@ -1,0 +1,24 @@
+ffmpeg -i tryumfykaraoke.mp4 -vcodec libx264 -acodec libmp3lame tryumfykaraokemkv.mkv
+ffmpeg -i tryumfy01.mp4 -vcodec libx264 -acodec libmp3lame tryumfykaraoke01mkv.mkv
+ffmpeg -i tryumfy01.mp4 -ss 00:00:00 -t 02:24:00 -c copy cut_video.mp4
+ffmpeg -i tryumfy01.mp4 -ss 00:00:00 -t 00:02:23 -c copy cut_video.mp4
+vlc cut_video.mp4
+mencoder -ovc lavc -oac copy cut_video.mp4 tryumfy02.mp4 -o tryumfykaraoke.mp4
+mencoder -ovc lavc -oac mp3lame cut_video.mp4 tryumfy02.mp4 -o tryumfykaraoke.mp4
+mencoder  -oac mp3lame cut_video.mp4 tryumfy02.mp4 -o tryumfykaraoke.mp4
+mencoder -ovc help
+mencoder -ovc copy -oac mp3lame cut_video.mp4 tryumfy02.mp4 -o tryumfykaraoke.mp4
+vlc tryumfykaraoke.mp4
+vlc cut_video.mp4
+vlc tryumfy02.mp4
+ffmpeg -i tryumfy02.mp4 -ss 00:00:04 -t 00:02:27 -c copy cut_video2.mp4
+vlc c
+mencoder -ovc copy -oac mp3lame cut_video.mp4 cut_video2.mp4 -o tryumfykaraoke.mp4
+vlc tryumfykaraoke.mp4
+ffmpeg -i tryumfy02.mp4 -ss 00:00:03 -t 00:02:27 -c copy cut_video2.mp4
+mencoder -ovc copy -oac mp3lame cut_video.mp4 cut_video2.mp4 -o tryumfykaraoke.mp4
+vlc tryumfykaraoke.mp4
+ffmpeg -i tryumfy01.mp4 -ss 00:00:00 -t 00:02:24 -c copy cut_video.mp4
+mencoder -ovc copy -oac mp3lame cut_video.mp4 cut_video2.mp4 -o tryumfykaraoke.mp4
+vlc tryumfykaraoke.mp4
+ffmpeg -i tryumfykaraoke.mp4 -vcodec libx264 -acodec libmp3lame tryumfykaraokeavi.avi

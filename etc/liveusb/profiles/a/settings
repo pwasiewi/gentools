@@ -1,6 +1,10 @@
-DEVCHROOT="/dev/sda5"
-CD_STAGEFILE="stage4-amd64-systemd-20190903.tar.xz"
-CD_STAGETARBALL="http://ftp.fi.muni.cz/pub/linux/gentoo/releases/amd64/autobuilds/current-stage4-amd64-systemd/"$CD_STAGEFILE
+DEVCHROOT="/dev/sdb6"
+DEVCHROOT=
+CD_STAGEFILE="stage4-amd64-systemd-20200218.tar.xz"
+CD_STAGETARBALL="http://ftp.vectranet.pl/gentoo/releases/amd64/autobuilds/current-stage4-amd64-systemd/"$CD_STAGEFILE
+#http://ftp.vectranet.pl/gentoo/releases/amd64/autobuilds/current-stage3-amd64-systemd/stage3-amd64-systemd-20200430.tar.bz2
+#https://gentoo.osuosl.org/releases/amd64/autobuilds/current-stage4-amd64-systemd/stage3-amd64-systemd-20200218.tar.bz2
+#http://ftp.vectranet.pl/gentoo/releases/amd64/autobuilds/current-stage4-amd64-systemd/stage4-amd64-systemd-20200218.tar.bz2
 #####################################
 #Czy instalujemy z RAM dysku np. z liveusb/dvd?
-RAMDISK=1
+RAMDISK=0

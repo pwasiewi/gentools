@@ -239,15 +239,14 @@ cat >> /etc/portage/make.conf << 'EOF'
 
 ACCEPT_LICENSE="*"
 #ABI_X86="64 32"
-RUBY_TARGETS="ruby24 ruby25"
+RUBY_TARGETS="ruby25"
 GRUB_PLATFORMS="emu pc"
-#PYTHON_SINGLE_TARGET="python2_7"
-PYTHON_SINGLE_TARGET="python3_6"
-PYTHON_TARGETS="python2_7 python3_6"
-PYTHON_ABIS="2.7 3.6"
-USE_PYTHON='2.7 3.6'
-PHP_TARGETS="php7-0"
-POSTGRES_TARGETS="postgres11"
+PYTHON_SINGLE_TARGET="python3_7"
+PYTHON_TARGETS="python3_6 python3_7"
+PYTHON_ABIS="3.6 3.7"
+USE_PYTHON='3.6 3.7'
+PHP_TARGETS="php7-4"
+POSTGRES_TARGETS="postgres12"
 MAKEOPTS="-j4 -l8"
 EMERGE_DEFAULT_OPTS="--jobs 4 --load-average 8 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=3"
 PORTAGE_NICENESS="19"
@@ -329,9 +328,8 @@ EOF
 echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
-#eselect profile set 19 #plasma 
-eselect profile set 20 #plasma systemd 17.1
-#eselect profile set 14 #plasma systemd 17.0
+eselect profile set 24 #plasma systemd 17.1
+#eselect profile set 9 #plasma systemd 17.0
 env-update
 . /etc/profile
 ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
@@ -355,7 +353,8 @@ veu "sys-libs/ncurses -gpm"
 veu ">=sys-boot/grub-2.02 mount"
 veu ">=sys-apps/util-linux-2.30.2 static-libs"
 
-e u genlop os-prober linux-firmware dhcpcd grub
+e u genlop linux-firmware net-misc/dhcpcd grub
+#e u os-prober
 EOF
 
         if [ "$RAMDISK" == "0" ]; then

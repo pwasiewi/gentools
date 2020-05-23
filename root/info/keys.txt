@@ -86,6 +86,10 @@ hkp://pool.sks-keyservers.net (server pool, also supports secured key requests o
 hkp://zimmermann.mayfirst.org (also supports secured key requests over TLS)
 http://keyserver.ubuntu.com
 
+#ENTROPY
+#https://www.digitalocean.com/community/tutorials/how-to-setup-additional-entropy-for-cloud-servers-using-haveged
+cat /proc/sys/kernel/random/entropy_avail
+
 #USES OF PGP KEY
 echo "test message string" | gpg --encrypt --armor --recipient $KEYID -o encrypted.txt
 gpg --decrypt --armor encrypted.txt
@@ -94,13 +98,15 @@ echo "test message string" | gpg --armor --clearsign > signed.txt
 gpg --verify signed.txt
 
 gpg --list-keys
-git config --global user.signingKey $KEYID
 git config user.signingKey $KEYID
+git config --global user.signingKey $KEYID
 # write to ~/.gitconfig
-git config --global commit.gpgsign true
-git config alias.cs "commit -S -a"
 git log --show-signature
 git show --show-signature
+git config --global commit.gpgsign true
+git config --global alias.cs "commit -S -a"
+git config --global alias.logs "log --show-signature"
+git config --global alias.shows "show --show-signature"
 git verify-commit --raw $COMMIT_ID
 # https://github.com/git/git/blob/master/Documentation/pretty-formats.txt#L153-L224
 git log --show-signature --pretty=format:"%H %ae %n %G?  %GS %GK"

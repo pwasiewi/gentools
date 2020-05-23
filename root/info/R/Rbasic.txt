@@ -1,0 +1,3 @@
+git filter-branch -f --index-filter 'git rm --cached --ignore-unmatch RcppExports.*'
+git push --force -u origin master
+

@@ -1,3 +1,17 @@
+#for dxvk
+echo '~cross-x86_64-w64-mingw32/mingw64-runtime-7.0.0 ~amd64' >> \
+     /etc/portage/package.accept_keywords/mingw
+crossdev --stable --target cross-x86_64-w64-mingw32
+echo 'EXTRA_ECONF="--enable-threads=posix"' >> \
+    /etc/portage/env/mingw-gcc.conf
+echo 'cross-x86_64-w64-mingw32/gcc mingw-gcc.conf' >> \
+    /etc/portage/package.env/mingw
+echo 'cross-x86_64-w64-mingw32/mingw64-runtime libraries' >> \
+    /etc/portage/package.use/mingw
+emerge --oneshot cross-x86_64-w64-mingw32/gcc cross-x86_64-w64-mingw32/mingw64-runtime
+
+USE="libraries idl tools" crossdev --ex-only --ex-pkg cross-x86_64-w64-mingw32/mingw64-runtime -t x86_64-w64-mingw32
+
 #https://github.com/sakaki-/gentoo-on-rpi3-64bit/wiki/Set-Up-Your-Gentoo-PC-for-Cross-Compilation-with-crossdev
 
 mkdir -pv /usr/local/portage-crossdev/{profiles,metadata}
@@ -38,3 +52,4 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-unknown-linux-gnu- bcmrpi3_defconfig
 nice -n 19 make ARCH=arm64 CROSS_COMPILE=aarch64-unknown-linux-gnu- -j8
 
 CFLAGS="-mlittle-endian -mabi=lp64 -march=armv8-a+crc"
+

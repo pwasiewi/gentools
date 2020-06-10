@@ -1,0 +1,2 @@
+modprobe ddcci
+echo 24 > /sys/class/backlight/ddcci6/brightness

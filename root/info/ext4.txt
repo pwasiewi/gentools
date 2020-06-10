@@ -10,9 +10,9 @@ ionice -c2 -n7 nice -n 19 cp
 mkfs.ext3 /dev/sdb1; tune2fs -O has_journal -o journal_data_writeback /dev/sdb1; 
 mount -t ext3 /dev/sdb1 /mnt/dc -o noatime,data=writeback <data=journal>
 /sbin/mkfs.ext3 -j -m 1 -O dir_index,filetype,sparse_super /dev/mapper/hda3
-tune2fs -Ohas_journal,extent,dir_index,filetype 
 
-mount -t ext4dev /dev/sdxx /mnt/dc -o noatime,extents
+mount -t ext4 /dev/sdxx /mnt/dc -o noatime,extents
+tune2fs -Ohas_journal,extent,dir_index,filetype 
 
 #/etc/udev/rules.d/60-ssd-scheduler.rules
 
@@ -27,14 +27,7 @@ mkfs.ext4 -b 4096 -E stride=2,stripe-width=384  /dev/sdxx
 tune2fs -O has_journal -o journal_data_writeback /dev/sdxx
 #for f in /sys/block/sd?/queue/rotational; do printf "$f is "; cat $f; done
 
-#btrfs
-mount -o relatime,compress=zlib
-compress-force=zstd
-btrfs filesystem defragment -r -v -czstd /
-btrfs filesystem resize 99G /mnt/key
-lvresize -L100G /dev/lvm/root
-btrfs filesystem resize max /mnt/key
-
+# LVM
 pvcreate --dataalignment 512k /dev/sdxx
 pvcreate --dataalignment 1536k /dev/sdxx
 Make sure your /etc/lvm/lvm.conf contains the following options:
@@ -55,7 +48,7 @@ mkfs.ext4 /dev/my_volume_group/5gig
 mount -t ext4 /dev/my_volume_group/5gig /home
 lvremove /dev/my_volume_group/5gig
 
-
+# USB ext4
 dd bs=440 count=1 conv=notrunc if=/usr/share/syslinux/mbr.bin of=/dev/sde
 mkfs.ext4 /dev/sde1 -L Gen8
 tune2fs /dev/sde1 -i0
@@ -63,3 +56,9 @@ tune2fs /dev/sde1 -m0 -O sparse_super
 tune2fs -O ^has_journal /dev/sde1
 
 
+#btrfs
+mount -o ssd,noatime,nodiratime,compress=zstd
+btrfs filesystem defragment -r -v -czstd /
+btrfs filesystem resize 99G /mnt/key
+lvresize -L100G /dev/lvm/root
+btrfs filesystem resize max /mnt/key

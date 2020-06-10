@@ -1,24 +1,30 @@
 if [ $# -eq 0 ]
 then
- echo Podaj ścieżkę plików np.: ./cp2konfig /etc/portage 
- echo Przy kopiowaniu do dystrybucji gxdoo ./cp2konfig /etc/portage g
+ echo Podaj ścieżkę plików np.: cp2konfig /etc/portage 
+ echo Przy kopiowaniu do dystrybucji g: cp2konfig /etc/portage g
+ echo Przy kopiowaniu z dystrybucji g: cp2konfig /etc/portage g -1
  exit
 fi
 
 if [ $# -eq 1 ]
 then
-WHERE="/config"
-fi
-if [ $# -eq 2 ]
-then
-WHERE="/$2/chroot"
+ WHERE="/config"
+else
+ WHERE="/$2/chroot"
 fi
 
-echo rm -rf /var/tmp/iso$WHERE$1
-echo cp -a $1 /var/tmp/iso$WHERE`dirname $1`
-if [ ! -d /var/tmp/iso$WHERE`dirname $1` ]; then 
-rm /var/tmp/iso$WHERE`dirname $1`
-install -d /var/tmp/iso$WHERE`dirname $1`; 
+if [ $# -eq 3 ] && [ "$3" -eq "-1" ]
+then
+ echo rm -rf "$1"
+ echo cp -a /var/tmp/iso$WHERE$1  `dirname $1` 
+ [ ! -d `dirname $1` ] && mkdir -p `dirname $1`
+ [ -e "$1" ] && rm -rf "$1" 
+ cp -a /var/tmp/iso$WHERE$1 `dirname $1` 
+else
+ echo rm -rf /var/tmp/iso$WHERE$1
+ echo cp -a $1 /var/tmp/iso$WHERE`dirname $1`
+ [ ! -d /var/tmp/iso$WHERE`dirname $1` ] && mkdir -p /var/tmp/iso$WHERE`dirname $1`
+ [ -e /var/tmp/iso$WHERE$1 ] && rm -rf /var/tmp/iso$WHERE$1 
+ cp -a $1 /var/tmp/iso$WHERE`dirname $1`
 fi
-rm -rf /var/tmp/iso$WHERE$1
-cp -a $1 /var/tmp/iso$WHERE`dirname $1`
+

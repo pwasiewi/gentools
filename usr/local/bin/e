@@ -108,9 +108,9 @@ do
             #export CCACHE_DIR=/usr/src/.ccache
             #export PATH=/usr/src/ccache_bin:$PATH
             #[ -f .config ] && make -j8 && make modules_install install
-	    echo MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --lvm --no-clean all
+	    echo MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --luks --lvm --no-clean all
 	    cd /usr/src/linux && make oldconfig
-	    time MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --lvm --no-clean all
+	    time MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --luks --lvm --no-clean all
             exit $?
             ;;
         r)

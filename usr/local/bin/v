@@ -328,8 +328,8 @@ EOF
 echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
-eselect profile set 24 #plasma systemd 17.1
-#eselect profile set 9 #plasma systemd 17.0
+#eselect profile set 24 #plasma systemd 17.1
+eselect profile set 9 #plasma systemd 17.0
 env-update
 . /etc/profile
 ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
@@ -843,7 +843,7 @@ make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} modules_install INSTALL_MOD_PATH=$C
 genkernel() {
 	cat > $PROFILETMP/genkernel-build << EOF
 sed -i 's/CDROOT="0"/CDROOT="1"/g' /usr/share/genkernel/defaults/initrd.defaults
-time MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --lvm --no-clean all
+time MAKEOPTS="-j8 -l16" genkernel --makeopts=-j8 --kernel-config=/usr/src/linux/.config --luks --lvm --no-clean all
 ls
 sed -i 's/CDROOT="1"/CDROOT="0"/g' /usr/share/genkernel/defaults/initrd.defaults
 EOF

@@ -148,14 +148,14 @@ keybase pgp gen
 git clone keybase://private/pwasiewi/encrypted
 
 
-cryptsetup luksFormat /dev/sde3
-cryptsetup open /dev/sdf3 encrypted
+cryptsetup luksFormat /dev/sdx3
+cryptsetup open /dev/sdx3 encrypted
 mkfs.btrfs /dev/mapper/encrypted
 cryptsetup close /dev/mapper/encrypted
-# podaj nazwę partycji w btrfs zlib i katalog w /mnt np.: unzlib sde3 ca
-unzlib sde3 ca 
+# podaj nazwę partycji w btrfs zlib i katalog w /mnt np.: unzlib sdx3 ca
+unzlib sdx3 ca 
 # zablokuj zaszyfrowany usb
-lock sde3 ca 
+lock sdx3 ca 
 
 
 export GPG_TTY="$(tty)"

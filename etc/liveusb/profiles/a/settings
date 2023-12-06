@@ -1,10 +1,8 @@
 DEVCHROOT="/dev/sdb6"
-DEVCHROOT=
-CD_STAGEFILE="stage4-amd64-systemd-20200218.tar.xz"
-CD_STAGETARBALL="http://ftp.vectranet.pl/gentoo/releases/amd64/autobuilds/current-stage4-amd64-systemd/"$CD_STAGEFILE
-#http://ftp.vectranet.pl/gentoo/releases/amd64/autobuilds/current-stage3-amd64-systemd/stage3-amd64-systemd-20200430.tar.bz2
-#https://gentoo.osuosl.org/releases/amd64/autobuilds/current-stage4-amd64-systemd/stage3-amd64-systemd-20200218.tar.bz2
-#http://ftp.vectranet.pl/gentoo/releases/amd64/autobuilds/current-stage4-amd64-systemd/stage4-amd64-systemd-20200218.tar.bz2
+CD_STAGEFILE="stage3-amd64-desktop-systemd-mergedusr-20231126T163200Z.tar.xz"
+CD_STAGETARBALL="https://distfiles.gentoo.org/releases/amd64/autobuilds/20231126T163200Z/"$CD_STAGEFILE
+# https://distfiles.gentoo.org/releases/amd64/autobuilds/20231126T163200Z/stage3-amd64-desktop-systemd-mergedusr-20231126T163200Z.tar.xz
+# https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-openrc/stage3-amd64-openrc-20231203T170204Z.tar.xz
 #####################################
-#Czy instalujemy z RAM dysku np. z liveusb/dvd?
+# Czy instalujemy z RAM dysku np. z liveusb/dvd?
 RAMDISK=0

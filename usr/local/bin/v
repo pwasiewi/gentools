@@ -258,7 +258,7 @@ CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3"
 USE="${USE} -X -java systemd -hardened -pic -jit -pgo -graphite branding experimental extras -doc -acl -systemtap"
 USE="${USE} -kde plasma -gnome -gnome-keyring -nautilus grub -mediacenter user-session"
 USE="${USE} reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay lvm vnc acl"
-USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu -cryptsetup kvm fuse threads usb bluetooth network -consolekit ssl sslv3 wifi -pcap -ipv6 -automount -gnutls -hal -ldap policykit ovs sound -experimental -filecaps"
+USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu -cryptsetup kvm fuse threads usb bluetooth network -consolekit ssl sslv3 wifi -pcap -ipv6 -automount -gnutls -hal -ldap policykit ovs sound -experimental -filecaps mount"
 USE="${USE} -qt4 -qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c++14"
 
 #USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l zip"
@@ -401,7 +401,7 @@ EOF
 	ETAP=2etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
 #update na nowszy gcc - etap dodatkowy
-#kompilacja trwa 30min
+#kompilacja trwa 40min z lto
 vex sys-devel/gcc
 OLDGCC=`gcc-config -c | cut -d'-' -f 5`
 e gcc
@@ -490,16 +490,17 @@ vex app-admin/pass
 vex dev-python/pymountboot
 vex app-admin/eclean-kernel
 vex app-portage/diffmask
-vex app-portage/install-mask
 vex app-portage/gpytage
 veu "dev-libs/libgpg-error static-libs"
 veu "dev-libs/lzo static-libs"
 veu "dev-libs/libgcrypt static-libs"
+veu "sys-apps/util-linux caps"
+
 # https://wiki.gentoo.org/wiki/Recommended_applications
 # https://wiki.gentoo.org/wiki/Recommended_tools
 # https://wiki.gentoo.org/wiki/Useful_Portage_tools
 sed -i 's/PYTHON_SINGLE_TARGET="python3_4"/PYTHON_SINGLE_TARGET="python2_7"/g' /etc/portage/make.conf
-e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie install-mask portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
+e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then

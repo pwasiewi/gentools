@@ -114,7 +114,7 @@ CLOOP_FILE=${ISO}/livecd.squashfs
 CD_DISTDIR=$DIST/distfiles 	# pliki zrodlowe
 CD_PORTDIR=$DIST/.portage  	# portage drzewo aplikacji do pobrania
 [ ! -e $CD_PORTDIR ] && mkdir -pv $CD_PORTDIR
-CD_LAYMDIR=$DIST/.layman  	# layman drzewo aplikacji do pobrania
+CD_LAYMDIR=$DIST/.repos  	# repos drzewo aplikacji do pobrania
 [ ! -e $CD_LAYMDIR ] && mkdir -pv $CD_LAYMDIR
 HOST=""
 
@@ -147,7 +147,7 @@ mount_all() {
 	   done
 	fi
 	
-	for x in /dev /proc /sys /dev/pts $DIST/.portage $DIST/.src64bit $DIST/.layman /home/tmp/.packages ${CCACHEDIR}
+	for x in /dev /proc /sys /dev/pts $DIST/.portage $DIST/.src64bit $DIST/.repos /home/tmp/.packages ${CCACHEDIR}
 	do	
 		[ ! -e ${x} ] && mkdir -pv ${x}
 		[ ! -e ${CHROOT}${x} ] && mkdir -pv ${CHROOT}${x}
@@ -162,7 +162,7 @@ umount_all() {
 	#echo umount $CHROOT$DIST/portage $CHROOT/tmp/livecd
 	umount $CHROOT$DIST/portage $CHROOT/tmp/livecd 2>/dev/null || true
 	local x
-	for x in /dev/pts ${CCACHEDIR} $DIST/.packages $DIST/.layman $DIST/.src64bit $DIST/distfiles $DIST/.portage /sys /proc /dev /home/tmp/.packages
+	for x in /dev/pts ${CCACHEDIR} $DIST/.packages $DIST/.repos $DIST/.src64bit $DIST/distfiles $DIST/.portage /sys /proc /dev /home/tmp/.packages
 	do
 		#echo umount ${CHROOT}${x}
 		umount ${CHROOT}${x} 2>/dev/null || true
@@ -273,7 +273,6 @@ PORTDIR_OVERLAY="/usr/local/portage $PORTDIR_OVERLAY"
 APACHE2_MODULES="actions alias auth_basic authn_alias authn_anon authn_core authn_dbm authn_file authz_core authz_dbm authz_groupfile authz_host authz_owner authz_user autoindex cache cgi cgid dav dav_fs dav_lock deflate dir env expires ext_filter file_cache filter headers include info log_config logio mime mime_magic negotiation rewrite setenvif socache_shmcb speling status unique_id unixd userdir usertrack vhost_alias access_compat asis auth_digest authn_dbd cache_disk dbd dumpio ident imagemap" 
 PORTAGE_ECLASS_WARNING_ENABLE="0" 
 PORT_LOGDIR="/var/log/portage" 
-#source /var/lib/layman/make.conf 
 QEMU_SOFTMMU_TARGETS="arm i386 x86_64" 
 QEMU_USER_TARGETS="arm armeb i386 x86_64" 
 JAVA_HOME="/etc/java-config-2/current-system-vm" 
@@ -291,8 +290,8 @@ ls -l /usr
 ls -l /usr
 [ -d /usr/src ] && rm -rf /usr/src 
 [ ! -e /usr/src ] && cd /usr && ln -sfn ../var/tmp/.src64bit src
-[ -e /var/lib/layman ] && rm /var/lib/layman -rf
-[ ! -e /var/lib/layman ] && cd /var/lib && ln -sfn ../../var/tmp/.layman layman
+[ -e /var/db/repos ] && rm /var/db/repos -rf
+[ ! -e /var/db/repos ] && cd /var/db && ln -sfn ../../var/tmp/.repos repos
 EOF
 	else
 	    cat >> $PROFILETMP/vcportdir << 'EOF'

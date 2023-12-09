@@ -24,7 +24,7 @@ echo "echo \"\$1\" >> /etc/portage/make.conf" > /usr/local/bin/vec
 echo "vim /etc/portage/make.conf" > /usr/local/bin/vic
 chmod 755 /usr/local/bin/v*
 
-cat >> /etc/portage/make.conf << 'EOF'
+cat > /etc/portage/make.conf << 'EOF'
 
 ACCEPT_LICENSE="*" 
 RUBY_TARGETS="ruby31" 

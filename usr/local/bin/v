@@ -335,7 +335,7 @@ ln -sf /proc/self/mounts /etc/mtab
 #sed -i 's/^#ABI/ABI/g' /etc/portage/make.conf
 mv /etc/portage/repos.conf/st*.conf ~
 
-#emerge --sync
+#emaint sync
 USE="-X -sound" e vim
 e u eix
 e u gentoolkit genkernel portage euses
@@ -609,12 +609,11 @@ cd /
 }
 
 cross() {
-	echo USE="-fortran hardened" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r7 --kernel 4.16.12 -oO /usr/portage
-	time USE="-fortran hardened" crossdev -t armv7a-hardfloat-linux-gnueabi --stable  --gcc 7.3.0-r3 --libc 2.26-r7 --kernel 4.16.12 -oO /usr/portage
+	echo USE="static-libs" crossdev -S --target arm-hardfloat-linux-gnueabi -oO /usr/portage
+	time USE="static-libs" crossdev -S --target armv7a-hardfloat-linux-gnueabi -oO /usr/portage
 }
 
 crossfirst() {
-     	crossdev -C armv7a-hardfloat-linux-gnueabi -f
      	crossdev -C armv7a-hardfloat-linux-gnueabi -f
 	cross
 	[ -e /usr/armv7a-hardfloat-linux-gnueabi.orig ] && rm -rf /usr/armv7a-hardfloat-linux-gnueabi.orig 
@@ -623,87 +622,52 @@ crossfirst() {
 
 1arm() {
 	umount_all
-	[ -e /usr/armv7a-hardfloat-linux-gnueabi.orig ] && rm -rf /usr/armv7a-hardfloat-linux-gnueabi
-	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
-	[ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
-	echo ">>> Rozpakowuje Gentoo stage3..."
-	[ ! -e "$CHROOT/home" ] && tar xjpf "$CDLOC/$CD_STAGEFILE" -C $CHROOT
-	# aby siec dzialala
 	cp /etc/resolv.conf ${CHROOT}/etc
- 	ln -sfn /var/tmp/iso/r/chroot /usr/armv7a-hardfloat-linux-gnueabi
-	cross
-	cd /usr/armv7a-hardfloat-linux-gnueabi/etc/portage && rm make.profile && ln -s ../../usr/portage/profiles/default/linux/arm/13.0/armv7a make.profile && cd /usr/armv7a-hardfloat-linux-gnueabi
-	ln -s /tmp /usr/armv7a-hardfloat-linux-gnueabi/tmp
-	tar Jxf /config.txz
+	gentoolcfg
+	cp /config.txz ${CHROOT}
+	cd ${CHROOT}
+	tar Jxf config.txz
 	sed -i 's/^\/dev\//\#\/dev\//g' etc/fstab
-	cp etc/portage/make.conf.armv7a etc/portage/make.conf
-	[ ! -e var/tmp/portage ] && mkdir var/tmp/portage -pv
-	[ ! -e /var/tmp/packages_arm ] && mkdir /var/tmp/packages_arm -pv
-	[ ! -e var/tmp/packages_arm ] && mkdir var/tmp/packages_arm -pv
-	mv etc/portage/repos.conf/s*.conf root
-	#vex "=app-emulation/qemu-9999 **"
-	veu "app-emulation/qemu -accessibility -aio alsa bluetooth bzip2 -caps curl -debug fdt -filecaps -glusterfs gnutls gtk gtk2 -infiniband -iscsi jpeg lzo ncurses nfs nls numa opengl pin-upstream-blobs png pulseaudio python -sasl -sdl -sdl2 -seccomp -selinux -smartcard snappy -spice ssh -static -static-softmmu static-user -systemtap -tci -test threads usb -usbredir -uuid -vde -vhost-net -virgl -virtfs -vnc -vte xattr -xen -xfs -rbd"
-	e qemu
-	etc-update --automode -5
-	e u qemu
+	#veu "app-emulation/qemu -accessibility -aio alsa bluetooth bzip2 -caps curl -debug fdt -filecaps -glusterfs gnutls gtk gtk2 -infiniband -iscsi jpeg lzo ncurses nfs nls numa opengl pin-upstream-blobs png pulseaudio python -sasl -sdl -sdl2 -seccomp -selinux -smartcard snappy -spice ssh -static -static-softmmu static-user -systemtap -tci -test threads usb -usbredir -uuid -vde -vhost-net -virgl -virtfs -vnc -vte xattr -xen -xfs -rbd"
+	#e qemu
+	#etc-update --automode -5
 	quickpkg qemu --include-config y
-	ROOT=/usr/armv7a-hardfloat-linux-gnueabi/ emerge --usepkgonly --oneshot --nodeps qemu
-	gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o /usr/armv7a-hardfloat-linux-gnueabi/usr/local/bin/qemu-wrapper
+	ROOT=${CHROOT} emerge --usepkgonly --oneshot --nodeps qemu
+	gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o ${CHROOT}/usr/local/bin/qemu-wrapper
 }
 
 
 2arm() {
     cat > $PROFILETMP/vcportdir << 'EOF'
-cd /usr
+eselect profile set 48 #arm/17.0/armv7a/desktop/plasma/systemd/merged-usr
 emerge-webrsync
-[ -e /usr/portage/distfiles ] && rmdir /usr/portage/distfiles
-[ ! -e /var/tmp/distfiles ] && mkdir /var/tmp/distfiles
-ln -sfn /var/tmp/distfiles /usr/portage/distfiles
+#[ -e /usr/portage/distfiles ] && rmdir /usr/portage/distfiles
+#[ ! -e /var/tmp/distfiles ] && mkdir /var/tmp/distfiles
+#ln -sfn /var/tmp/distfiles /usr/portage/distfiles
 vcportarm
 ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
 ln -sf /proc/self/mounts /etc/mtab
 echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
-gcc-config -l;ldconfig -v;ROOT=/ env-update; source /etc/profile
-echo 'alias emerge_chroot="ROOT=/ CBUILD=$(grep CHOST= /etc/portage/make.conf|cut -d= -f2) HOSTCC=$CBUILD emerge"' > /etc/bash/bashrc.d/emerge_chroot && source /etc/profile
 #sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
-veu ">=dev-libs/libpcre-8.39 pcre16"
-veu "net-libs/libproxy -webkit"
-veu "media-libs/harfbuzz -graphite"
-veu "dev-util/cmake -qt5"
-veu "app-arch/p7zip -wxwidgets"
-veu "media-libs/mesa -vaapi"
-veu "gnome-base/librsvg -tools"
-veu "sys-devel/distcc crossdev"
-vex sys-devel/crossdev
-vex sys-kernel/genkernel-next
-vex x11-libs/pango
-vex sys-devel/gcc
-#vep sys-devel/gcc-4.9.4
-#vep sys-libs/ncurses-6.0-r1
-#vep sys-apps/busybox-1.24.2
-#vep dev-lang/perl-5.24.0-r2
-#vep sys-libs/readline-7.0
-#vep dev-util/ctags-5.8
-#vep dev-lang/python-3.4.5
 EOF
 	chmod +x $PROFILETMP/vcportdir
         mount_all
 	chroot $CHROOT /tmp/livecd/vcportdir
 	umount_all
-
-	[ ! -d /etc/portage.host ] && mv /etc/portage /etc/portage.host
-	cp2home /etc/portage r
 }
 
 3arm() {
-        #trwa 270min, gdyż tylko w qemu-binfmt chroocie się kompiluje
-        time armv7a-1by1crossroot "ec n p =gcc-7.3.0-r3"
     	cat > $PROFILETMP/vcportdir << EOF
-	gcc-config 6
-	. /etc/profile; env-update
-	fix_libtool_files.sh 5.4.0
+USE="-X -sound" e vim
+e u eix
+#e u gentoolkit genkernel portage euses
+
+USE="-sdl" e u genlop net-misc/dhcpcd grub
+e u gpm app-misc/mc ntpsec
+e u app-eselect/eselect-repository
+
 EOF
         chmod +x $PROFILETMP/vcportdir
         mount_all
@@ -712,47 +676,18 @@ EOF
 }
 
 4arm() {
-        #trwa 2min
-        time armv7a-1by1crossroot "ec u p n glibc"
-        #trwa 4min
-        time armv7a-1by1crossroot "ec u p vim"
-        #trwa 1min
-        time armv7a-1by1crossroot "ec u p bc"
-        #trwa 14min
-        time armv7a-1by1crossroot "ec u p genkernel"
-        #trwa 4min
-        time armv7a-1by1crossroot "ec u p gentoolkit"
-        #trwa 1min
-        time armv7a-1by1crossroot "ec u p eix"
     	cat > $PROFILETMP/vcportdir << EOF
-sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
-vex media-libs/fontconfig
-vep sys-libs/readline-7.0_p3
-vep sys-libs/gdbm-1.13-r2
-vep app-shells/bash-4.4_p12
-vep dev-lang/perl-5.24.3-r1
-vep x11-libs/gtk+-3.22.29
-vep app-editors/vim-8.0.1298
+e w
+emerge @preserved-rebuild
 EOF
 	chmod +x $PROFILETMP/vcportdir
         mount_all
 	chroot $CHROOT /tmp/livecd/vcportdir
 	umount_all
- 	#trwa około 100min, gdyż kompilacja m.in. mesa w qemu chroocie trwa 52min, jeśli crosscompiler z hosta by je kompilował byłoby z 10razy krócej
-	time armv7a-1by1crossroot "ec u p distcc"
-        #trwa 4min
-	time armv7a-1by1crossroot "ec u p xorg-server" 
-        #trwa 1min
-	time armv7a-1by1crossroot "ec u p openbox"
 }
 
 
 5arm() {
-        #trwa 60min i prawie wszystko się skompiluje
-        time armv7a-1by1crossroot "ec p w"
-}
-
-6arm() {
     	cat > $PROFILETMP/vcportdir << EOF
 cd /usr/src
 [ ! -e linux-${KERNEL_ARM}.tar.gz ] && wget -O linux-${KERNEL_ARM}.tar.gz https://github.com/raspberrypi/linux/archive/${KERNEL_ARM}.tar.gz
@@ -764,11 +699,6 @@ EOF
         mount_all
 	chroot $CHROOT /tmp/livecd/vcportdir
 	umount_all
-cd $CHROOT/usr/src/linux
-[ ! -e .config ] && make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} bcm2709_defconfig
-make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} oldconfig
-make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} -j4
-make ARCH=arm CROSS_COMPILE=${CROSS_COMPILE} modules_install INSTALL_MOD_PATH=$CHROOT
 }
 
 genkernel() {

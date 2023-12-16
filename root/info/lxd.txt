@@ -29,6 +29,7 @@ lxc profile list
 lxc profile show bridgeprofile
 lxc image list images:
 lxc launch -p default -p bridgeprofile ubuntu:focal ubuntufocal
+## lxc config set ubuntufocal security.privileged true #restart container
 lxc list
 lxc profile assign ubuntulunar default,bridgeprofile
 lxc exec ubuntulunar -- systemctl restart networking.service
@@ -37,6 +38,9 @@ lxc exec ubuntufocal /bin/bash
 lxc exec ubuntulunar /bin/bash
 
 ## https://blog.simos.info/running-x11-software-in-lxd-containers/
+lxc profile create x11
+cat lxd.x11.profile | lxc profile edit x11
+lxc profile assign ubuntufocal default,bridgeprofile,x11
 lxc exec ubuntufocal -- sudo --user guest --login
 
 ## https://docs.yoctoproject.org/brief-yoctoprojectqs/index.html
@@ -46,13 +50,28 @@ sudo apt install gawk wget git diffstat unzip texinfo gcc build-essential chrpat
 ln -sfn /usr/bin/python2 /usr/bin/python
 useradd -s /bin/bash -d /home/guest/ -m -G sudo guest
 ## usermod -aG sudo guest
-## git clone --single-branch -b daisy git://git.yoctoproject.org/poky.git
+### git clone --single-branch -b daisy git://git.yoctoproject.org/poky.git
 git clone git://git.yoctoproject.org/poky
 cd poky
 git checkout -t origin/nanbield -b my-nanbield
-git clone git://git.yoctoproject.org/meta-raspberrypi
 source oe-init-build-env
-## bitbake core-image-minimal
 bitbake core-image-sato
 runqemu qemux86-64
+
+## https://medium.com/nerd-for-tech/build-your-own-linux-image-for-the-raspberry-pi-f61adb799652
+## https://kickstartembedded.com/2021/12/22/yocto-part-4-building-a-basic-image-for-raspberry-pi/
+git clone git://git.yoctoproject.org/poky -b dunfell
+git clone git://git.yoctoproject.org/meta-raspberrypi -b dunfell
+git clone https://git.openembedded.org/meta-openembedded -b dunfell
+source oe-init-build-env
+bitbake-layers add-layer ./meta-openembedded
+bitbake-layers add-layer ./meta-raspberrypi
+bitbake-layers add-layer ./meta-openembedded/meta-oe
+bitbake-layers add-layer ./meta-openembedded/meta-python
+bitbake-layers add-layer ./meta-openembedded/meta-networking
+bitbake-layers add-layer ./meta-openembedded/meta-multimedia
+bitbake-layers show-layers
+ls ./meta-raspberrypi/conf/machine
+bitbake core-image-base
+runqemu qemuarm
 

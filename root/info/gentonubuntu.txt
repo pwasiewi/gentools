@@ -1,22 +1,21 @@
 Welcome to LIVEUSB gentools! (easy to remember: http://bit.ly/gen2ls)
 
-Aby uruchomic liveusb nalezy je zbootowac z wlaczona opcja w BIOSIE boot from
-dvd lub usb. 
-Wyrozniamy dwa rodzaje operacji 
+To launch the live USB, boot with BIOS option enabled for DVD or USB boot.
+We distinguish two types of operations:
 
-I. INSTALACJA Z OFICJALNEGO LUB UBUNTU LIVEDVD/USB NA VIRTUALBOX
+I. INSTALLATION FROM OFFICIAL OR UBUNTU LIVEDVD/USB ON VIRTUALBOX
 
 ##############################################################
-#1etap
+# Stage 1
 #------------------------------------------------------------
 
 sudo su -
 
 #------------------------------------------------------------
-#Skrypty do screencastów o sprawnej instalacji gentoo http://bit.ly/gentools
+#Scripts for screencasts about efficient Gentoo installation: http://bit.ly/gentools
 #------------------------------------------------------------
-#STARSZA WERSJA skryptów (PRZESTARZAŁA): wget -c http://bit.ly/gentools01  -O/config.txz
-#NOWSZA WERSJA skryptów: 
+#OLDER VERSION (OBSOLETE): wget -c http://bit.ly/gentools01  -O/config.txz
+#NEWER VERSION:
 
 wget https://raw.githubusercontent.com/pwasiewi/gentools/master/usr/local/bin/gentoolcfg
 chmod 755 ./gentoolcfg
@@ -24,54 +23,53 @@ chmod 755 ./gentoolcfg
 cd / && tar Jxvf config.txz && cd
 
 #------------------------------------------------------------
-#zainstaluj vim, jak go nie ma
+#install vim if not available
 
-#na Gentoo LiveDVD: emerge vim
+#on Gentoo LiveDVD: emerge vim
 
-#na Ubuntu LiveDVD: apt install vim
+#on Ubuntu LiveDVD: apt install vim
 #------------------------------------------------------------
 
-v a p #edytuj settings chroot na /dev/sda5 
+v a p #edit settings chroot to /dev/sda5
 
 #------------------------------------------------------------
-#RAMDISK=1 instalacja izolowana np. z UbuntuLiveDVD bez wspolnego np. portage z hostem
-#UWAGA /dev/sda5 to partycja roota dla dysku z wirtualboxa
-#uwaga na symbol /DEV/SDA, czy opisuje on wlasciwy dysk
-#POCZATEK - ustawianie partycji w virtualboxie, kiedy dysk /dev/sda jest niezajęty
+#RAMDISK=1 isolated install e.g. from UbuntuLiveDVD without sharing /portage with host
+#WARNING /dev/sda5 is the root partition for the VirtualBox disk
+#CAUTION with /DEV/SDA symbol – ensure it's the correct disk
+#START – partitioning in VirtualBox when /dev/sda is unused
 #------------------------------------------------------------
 
 genformathdemo /dev/sda
 
 #------------------------------------------------------------
-#KONIEC  - ustawianie partycji w virtualboxie-----------------
-#W razie ponownych zmian usuwanie partycji:
+#END – partitioning in VirtualBox-----------------
+#To remove partitions if needed:
 #for v_partition in $(parted -s /dev/sda print|awk '/^ / {print $1}'); do parted -s /dev/sda rm ${v_partition}; done
-#Rozmiar dysku: parted -s /dev/sda print|awk '/^Disk/ {print $3}'|sed 's/[Mm][Bb]//'
+#Disc size: parted -s /dev/sda print|awk '/^Disk/ {print $3}'|sed 's/[Mm][Bb]//'
 #------------------------------------------------------------
 
-v a f #sciagnij stage3/4
-#etap trwa 23min
-time v a 1 #rozpakuj stage3/4, portage i popraw make.conf, vim
-v a e #chroot na nowy system gentoo do zmiany hasła
+v a f #get stage3/4
+#this step takes ~23min
+time v a 1 #extract stage3/4, portage and edit make.conf, vim
+v a e #chroot into new gentoo system to change password
 
 #------------------------------------------------------------
-#POCZATEK wpisywania komend: v a e 
-#jak potrzeba edytuj fstab:  vim /etc/fstab
-#zmien haslo:                passwd #ZMIANA HASLA NA ROOTA NA WLASNE
+#START command entry: v a e
+#if needed edit fstab:  vim /etc/fstab
+#change password:                passwd #CHANGE ROOT PASSWORD
 #CTRL-d wychodzi z:          v a e
-#KONIEC   wpisywania komend: v a e 
-#REBOOT i dalsza instalacja np. plasma-meta
+#END command entry: v a e
+#REBOOT and continue with installation e.g. plasma-meta
 #------------------------------------------------------------
 
 reboot
 
 ##############################################################
-#2etap podmiana gcc na nowsze i kompilacja boost
+#Stage 2 – replace gcc with newer version and compile boost
 #------------------------------------------------------------
 v a 2host
 #------------------------------------------------------------
-##update na nowszy gcc - etap dodatkowy
-##kompilacja trwa 30min
+##optional: upgrade gcc (takes ~30min)
 #vex sys-devel/gcc
 #OLDGCC=`gcc-config -c | cut -d'-' -f 5`
 #e gcc
@@ -84,11 +82,11 @@ v a 2host
 
 
 ##############################################################
-#3etap uaktualnienie systemu z odblokowanymi flagami USE
+#Stage 3 – update system with enabled USE flags
 #------------------------------------------------------------
 v a 3host
 #------------------------------------------------------------
-##kompilacja trwa 2h
+##compilation takes ~2h
 sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
 sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
 sed -i 's/#USE="${USE} tools/USE="${USE} tools/g' /etc/portage/make.conf
@@ -103,7 +101,7 @@ emerge @preserved-rebuild
 
 
 ##############################################################
-#4etap instalujemy git i laymana do dodatkowych pakietow
+#Stage 4 – install git and layman for extra packages
 #------------------------------------------------------------
 v a 4host
 #------------------------------------------------------------
@@ -121,12 +119,12 @@ eselect repository enable steam-overlay
 
 
 ##############################################################
-#5etap dodatkowe pakiety i update systemu po dodaniu overlayow
+#Stage 5 – install additional packages and update after overlays
 #------------------------------------------------------------
 v a 5host
 #------------------------------------------------------------
-##polecane programy - 103 aplikacji
-##kompilacja trwa 16min
+##Recommended programs – 103 apps
+##compilation time: ~16min
 vex sys-fs/reiserfsprogs
 #vex sys-fs/mdadm
 #vex sys-fs/squahsfs-tools
@@ -145,13 +143,13 @@ vex sys-fs/reiserfsprogs
 ## https://wiki.gentoo.org/wiki/Useful_Portage_tools
 #sed -i 's/PYTHON_SINGLE_TARGET="python3_4"/PYTHON_SINGLE_TARGET="python2_7"/g' /etc/portage/make.conf
 #e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie install-mask portpeek smart-live-rebuild ufed gpytage net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
-#68 aplikacje 8min
+#68 apps 8min
 e u setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol
 e u feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
 e u os-prober
 
 ##############################################################
-#6etap kompilacja pakietu 
+#Stage 6 – compile game package
 #------------------------------------------------------------
 v a 6host
 #------------------------------------------------------------
@@ -168,15 +166,13 @@ for i in dreambuilder_modpack ; do [ ! -d $i ] && git clone https://gitlab.com/V
 for i in loot orbs_of_time; do [ ! -d $i ] && git clone https://github.com/minetest-mods/$i; done;
 
 ##############################################################
-#7etap caly desktop plasma min. 80min
+#Stage 7 – entire Plasma desktop (min. 80min)
 #------------------------------------------------------------
 v a 7host
 #------------------------------------------------------------
-# kompilacja networkmanager - etap dodatkowy
-# kompilacja trwa 12min
+# optional: networkmanager (12min)
 e u networkmanager
-# kompilacja plasma: 294 aplikacji - etap dodatkowy
-# kompilacja trwa 85min
+# plasma: 294 apps (85min)
 veu "app-crypt/qca qt5"
 veu "app-text/poppler qt5"
 veu "sys-libs/libblockdev cryptsetup"
@@ -184,13 +180,11 @@ e plasma-meta
 e u konsole kde-apps/dolphin media-video/plasma-mediacenter
 
 ##############################################################
-#8etap dodatkowe pakiety, x11 virtualbox, nowy uzytkownik
+#Stage 8 – extra packages, x11 virtualbox, new user
 #------------------------------------------------------------
 v a 8host
 #------------------------------------------------------------
-# kompilacja trwa 1h plus upgrade po usunieciu flag use wstawionych veu
-# uzytkowe
-# 45 apps 20min 
+# compile time: 1h + upgrade
 veu "sys-libs/libcap static-libs"
 veu "sys-fs/lvm2 thin"
 e u app-containers/docker lxc
@@ -203,7 +197,7 @@ e u x11-drivers/xf86-video-virtualbox
 # e u calibre gimp vlc mplayer
 # e u skype google-chrome steam-launcher blender 
 
-# potem nalezy dodac uzytkownika
+# then add user
 useradd -m -g users guest
 echo 'exec startplasma-x11' > /home/guest/.xinitrc
 chown -R guest:users /home/guest/
@@ -211,141 +205,123 @@ usermod -aG docker guest
 usermod -aG wheel guest
 usermod -aG audio guest
 usermod -aG video guest
-echo Wykonaj: passwd guest
+echo run: passwd guest
 #passwd guest
 
 ##############################################################
 
-II. INSTALACJA LUB URUCHOMIENIE WLASNEGO GENTOO USB
+II. INSTALLING OR BOOTING YOUR OWN GENTOO USB
 
-Na wlasnym komputerze nalezy wczesniej wydzielic (np. za pomoca Partition
-Magic, gdisk) trzy male partycje 10MB, 10MB, 100MB oraz wolna partycje o
-rozmiarze okolo 20GB (sformatowac ext4, jesli dla ssd to z parametrami stride,
-stripe-width).
-Symbole partycji rodzajow w gdisku: EF00, EF02, 8300, 8300 czyli 2 dla boota
-EFI i dwie dla systemu w tym pierwsza dla kerneli.
-Dla pewnosci wydzielic jeszcze mozna partycje swap o rozmiarze co najmniej polowy pamieci fizycznej RAM zamontowanej w komputerze.
+On your own computer, first create (e.g., using Partition Magic, gdisk) three small partitions: 10MB, 10MB, 100MB, and one free ~20GB partition (format ext4; for SSD, use stride, stripe-width).
+Partition types in gdisk: EF00, EF02, 8300, 8300 – for EFI boot, kernel, and system.
+Optionally add a swap partition at least half the size of your physical RAM.
 
-Po uruchomieniu liveusb po komendzie sg_map zorientowac sie, jak nazywa sie
-dysk z partycja kilkugigabajtowa, komenda gdisk /dev/sd?? znalezc ta partycje (ALE NIE POMYLIC SIE), sformatowac ja (TA ODDZIELONA) systemem plikow np.  
+After booting the liveusb, use sg_map to determine the name of the large partition, find it with gdisk /dev/sd??, format it (CAREFULLY), e.g.:
 
-Zamontowac glowna partycje /dev/sd? na katalogu /mnt/gentoo poleceniem:
-montuj-dysk /dev/sd? 
-lub jesli dysk ssd:
-montuj-ssd /dev/sd? 
-albo jesli dysk samsung evo:
-montuj-evo /dev/sd? 
+mount root partition:
+montuj-dysk /dev/sd?
+OR if SSD:
+montuj-ssd /dev/sd?
+OR for Samsung EVO:
+montuj-evo /dev/sd?
 
-Zamontowac partycje boot na kernele:
+mount boot partition:
 mount /dev/sd? /mnt/key
-i skopiowac kernele
 cp -a /boot/* /mnt/key
 
-Edytowac dodajac poprzednio sformatowane partycje pliki konfiguracyjne np.:
-vim fstab 
+edit config files:
+vim fstab
 cp -a fstab inittab /mnt/gentoo/etc
 
+chroot:
 mchroot /mnt/gentoo
 mount /boot
 grub-install /dev/sdx
 grub-mkconfig -o /boot/grub/grub.cfg
 
-Zmieniamy haslo roota: passwd 
+change root password:
+passwd
 
-Po ponownym zbotowaniu z twardego dysku, w menu systemow wybor Gentoo, 
-mozna sie zalogowac na roota i dodac nowego uzytkownika i jego haslo:
-adduser -m nazwa_loginu
-passwd nazwa_loginu
+After booting from hard disk, in boot menu choose Gentoo.
+Login as root and create new user:
+adduser -m login_name
+passwd login_name
 
-Potem po podlaczeniu do sieci - jesli juz nie podlaczylo automatycznie - (konfiguracja w /etc/conf.d/net) poprzez komende
+connect to network (if not done automatically):
 /etc/init.d/net.eth0 restart
-lub
+or
 /etc/init.d/net.enp0s3 restart
-wykonujemy polecenia (wyjasnienie ponizej):
+
+run:
 emaint sync
-itd.... ;)
-Jesli w /etc/portage/repos.conf sa overlaye
-eselect repository enable kde
+
+If overlays present in /etc/portage/repos.conf:
+eseselect repository enable kde
 eselect repository enable x11
-eselect repository enable sabayon 
-eselect repository enable steam-overlay
+eselect repository enable sabayon
+eseselect repository enable steam-overlay
 
-
-Otrzymujemy system gotowy do dzialania.
+System is now ready.
 
 ##############################################################
-UZYTKOWANIE GENTOO
+GENTOO USAGE
 
-emerge --sync #e m
-emaint sync #nowsza wersja
-Sprowadza drzewo portage czyli nazwy pakietow (dokladnie plikow ebuild) i 
-ich zaleznosci
+emerge --sync # e m
+emaint sync   # newer version
+Fetches the Portage tree, meaning package names (specifically ebuild files) and their dependencies
 
 eselect repository list -i
-Sprowadza liste zainstalowanych repo 
+Displays the list of installed repositories
 
 eselect repository enable kde
 eselect repository enable x11
-eselect repository enable sabayon 
+eselect repository enable sabayon
 eselect repository enable steam-overlay
-Sprowadza przykladowe overlay'e 
+Enables example overlays
 
-Updatowanie eksperymentalnych list zainstalowanych na lokalnym komputerze
+Update experimental repository lists installed locally
 emaint -A sync
 
-eselect repository enable nazwa_overlayu - dodaje jedna liste (overlay) ebuildow zamieszczonych na gentoo.org przez entuzjastow danych programow pragnacych testowac ich najnowsze opcje
+eselect repository enable overlay_name
+Adds an overlay (a list of ebuilds) maintained by Gentoo enthusiasts on gentoo.org who want to test the latest features of programs
 
 eselect repository list
-Wypisanie wszystkich list eksperymentalnych zamieszczonych na gentoo.org
+Displays all experimental overlays available on gentoo.org
 
 eselect repository list -i
-Wypisanie eksperymentalnych list ebuildow zainstalowanych na lokalnym
-komputerze
+Displays experimental overlays (ebuild lists) installed locally
 
 vim /etc/make.conf
-Mozna edytowac tam flagi procesora, ale przede wszystkim flagi systemu portage
-wystepujace po slowie USE="..." w cudzyslowie np. USE="gnome kde" czyli
-skompilowac programy ze wsparciem dla Gnome i KDE
+Here you can edit CPU flags, but most importantly the Portage system flags listed under USE="..." in quotes, e.g. USE="gnome kde" — this means to compile programs with support for GNOME and KDE
 
 vim /etc/portage/package.use/package.use
-Tutaj flagi systemu portage mozna przypisac do poszczegolnych programow, jesli
-roznia sie od flag o globalnym zasiegu z pliku /etc/make.conf
+Here you can assign Portage system flags to specific programs if they differ from the global flags set in /etc/make.conf
 
 vim /etc/portage/package.keywords/package.keywords
-Tu dodaje sie pakiety, ktore sie chce skompilowac z kodow zrodlowych wersji
-deweloperskich czyli z reguly prawie lub najnowszych. Jesli zalezy komus tylko
-na stabilnosci to radze usunac jak najwiecej pakietow z tego pliku, ale komu
-na tym zalezy, kiedy uzywa Gentoo...
+This is where you add packages you want to compile from development (usually latest or near-latest) source versions. If you only care about stability, it's recommended to remove as many entries from this file as possible — but who cares about stability when using Gentoo...
 
 vim /etc/portage/profile/package.provided
-Zamieszczone tu tytuly pakietow nieobecnych, ktore "oszukuja"
-system, ze sa w nim nadal obecne lub powoduja brak aktualizacji 
+Lists package titles that are "missing" but pretend to be present in the system or prevent their updates
 
-emerge -uND world  #e w
-Updatuje po sprowadzeniu najnowszego drzewa za pomoca wczesniejszego emerge --sync pakiety do nowszych wersji i ewentualnie zmienionych flag systemowych w /etc/make.conf i /etc/portage/package.use
+emerge -uND world  # e w
+After fetching the latest tree with `emerge --sync`, updates packages to newer versions and applies any changes in system flags from /etc/make.conf and /etc/portage/package.use
 
-emerge -fuN world 
-Sprowadza najpierw kody zrodlowe, potem trzeba wpisac emerge -uN world, ale
-polaczenie sieciowe jest juz zbedne, kompilacje wykonaja sie off-line, gdyz
-wszystko co potrzebne do nich zostalo sprowadzone opcja -f
+emerge -fuN world
+Downloads all source code first; afterwards you can run `emerge -uN world` offline, since everything needed for compilation has already been fetched with the `-f` option
 
 emerge -uNp world
-Wypisuje nazwy programow do skompilowania bez samego kompilowania
+Lists the names of packages to be compiled without actually compiling them
 
-emerge -uNpv world 
-Wypisuje nazwy programow do skompilowania bez samego kompilowania wraz z
-flagami systemu portage, ktore zostana uzyte przy kompilacji programu
+emerge -uNpv world
+Lists packages to be compiled, along with the Portage system flags that will be used during compilation
 
 emerge -uNpvt world
-Wypisuje nazwy programow do skompilowania bez samego kompilowania wraz z
-flagami systemu portage, ktore zostana uzyte przy kompilacji programu oraz
-hierarchia pakietow zobrazowana w postaci wciec - semi-drzewa tekstowego 
+Lists packages to be compiled, along with system flags used, and shows the dependency tree hierarchy using indentation — a textual semi-tree
 
-emerge -e world #e e w
-Rekompiluje od nowa kazdy zainstalowany program
+emerge -e world  # e e w
+Recompiles every installed program from scratch
 
-emerge liquorix-sources 
-Sprowadza kod zrodlowy liquorix-sources
-Osobno sprowadzamy plik konfiguracyjny .config
-lub generujemy w zaleznosci od potrzeb w /usr/src/linux:
+emerge liquorix-sources
+Fetches the source code for `liquorix-sources`
+The config file `.config` must be fetched separately, or generated as needed in /usr/src/linux:
 make defconfig; make kvmconfig

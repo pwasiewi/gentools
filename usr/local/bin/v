@@ -66,7 +66,39 @@ die() {
 #####################################
 ## ${LIVECONF}/profiles/${CD_PROFILE}/settings
 #####################################
+ACCEPT_LICENSE="*"
+RUBY_TARGETS="ruby32"
+GRUB_PLATFORMS="pc emu efi-64"
+PYTHON_SINGLE_TARGET="python3_13"
+PYTHON_TARGETS="python3_13"
+PYTHON_ABIS="3.13"
+USE_PYTHON="3.13"
+POSTGRES_TARGETS="postgres17"
+PORTAGE_NICENESS="19"
+MAKEOPTS="-j4 -l8"
+EMERGE_DEFAULT_OPTS="--getbinpkg --binpkg-respect-use=y --jobs 4 --load-average 8 --quiet-build=y --autounmask=y --autounmask-write --keep-going --verbose-conflicts --autounmask-backtrack=y --backtrack=100"
+FEATURES="${FEATURES} getbinpkg binpkg-request-signature sandbox parallel-fetch metadata-transfer fail-clean -compressdebug"
+CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3 avx avx2"
 
+USE="systemd -elogind"
+#USE="${USE} -X -java systemd -hardened -pic -jit -pgo -graphite branding experimental extras -doc -acl -systemtap"
+#USE="${USE} -kde plasma -gnome -gnome-keyring -nautilus grub -mediacenter user-session"
+#USE="${USE} reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay lvm vnc acl"
+#USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu -cryptsetup kvm fuse threads usb bluetooth network -consolekit ssl sslv3 wifi -pcap -ipv6 -automount -gnutls -hal -ldap policykit ovs sound -experimental -filecaps mount"
+#USE="${USE} -qt4 -qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c++14 -wxwidgets"
+
+#USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l zip"
+#USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype -qrcode devil gegl introspection imagemagick gif qml"
+#USE="${USE} -tools xnest xvfb tslib kms libkms dmx xcb dbus xrandr xorg sna vaapi uxa gbm glamor lcdfilter kdrive infinality xkb"
+#USE="${USE} nvidia uvm -cuda gpu egl -wayland osmesa xa vdpau vulkan opencl tinfo gles"
+#USE="${USE} lua script llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic -hardened"
+#USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot mercurial googledrive"
+
+VIDEO_CARDS="intel radeon nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu"
+PORT_LOGDIR="/var/log/portage"
+QEMU_SOFTMMU_TARGETS="arm x86_64"
+QEMU_USER_TARGETS="arm armeb x86_64"
+JAVA_HOME="/etc/java-config-2/current-system-vm"
 #DEVCHROOT="/dev/sda5"
 #CD_STAGEFILE="stage3-amd64-20161013.tar.bz2"
 #CD_STAGETARBALL="http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/"$CD_STAGEFILE
@@ -100,7 +132,39 @@ source ${LIVECONF}/profiles/global/settings || die "Couldn't find global setting
 CDLOC=$DIST/iso
 [ ! -e $CDLOC ] && mkdir -pv $CDLOC
 
-[ ! -e "${LIVECONF}/profiles/${CD_PROFILE}/settings" ] && die "Profile \"${CD_PROFILE}\" missing \"settings\" file."
+[ ! -e "${LIVECONF}/profiles/${CD_PROFILE}/settings" ] && die "Profile \"${CD_PROFILE}\" mACCEPT_LICENSE="*"
+RUBY_TARGETS="ruby32"
+GRUB_PLATFORMS="pc emu efi-64"
+PYTHON_SINGLE_TARGET="python3_13"
+PYTHON_TARGETS="python3_13"
+PYTHON_ABIS="3.13"
+USE_PYTHON="3.13"
+POSTGRES_TARGETS="postgres17"
+PORTAGE_NICENESS="19"
+MAKEOPTS="-j4 -l8"
+EMERGE_DEFAULT_OPTS="--getbinpkg --binpkg-respect-use=y --jobs 4 --load-average 8 --quiet-build=y --autounmask=y --autounmask-write --keep-going --verbose-conflicts --autounmask-backtrack=y --backtrack=100"
+FEATURES="${FEATURES} getbinpkg binpkg-request-signature sandbox parallel-fetch metadata-transfer fail-clean -compressdebug"
+CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3 avx avx2"
+
+USE="systemd -elogind"
+#USE="${USE} -X -java systemd -hardened -pic -jit -pgo -graphite branding experimental extras -doc -acl -systemtap"
+#USE="${USE} -kde plasma -gnome -gnome-keyring -nautilus grub -mediacenter user-session"
+#USE="${USE} reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay lvm vnc acl"
+#USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu -cryptsetup kvm fuse threads usb bluetooth network -consolekit ssl sslv3 wifi -pcap -ipv6 -automount -gnutls -hal -ldap policykit ovs sound -experimental -filecaps mount"
+#USE="${USE} -qt4 -qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c++14 -wxwidgets"
+
+#USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l zip"
+#USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype -qrcode devil gegl introspection imagemagick gif qml"
+#USE="${USE} -tools xnest xvfb tslib kms libkms dmx xcb dbus xrandr xorg sna vaapi uxa gbm glamor lcdfilter kdrive infinality xkb"
+#USE="${USE} nvidia uvm -cuda gpu egl -wayland osmesa xa vdpau vulkan opencl tinfo gles"
+#USE="${USE} lua script llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic -hardened"
+#USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot mercurial googledrive"
+
+VIDEO_CARDS="intel radeon nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu"
+PORT_LOGDIR="/var/log/portage"
+QEMU_SOFTMMU_TARGETS="arm x86_64"
+QEMU_USER_TARGETS="arm armeb x86_64"
+JAVA_HOME="/etc/java-config-2/current-system-vm" issing \"settings\" file."
 source ${LIVECONF}/profiles/${CD_PROFILE}/settings
 
 PROFILE=${CDLOC}/${CD_PROFILE}
@@ -151,6 +215,7 @@ mount_all() {
 	do	
 		[ ! -e ${x} ] && mkdir -pv ${x}
 		[ ! -e ${CHROOT}${x} ] && mkdir -pv ${CHROOT}${x}
+		#echo mount -o bind ${x} ${CHROOT}${x}
 		mount -o bind ${x} ${CHROOT}${x} || chroot_die
 	done
 	#echo mount -o bind $PROFILETMP $CHROOT/tmp/livecd
@@ -191,6 +256,7 @@ fetch() {
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
 	[ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
 	echo ">>> Rozpakowuje Gentoo stage3..."
+	echo tar xJpf "$CDLOC/$CD_STAGEFILE" -C $CHROOT 
 	[ ! -e "$CHROOT/home" ] && tar xJpf "$CDLOC/$CD_STAGEFILE" -C $CHROOT || die "stage tarball extraction error"
         #mv "$CDLOC/$CD_STAGEFILE" $CHROOT
 	# aby siec dzialala
@@ -233,33 +299,28 @@ chmod 755 /usr/local/bin/v*
 
 # echo 5 > /etc/portage/profile/eapi
 
-cat >> /etc/portage/make.conf << 'EOF'
+cat > /etc/portage/make.conf << 'EOF'
 
 ACCEPT_LICENSE="*"
-#ABI_X86="64 32"
-RUBY_TARGETS="ruby31"
-GRUB_PLATFORMS="emu pc"
-PYTHON_SINGLE_TARGET="python3_11"
-PYTHON_TARGETS="python3_11"
-PYTHON_ABIS="3.11"
-USE_PYTHON='3.11'
-PHP_TARGETS="php7-4"
-POSTGRES_TARGETS="postgres14"
-MAKEOPTS="-j4 -l8"
-EMERGE_DEFAULT_OPTS="--jobs 4 --load-average 8 --quiet-build=y --autounmask-write --keep-going --verbose-conflicts --backtrack=3"
+RUBY_TARGETS="ruby32"
+GRUB_PLATFORMS="pc emu efi-64"
+PYTHON_SINGLE_TARGET="python3_13"
+PYTHON_TARGETS="python3_13"
+PYTHON_ABIS="3.13"
+USE_PYTHON="3.13"
+POSTGRES_TARGETS="postgres17"
 PORTAGE_NICENESS="19"
-FEATURES="${FEATURES} sandbox parallel-fetch metadata-transfer fail-clean -compressdebug"
-#For glibc to make valgrind work
-#FEATURES="$FEATURES splitdebug"
-CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3"
+MAKEOPTS="-j4 -l8"
+EMERGE_DEFAULT_OPTS="--getbinpkg --binpkg-respect-use=y --jobs 4 --load-average 8 --quiet-build=y --autounmask=y --autounmask-write --keep-going --verbose-conflicts --autounmask-backtrack=y --backtrack=100"
+FEATURES="${FEATURES} getbinpkg binpkg-request-signature sandbox parallel-fetch metadata-transfer fail-clean -compressdebug"
+CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3 avx avx2"
 
-#PORTAGE_TMPDIR="/var/tmp/portage" 
-
-USE="${USE} -X -java systemd -hardened -pic -jit -pgo -graphite branding experimental extras -doc -acl -systemtap"
-USE="${USE} -kde plasma -gnome -gnome-keyring -nautilus grub -mediacenter user-session"
-USE="${USE} reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay lvm vnc acl"
-USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu -cryptsetup kvm fuse threads usb bluetooth network -consolekit ssl sslv3 wifi -pcap -ipv6 -automount -gnutls -hal -ldap policykit ovs sound -experimental -filecaps mount"
-USE="${USE} -qt4 -qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c++14 -wxwidgets"
+USE="systemd -elogind -firmware"
+#USE="${USE} -X -java systemd -hardened -pic -jit -pgo -graphite branding experimental extras -doc -acl -systemtap"
+#USE="${USE} -kde plasma -gnome -gnome-keyring -nautilus grub -mediacenter user-session"
+#USE="${USE} reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay lvm vnc acl"
+#USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu -cryptsetup kvm fuse threads usb bluetooth network -consolekit ssl sslv3 wifi -pcap -ipv6 -automount -gnutls -hal -ldap policykit ovs sound -experimental -filecaps mount"
+#USE="${USE} -qt4 -qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c++14 -wxwidgets"
 
 #USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l zip"
 #USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype -qrcode devil gegl introspection imagemagick gif qml"
@@ -268,14 +329,11 @@ USE="${USE} -qt4 -qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c
 #USE="${USE} lua script llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic -hardened"
 #USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot mercurial googledrive"
 
-VIDEO_CARDS="intel radeon nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu" 
-PORTDIR_OVERLAY="/usr/local/portage $PORTDIR_OVERLAY" 
-APACHE2_MODULES="actions alias auth_basic authn_alias authn_anon authn_core authn_dbm authn_file authz_core authz_dbm authz_groupfile authz_host authz_owner authz_user autoindex cache cgi cgid dav dav_fs dav_lock deflate dir env expires ext_filter file_cache filter headers include info log_config logio mime mime_magic negotiation rewrite setenvif socache_shmcb speling status unique_id unixd userdir usertrack vhost_alias access_compat asis auth_digest authn_dbd cache_disk dbd dumpio ident imagemap" 
-PORTAGE_ECLASS_WARNING_ENABLE="0" 
-PORT_LOGDIR="/var/log/portage" 
-QEMU_SOFTMMU_TARGETS="arm i386 x86_64" 
-QEMU_USER_TARGETS="arm armeb i386 x86_64" 
-JAVA_HOME="/etc/java-config-2/current-system-vm" 
+VIDEO_CARDS="intel radeon nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu"
+PORT_LOGDIR="/var/log/portage"
+QEMU_SOFTMMU_TARGETS="arm x86_64"
+QEMU_USER_TARGETS="arm armeb x86_64"
+JAVA_HOME="/etc/java-config-2/current-system-vm"
 
 EOF
 	echo EOF >> $PROFILETMP/vcportdir
@@ -283,11 +341,11 @@ EOF
 	    cat >> $PROFILETMP/vcportdir << 'EOF'
 
 echo "nie na LIVEDVD, gdyz ramdisk jest maly i ulotny"
-ls -l /usr
+#ls -l /usr
 [ -e /usr/portage ] && rm /usr/portage -rf
-ls -l /usr
+#ls -l /usr
 [ ! -e /usr/portage ] && cd /usr && ln -sfn ../var/tmp/.portage portage
-ls -l /usr
+#ls -l /usr
 [ -d /usr/src ] && rm -rf /usr/src 
 [ ! -e /usr/src ] && cd /usr && ln -sfn ../var/tmp/.src64bit src
 [ -e /var/db/repos ] && rm /var/db/repos -rf
@@ -322,10 +380,10 @@ EOF
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
         #[ -e $PROFILETMP/$ETAP ] && rm $PROFILETMP/$ETAP
 	cat > $PROFILETMP/$ETAP << 'EOF'
-echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
+echo en_US.UTF-8 UTF-8 > /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
-eselect profile set 11 #plasma systemd merged usr 17.1
+eselect profile set 28 #plasma systemd merged usr 17.1
 env-update
 . /etc/profile
 ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
@@ -336,15 +394,16 @@ ln -sf /proc/self/mounts /etc/mtab
 mv /etc/portage/repos.conf/st*.conf ~
 
 #emaint sync
-USE="-X -sound" e vim
-e u eix
-e u gentoolkit genkernel portage euses
+#USE="-X -sound" e g vim
+e g vim
+e g eix
+e g gentoolkit genkernel portage euses
 
 vex sys-kernel/gentoo-sources
 
-USE="-sdl" e u genlop linux-firmware net-misc/dhcpcd grub
-e u gpm app-misc/mc ntpsec
-e u app-eselect/eselect-repository
+e g genlop net-misc/dhcpcd grub
+e g gpm app-misc/mc ntpsec
+e g app-eselect/eselect-repository
 EOF
 
         if [ "$RAMDISK" == "0" ]; then
@@ -398,18 +457,7 @@ EOF
 2etap(){
 	ETAP=2etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#update na nowszy gcc - etap dodatkowy
-#kompilacja trwa 40min z lto
-vex sys-devel/gcc
-OLDGCC=`gcc-config -c | cut -d'-' -f 5`
-e gcc
-gcc-config -l
-gcc-config 2
-. /etc/profile
-env-update
-fix_libtool_files.sh ${OLDGCC}
-#e glibc n
-#e binutils binutils-libs n
+e g dev-vcs/git
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -425,16 +473,7 @@ EOF
 	ETAP=3etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
 #update systemu - etap konieczny
-#kompilacja trwa 39min
-sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
-sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
-sed -i 's/#USE="${USE} tools/USE="${USE} tools/g' /etc/portage/make.conf
-sed -i 's/bindist/-bindist/g' /etc/portage/make.conf
-sed -i 's/-X\ /X\ /g' /etc/portage/make.conf
-
-veu "media-video/pipewire -ffmpeg"
-veu "media-libs/libsndfile minimal"
-
+#kompilacja trwa 9min
 e w #emerge -uND world  - upgrade world
 emerge @preserved-rebuild
 EOF
@@ -453,18 +492,12 @@ EOF
 	cat > $PROFILETMP/$ETAP << 'EOF'
 #kompilacja trwa 7 min
 #
-e u dev-vcs/git
 eselect repository enable kde
-#eselect repository enable x11
-#eselect repository enable sabayon 
+emaint sync --repo kde
 eselect repository enable steam-overlay
 emaint sync --repo steam-overlay
-#eselect repository enable lto-overlay
 eix-update
 e w
-#/etc/init.d/ntp-client start
-#/etc/init.d/gpm start
-#rc-update add gpm default
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -481,27 +514,20 @@ EOF
 	cat > $PROFILETMP/$ETAP << 'EOF'
 #polecane programy - 103 aplikacji - etap dodatkowy
 #kompilacja trwa 16min
-vex sys-fs/mdadm
-vex sys-fs/squahsfs-tools
-vex net-analyzer/xprobe
-vex app-admin/pass
-vex dev-python/pymountboot
-vex app-admin/eclean-kernel
-vex app-portage/diffmask
-vex app-portage/gpytage
-veu "dev-libs/libgpg-error static-libs"
-veu "dev-libs/lzo static-libs"
-veu "dev-libs/libgcrypt static-libs"
-veu "sys-apps/util-linux caps"
-
 # https://wiki.gentoo.org/wiki/Recommended_applications
 # https://wiki.gentoo.org/wiki/Recommended_tools
 # https://wiki.gentoo.org/wiki/Useful_Portage_tools
-e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
+vex app-portage/diffmask
+veu "dev-libs/libgcrypt static-libs"
+veu "dev-libs/libgpg-error static-libs"
+veu "dev-libs/lzo static-libs"
+veu "sys-apps/util-linux caps"
+
+e g rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
 #68 aplikacje 8min
-e u setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol
-e u feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
-e u os-prober
+e g setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol
+e g feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
+e g os-prober
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -775,12 +801,12 @@ iso_create() {
 	cp ${PROFILE}/initrd ${ISO}/isolinux/initrd || die
 	cp ${PROFILETMP}/kernel/bzImage ${ISO}/isolinux/gentoo || die
 	touch ${ISO}/livecd || die
-	echo mkisofs -J -R -l -o ${PROFILE}/livecd.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table ${ISO}
-	if [ "$RAMDISK" == "0" ]; then
-	   time mkisofs -J -R -l -o ${PROFILE}/livecd.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table ${ISO}
-	else 
-	   time mkisofs -J -R -l -o ${CHROOT}/livecd.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table ${ISO}
-	fi
+	#echo mkisofs -J -R -l -o ${PROFILE}/livecd.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table ${ISO}
+	#if [ "$RAMDISK" == "0" ]; then
+	#   time mkisofs -J -R -l -o ${PROFILE}/livecd.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table ${ISO}
+	#else 
+	#   time mkisofs -J -R -l -o ${CHROOT}/livecd.iso -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table ${ISO}
+	#fi
 }
 
 
@@ -942,4 +968,3 @@ case "$2" in
 	;;
 esac
 exit 0
-

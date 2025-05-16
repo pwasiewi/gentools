@@ -457,7 +457,14 @@ EOF
 2etap(){
 	ETAP=2etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-e g dev-vcs/git
+#compilation takes 8min
+vex app-portage/diffmask
+veu "dev-libs/libgcrypt static-libs"
+veu "dev-libs/libgpg-error static-libs"
+veu "dev-libs/lzo static-libs"
+veu "sys-apps/util-linux caps"
+
+e g rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -472,8 +479,8 @@ EOF
 3etap(){
 	ETAP=3etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#update systemu - etap konieczny
-#kompilacja trwa 9min
+#system upgrade
+#compilation takes 2min
 e w #emerge -uND world  - upgrade world
 emerge @preserved-rebuild
 EOF
@@ -490,8 +497,6 @@ EOF
 4etap(){
 	ETAP=4etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#kompilacja trwa 7 min
-#
 eselect repository enable kde
 emaint sync --repo kde
 eselect repository enable steam-overlay
@@ -512,21 +517,14 @@ EOF
 5etap(){
 	ETAP=5etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#polecane programy - 103 aplikacji - etap dodatkowy
-#kompilacja trwa 16min
+#compilation takes 10min
 # https://wiki.gentoo.org/wiki/Recommended_applications
 # https://wiki.gentoo.org/wiki/Recommended_tools
 # https://wiki.gentoo.org/wiki/Useful_Portage_tools
-vex app-portage/diffmask
-veu "dev-libs/libgcrypt static-libs"
-veu "dev-libs/libgpg-error static-libs"
-veu "dev-libs/lzo static-libs"
-veu "sys-apps/util-linux caps"
-
-e g rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
-#68 aplikacje 8min
-e g setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol
-e g feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
+vex net-analyzer/xprobe
+veu "dev-libs/libnl utils"
+e g setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
+veu "sys-boot/grub mount"
 e g os-prober
 EOF
 	chmod +x $PROFILETMP/$ETAP
@@ -542,17 +540,15 @@ EOF
 6etap(){
 	ETAP=6etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-vex dev-games/irrlicht-mt
-vex dev-games/irrlicht-mt-headers
-vex games-action/minetest
-e u games-action/minetest
-cd /usr/share/minetest/games/minetest_game/mods
+vex games-engines/minetest
+e g games-engines/minetest 
+#cd /usr/share/minetest/games/minetest_game/mods
 #mesecons.net
-for i in dreambuilder_modpack ; do [ ! -d $i ] && git clone https://gitlab.com/VanessaE/$i; done;
+#for i in dreambuilder_modpack ; do [ ! -d $i ] && git clone https://gitlab.com/VanessaE/$i; done;
 #aliveai depends on technic, 3d_armor, mesecons and smartshop
-[ ! -d smartshop ] && git clone https://github.com/AiTechEye/smartshop
-[ ! -d aliveai ] && git clone https://github.com/AiTechEye/aliveai
-for i in loot orbs_of_time; do [ ! -d $i ] && git clone https://github.com/minetest-mods/$i; done;
+#[ ! -d smartshop ] && git clone https://github.com/AiTechEye/smartshop
+#[ ! -d aliveai ] && git clone https://github.com/AiTechEye/aliveai
+#for i in loot orbs_of_time; do [ ! -d $i ] && git clone https://github.com/minetest-mods/$i; done;
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -567,16 +563,10 @@ EOF
 7etap(){
 	ETAP=7etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-# kompilacja networkmanager - etap dodatkowy
-# kompilacja trwa 12min
-e u networkmanager
-# kompilacja plasma: 294 aplikacji - etap dodatkowy
-# kompilacja trwa 85min
-veu "app-crypt/qca qt5"
-veu "app-text/poppler qt5"
-veu "sys-libs/libblockdev cryptsetup"
-e plasma-meta
-e u konsole kde-apps/dolphin media-video/plasma-mediacenter
+#compilation takes 30min
+e g networkmanager
+e g plasma-meta
+e g konsole kde-apps/dolphin
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -591,20 +581,11 @@ EOF
 8etap(){
 	ETAP=8etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-# kompilacja trwa 1h plus upgrade po usunieciu flag use wstawionych veu
-# uzytkowe
-# 45 apps 20min 
-veu "sys-libs/libcap static-libs"
-veu "sys-fs/lvm2 thin"
-e u app-containers/docker lxc
-# e u cdrtools dvd+rw-tools libisoburn 
-# e u firefox-bin opera
-# e u R octave nodejs mongodb
+#compilation takes 30min
 # e u app-emulation/virtualbox-guest-additions
 # e u virtualbox 
-e u x11-drivers/xf86-video-virtualbox
-# e u calibre gimp vlc mplayer
-# e u skype google-chrome steam-launcher blender 
+# e u x11-drivers/xf86-video-virtualbox
+e g app-containers/docker lxc calibre gimp vlc mplayer google-chrome firefox-bin opera
 
 # potem nalezy dodac uzytkownika
 useradd -m -g users guest

@@ -341,11 +341,8 @@ EOF
 	    cat >> $PROFILETMP/vcportdir << 'EOF'
 
 echo "nie na LIVEDVD, gdyz ramdisk jest maly i ulotny"
-#ls -l /usr
 [ -e /usr/portage ] && rm /usr/portage -rf
-#ls -l /usr
 [ ! -e /usr/portage ] && cd /usr && ln -sfn ../var/tmp/.portage portage
-#ls -l /usr
 [ -d /usr/src ] && rm -rf /usr/src 
 [ ! -e /usr/src ] && cd /usr && ln -sfn ../var/tmp/.src64bit src
 [ -e /var/db/repos ] && rm /var/db/repos -rf
@@ -353,9 +350,6 @@ echo "nie na LIVEDVD, gdyz ramdisk jest maly i ulotny"
 EOF
 	else
 	    cat >> $PROFILETMP/vcportdir << 'EOF'
-#cd /usr
-#wget -c ftp://ftp.vectranet.pl/gentoo/snapshots/portage-latest.tar.xz
-#tar Jxf portage-latest.tar.xz
 emerge-webrsync
 [ -d /usr/portage/distfiles ] && rmdir /usr/portage/distfiles
 [ ! -d /var/tmp/distfiles ] && mkdir /var/tmp/distfiles
@@ -393,8 +387,6 @@ ln -sf /proc/self/mounts /etc/mtab
 #sed -i 's/^#ABI/ABI/g' /etc/portage/make.conf
 mv /etc/portage/repos.conf/st*.conf ~
 
-#emaint sync
-#USE="-X -sound" e g vim
 e g vim
 e g eix
 e g gentoolkit genkernel portage euses
@@ -457,6 +449,9 @@ EOF
 2etap(){
 	ETAP=2etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
+# https://wiki.gentoo.org/wiki/Recommended_applications
+# https://wiki.gentoo.org/wiki/Recommended_tools
+# https://wiki.gentoo.org/wiki/Useful_Portage_tools
 #compilation takes 8min
 vex app-portage/diffmask
 veu "dev-libs/libgcrypt static-libs"
@@ -518,9 +513,6 @@ EOF
 	ETAP=5etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
 #compilation takes 10min
-# https://wiki.gentoo.org/wiki/Recommended_applications
-# https://wiki.gentoo.org/wiki/Recommended_tools
-# https://wiki.gentoo.org/wiki/Useful_Portage_tools
 vex net-analyzer/xprobe
 veu "dev-libs/libnl utils"
 e g setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
@@ -584,7 +576,7 @@ EOF
 #compilation takes 30min
 # e u app-emulation/virtualbox-guest-additions
 # e u virtualbox 
-# e u x11-drivers/xf86-video-virtualbox
+e g x11-drivers/xf86-video-virtualbox
 e g app-containers/docker lxc calibre gimp vlc mplayer google-chrome firefox-bin opera
 
 # potem nalezy dodac uzytkownika

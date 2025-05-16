@@ -82,7 +82,7 @@ do
             FETCH="-f"
             ;;
         g|G)
-            KEEP_GOING="--keep-going"
+            KEEP_GOING="--keep-going --getbinpkg"
             ;;
         w|W)
 	    if [ "$RECOMP" == "-e" ]; then

@@ -577,7 +577,7 @@ EOF
 # e u app-emulation/virtualbox-guest-additions
 # e u virtualbox 
 e g x11-drivers/xf86-video-virtualbox
-e g app-containers/docker lxc calibre gimp vlc mplayer google-chrome firefox-bin opera
+e g app-containers/docker lxc gimp vlc mplayer google-chrome firefox-bin opera
 
 # potem nalezy dodac uzytkownika
 useradd -m -g users guest
@@ -941,3 +941,4 @@ case "$2" in
 	;;
 esac
 exit 0
+

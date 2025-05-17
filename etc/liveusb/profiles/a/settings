@@ -1,8 +1,6 @@
 DEVCHROOT="/dev/sdb6"
-CD_STAGEFILE="stage3-amd64-desktop-systemd-mergedusr-20231126T163200Z.tar.xz"
-CD_STAGETARBALL="https://distfiles.gentoo.org/releases/amd64/autobuilds/20231126T163200Z/"$CD_STAGEFILE
-# https://distfiles.gentoo.org/releases/amd64/autobuilds/20231126T163200Z/stage3-amd64-desktop-systemd-mergedusr-20231126T163200Z.tar.xz
-# https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-openrc/stage3-amd64-openrc-20231203T170204Z.tar.xz
+CD_STAGEFILE="stage3-amd64-systemd-20250511T165428Z.tar.xz"
+CD_STAGETARBALL="https://distfiles.gentoo.org/releases/amd64/autobuilds/20250511T165428Z/"$CD_STAGEFILE
 #####################################
-# Czy instalujemy z RAM dysku np. z liveusb/dvd?
+#Czy instalujemy z RAM dysku np. z liveusb/dvd?
 RAMDISK=0

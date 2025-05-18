@@ -492,12 +492,12 @@ EOF
 4etap(){
 	ETAP=4etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-eselect repository enable kde
-emaint sync --repo kde
-eselect repository enable steam-overlay
-emaint sync --repo steam-overlay
-eix-update
-e w
+#compilation takes 10min
+vex net-analyzer/xprobe
+veu "dev-libs/libnl utils"
+e g setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
+veu "sys-boot/grub mount"
+e g os-prober
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -512,12 +512,15 @@ EOF
 5etap(){
 	ETAP=5etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#compilation takes 10min
-vex net-analyzer/xprobe
-veu "dev-libs/libnl utils"
-e g setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
-veu "sys-boot/grub mount"
-e g os-prober
+eselect repository enable kde
+emaint sync --repo kde
+eselect repository enable steam-overlay
+emaint sync --repo steam-overlay
+eix-update
+#compilation takes 30min
+e g networkmanager
+e g plasma-meta
+e g konsole kde-apps/dolphin
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -556,9 +559,10 @@ EOF
 	ETAP=7etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
 #compilation takes 30min
-e g networkmanager
-e g plasma-meta
-e g konsole kde-apps/dolphin
+# e u app-emulation/virtualbox-guest-additions
+# e u virtualbox
+e g x11-drivers/xf86-video-virtualbox
+e g app-containers/docker lxc gimp vlc mplayer google-chrome firefox-bin opera
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -573,13 +577,7 @@ EOF
 8etap(){
 	ETAP=8etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#compilation takes 30min
-# e u app-emulation/virtualbox-guest-additions
-# e u virtualbox 
-e g x11-drivers/xf86-video-virtualbox
-e g app-containers/docker lxc gimp vlc mplayer google-chrome firefox-bin opera
-
-# potem nalezy dodac uzytkownika
+# add user guest
 useradd -m -g users guest
 echo 'exec startplasma-x11' > /home/guest/.xinitrc
 chown -R guest:users /home/guest/

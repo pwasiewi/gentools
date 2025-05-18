@@ -65,139 +65,95 @@ v a e #chroot into new gentoo system to change password
 reboot
 
 ##############################################################
-#Stage 2 – replace gcc with newer version and compile boost
+#Stage 2 – recommended tools
 #------------------------------------------------------------
 v a 2host
 #------------------------------------------------------------
-##optional: upgrade gcc (takes ~30min)
-#vex sys-devel/gcc
-#OLDGCC=`gcc-config -c | cut -d'-' -f 5`
-#e gcc
-#gcc-config -l
-#gcc-config 2
-#. /etc/profile
-#env-update
-#fix_libtool_files.sh ${OLDGCC}
-#e libtool n
+# https://wiki.gentoo.org/wiki/Recommended_applications
+# https://wiki.gentoo.org/wiki/Recommended_tools
+# https://wiki.gentoo.org/wiki/Useful_Portage_tools
+#compilation takes 8min
+vex app-portage/diffmask
+veu "dev-libs/libgcrypt static-libs"
+veu "dev-libs/libgpg-error static-libs"
+veu "dev-libs/lzo static-libs"
+veu "sys-apps/util-linux caps"
+
+e g rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
 
 
 ##############################################################
-#Stage 3 – update system with enabled USE flags
+#Stage 3 – upgrade system
 #------------------------------------------------------------
 v a 3host
 #------------------------------------------------------------
-##compilation takes ~2h
-sed -i 's/#USE="${USE} video/USE="${USE} video/g' /etc/portage/make.conf
-sed -i 's/#USE="${USE} gimp/USE="${USE} gimp/g' /etc/portage/make.conf
-sed -i 's/#USE="${USE} tools/USE="${USE} tools/g' /etc/portage/make.conf
-sed -i 's/bindist/-bindist/g' /etc/portage/make.conf
-sed -i 's/-X\ /X\ /g' /etc/portage/make.conf
-
-veu "media-video/pipewire -ffmpeg"
-veu "media-libs/libsndfile minimal"
-
+#system upgrade
+#compilation takes 2min
 e w #emerge -uND world  - upgrade world
 emerge @preserved-rebuild
 
 
 ##############################################################
-#Stage 4 – install git and layman for extra packages
+#Stage 4 – X11 extra packages
 #------------------------------------------------------------
 v a 4host
 #------------------------------------------------------------
 #
-#/etc/init.d/ntp-client start
-#/etc/init.d/gpm start
-#rc-update add gpm default
-eselect repository enable kde
-#eselect repository enable x11
-#eselect repository enable sabayon 
-eselect repository enable steam-overlay
-#eselect repository enable lto-overlay
-#eix-update
-#e w
+#compilation takes 10min
+vex net-analyzer/xprobe
+veu "dev-libs/libnl utils"
+e g setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
+veu "sys-boot/grub mount"
+e g os-prober
 
 
 ##############################################################
-#Stage 5 – install additional packages and update after overlays
+#Stage 5 – entire Plasma desktop (min. 30min)
 #------------------------------------------------------------
 v a 5host
 #------------------------------------------------------------
-##Recommended programs – 103 apps
-##compilation time: ~16min
-vex sys-fs/reiserfsprogs
-#vex sys-fs/mdadm
-#vex sys-fs/squahsfs-tools
-#vex net-analyzer/xprobe
-#vex app-admin/pass
-#vex dev-python/pymountboot
-#vex app-admin/eclean-kernel
-#vex app-portage/diffmask
-#vex app-portage/install-mask
-#vex app-portage/gpytage
-#veu "dev-libs/libgpg-error static-libs"
-#veu "dev-libs/lzo static-libs"
-#veu "dev-libs/libgcrypt static-libs"
-## https://wiki.gentoo.org/wiki/Recommended_applications
-## https://wiki.gentoo.org/wiki/Recommended_tools
-## https://wiki.gentoo.org/wiki/Useful_Portage_tools
-#sed -i 's/PYTHON_SINGLE_TARGET="python3_4"/PYTHON_SINGLE_TARGET="python2_7"/g' /etc/portage/make.conf
-#e u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie install-mask portpeek smart-live-rebuild ufed gpytage net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
-#68 apps 8min
-e u setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol
-e u feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
-e u os-prober
+eselect repository enable kde
+emaint sync --repo kde
+eselect repository enable steam-overlay
+emaint sync --repo steam-overlay
+eix-update
+#compilation takes 30min
+e g networkmanager
+e g plasma-meta
+e g konsole kde-apps/dolphin
 
 ##############################################################
 #Stage 6 – compile game package
 #------------------------------------------------------------
 v a 6host
 #------------------------------------------------------------
-vex dev-games/irrlicht-mt
-vex dev-games/irrlicht-mt-headers
-vex games-action/minetest
-e u games-action/minetest
-cd /usr/share/minetest/games/minetest_game/mods
+vex games-engines/minetest
+e g games-engines/minetest
+#cd /usr/share/minetest/games/minetest_game/mods
 #mesecons.net
-for i in dreambuilder_modpack ; do [ ! -d $i ] && git clone https://gitlab.com/VanessaE/$i; done;
+#for i in dreambuilder_modpack ; do [ ! -d $i ] && git clone https://gitlab.com/VanessaE/$i; done;
 #aliveai depends on technic, 3d_armor, mesecons and smartshop
-[ ! -d smartshop ] && git clone https://github.com/AiTechEye/smartshop
-[ ! -d aliveai ] && git clone https://github.com/AiTechEye/aliveai
-for i in loot orbs_of_time; do [ ! -d $i ] && git clone https://github.com/minetest-mods/$i; done;
+#[ ! -d smartshop ] && git clone https://github.com/AiTechEye/smartshop
+#[ ! -d aliveai ] && git clone https://github.com/AiTechEye/aliveai
+#for i in loot orbs_of_time; do [ ! -d $i ] && git clone https://github.com/minetest-mods/$i; done;
 
 ##############################################################
-#Stage 7 – entire Plasma desktop (min. 80min)
+#Stage 7 – extra packages, x11 virtualbox
 #------------------------------------------------------------
 v a 7host
 #------------------------------------------------------------
-# optional: networkmanager (12min)
-e u networkmanager
-# plasma: 294 apps (85min)
-veu "app-crypt/qca qt5"
-veu "app-text/poppler qt5"
-veu "sys-libs/libblockdev cryptsetup"
-e plasma-meta
-e u konsole kde-apps/dolphin media-video/plasma-mediacenter
+#compilation takes 30min
+# e u app-emulation/virtualbox-guest-additions
+# e u virtualbox
+e g x11-drivers/xf86-video-virtualbox
+e g app-containers/docker lxc gimp vlc mplayer google-chrome firefox-bin opera
 
 ##############################################################
-#Stage 8 – extra packages, x11 virtualbox, new user
+#Stage 8 – new user
 #------------------------------------------------------------
 v a 8host
 #------------------------------------------------------------
-# compile time: 1h + upgrade
-veu "sys-libs/libcap static-libs"
-veu "sys-fs/lvm2 thin"
-e u app-containers/docker lxc
-# e u cdrtools dvd+rw-tools libisoburn 
-# e u firefox-bin opera
-# e u R octave nodejs mongodb
-# e u app-emulation/virtualbox-guest-additions
-# e u virtualbox 
-e u x11-drivers/xf86-video-virtualbox
-# e u calibre gimp vlc mplayer
-# e u skype google-chrome steam-launcher blender 
-
-# then add user
+# add user guest
 useradd -m -g users guest
 echo 'exec startplasma-x11' > /home/guest/.xinitrc
 chown -R guest:users /home/guest/
@@ -205,7 +161,7 @@ usermod -aG docker guest
 usermod -aG wheel guest
 usermod -aG audio guest
 usermod -aG video guest
-echo run: passwd guest
+echo Wykonaj: passwd guest
 #passwd guest
 
 ##############################################################

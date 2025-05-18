@@ -48,9 +48,9 @@ genformathdemo /dev/sda
 #Disc size: parted -s /dev/sda print|awk '/^Disk/ {print $3}'|sed 's/[Mm][Bb]//'
 #------------------------------------------------------------
 
-v a f #get stage3/4
-#this step takes ~23min
-time v a 1 #extract stage3/4, portage and edit make.conf, vim
+v a f #get stage3/4, extract it
+#this step takes ~30min
+time v a 1 #portage and edit make.conf, vim
 v a e #chroot into new gentoo system to change password
 
 #------------------------------------------------------------
@@ -88,7 +88,7 @@ e g rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpe
 v a 3host
 #------------------------------------------------------------
 #system upgrade
-#compilation takes 2min
+#compilation takes 8min
 e w #emerge -uND world  - upgrade world
 emerge @preserved-rebuild
 
@@ -99,7 +99,7 @@ emerge @preserved-rebuild
 v a 4host
 #------------------------------------------------------------
 #
-#compilation takes 10min
+#compilation takes 13min
 vex net-analyzer/xprobe
 veu "dev-libs/libnl utils"
 e g setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn

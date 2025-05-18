@@ -313,7 +313,7 @@ PORTAGE_NICENESS="19"
 MAKEOPTS="-j4 -l8"
 EMERGE_DEFAULT_OPTS="--getbinpkg --binpkg-respect-use=y --jobs 4 --load-average 8 --quiet-build=y --autounmask=y --autounmask-write --keep-going --verbose-conflicts --autounmask-backtrack=y --backtrack=100"
 FEATURES="${FEATURES} getbinpkg binpkg-request-signature sandbox parallel-fetch metadata-transfer fail-clean -compressdebug"
-CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3 avx avx2"
+CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3 avx avx2 f16c sse4_1 sse4_2"
 
 USE="systemd -elogind -firmware"
 #USE="${USE} -X -java systemd -hardened -pic -jit -pgo -graphite branding experimental extras -doc -acl -systemtap"
@@ -374,6 +374,7 @@ EOF
 	[ ! -e "$CHROOT/home" ] && [ ! -z $DEVCHROOT ] && mount $DEVCHROOT $CHROOT
         #[ -e $PROFILETMP/$ETAP ] && rm $PROFILETMP/$ETAP
 	cat > $PROFILETMP/$ETAP << 'EOF'
+#compilation takes 30min
 echo en_US.UTF-8 UTF-8 > /etc/locale.gen
 echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
 locale-gen
@@ -474,7 +475,7 @@ EOF
 3etap(){
 	ETAP=3etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#system upgrade
+#system upgrade 8min
 #compilation takes 2min
 e w #emerge -uND world  - upgrade world
 emerge @preserved-rebuild

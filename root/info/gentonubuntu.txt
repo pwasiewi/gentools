@@ -19,7 +19,7 @@ sudo su -
 
 wget https://raw.githubusercontent.com/pwasiewi/gentools/master/usr/local/bin/gentoolcfg
 chmod 755 ./gentoolcfg
-./gentoolcfg #utworzy /config.txz ze źródeł z gentools repozytorium
+./gentoolcfg #create /config.txz from gentools sources 
 cd / && tar Jxvf config.txz && cd
 
 #------------------------------------------------------------
@@ -57,7 +57,7 @@ v a e #chroot into new gentoo system to change password
 #START command entry: v a e
 #if needed edit fstab:  vim /etc/fstab
 #change password:                passwd #CHANGE ROOT PASSWORD
-#CTRL-d wychodzi z:          v a e
+#CTRL-d quits:          v a e
 #END command entry: v a e
 #REBOOT and continue with installation e.g. plasma-meta
 #------------------------------------------------------------
@@ -79,7 +79,7 @@ veu "dev-libs/libgpg-error static-libs"
 veu "dev-libs/lzo static-libs"
 veu "sys-apps/util-linux caps"
 
-e g rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
+e g u rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
 
 
 ##############################################################
@@ -102,9 +102,9 @@ v a 4host
 #compilation takes 13min
 vex net-analyzer/xprobe
 veu "dev-libs/libnl utils"
-e g setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
+e g u setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
 veu "sys-boot/grub mount"
-e g os-prober
+e g u os-prober
 
 
 ##############################################################
@@ -112,15 +112,15 @@ e g os-prober
 #------------------------------------------------------------
 v a 5host
 #------------------------------------------------------------
+#compilation takes 32min
 eselect repository enable kde
 emaint sync --repo kde
 eselect repository enable steam-overlay
 emaint sync --repo steam-overlay
 eix-update
-#compilation takes 30min
-e g networkmanager
-e g plasma-meta
-e g konsole kde-apps/dolphin
+e g u networkmanager
+e g u plasma-meta
+e g u konsole kde-apps/dolphin
 
 ##############################################################
 #Stage 6 – compile game package
@@ -128,7 +128,7 @@ e g konsole kde-apps/dolphin
 v a 6host
 #------------------------------------------------------------
 vex games-engines/minetest
-e g games-engines/minetest
+e g u games-engines/minetest
 #cd /usr/share/minetest/games/minetest_game/mods
 #mesecons.net
 #for i in dreambuilder_modpack ; do [ ! -d $i ] && git clone https://gitlab.com/VanessaE/$i; done;
@@ -145,8 +145,8 @@ v a 7host
 #compilation takes 30min
 # e u app-emulation/virtualbox-guest-additions
 # e u virtualbox
-e g x11-drivers/xf86-video-virtualbox
-e g app-containers/docker lxc gimp vlc mplayer google-chrome firefox-bin opera
+e g u x11-drivers/xf86-video-qlx
+e g u app-containers/docker lxc gimp vlc mplayer google-chrome firefox-bin opera
 
 ##############################################################
 #Stage 8 – new user

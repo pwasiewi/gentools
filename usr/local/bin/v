@@ -388,15 +388,15 @@ ln -sf /proc/self/mounts /etc/mtab
 #sed -i 's/^#ABI/ABI/g' /etc/portage/make.conf
 mv /etc/portage/repos.conf/st*.conf ~
 
-e g vim
-e g eix
-e g gentoolkit genkernel portage euses
+e g u vim
+e g u eix
+e g u gentoolkit genkernel portage euses
 
 vex sys-kernel/gentoo-sources
 
-e g genlop net-misc/dhcpcd grub
-e g gpm app-misc/mc ntpsec
-e g app-eselect/eselect-repository
+e g u genlop net-misc/dhcpcd grub
+e g u gpm app-misc/mc ntpsec
+e g u app-eselect/eselect-repository
 EOF
 
         if [ "$RAMDISK" == "0" ]; then
@@ -460,7 +460,7 @@ veu "dev-libs/libgpg-error static-libs"
 veu "dev-libs/lzo static-libs"
 veu "sys-apps/util-linux caps"
 
-e g rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
+e u g rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit f2fs-tools btrfs-progs
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -493,12 +493,12 @@ EOF
 4etap(){
 	ETAP=4etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
-#compilation takes 10min
+#compilation takes 14min
 vex net-analyzer/xprobe
 veu "dev-libs/libnl utils"
-e g setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
+e g u setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted freetype media-fonts/liberation-fonts pavucontrol feh lm-sensors xsensors lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite iptraf-ng libreswan openvpn
 veu "sys-boot/grub mount"
-e g os-prober
+e g u os-prober
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -513,15 +513,15 @@ EOF
 5etap(){
 	ETAP=5etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
+#compilation takes 32min
 eselect repository enable kde
 emaint sync --repo kde
 eselect repository enable steam-overlay
 emaint sync --repo steam-overlay
 eix-update
-#compilation takes 30min
-e g networkmanager
-e g plasma-meta
-e g konsole kde-apps/dolphin
+e g u networkmanager
+e g u plasma-meta
+e g u konsole kde-apps/dolphin kate
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then
@@ -537,7 +537,7 @@ EOF
 	ETAP=6etap
 	cat > $PROFILETMP/$ETAP << 'EOF'
 vex games-engines/minetest
-e g games-engines/minetest 
+e g u games-engines/minetest 
 #cd /usr/share/minetest/games/minetest_game/mods
 #mesecons.net
 #for i in dreambuilder_modpack ; do [ ! -d $i ] && git clone https://gitlab.com/VanessaE/$i; done;
@@ -562,8 +562,8 @@ EOF
 #compilation takes 30min
 # e u app-emulation/virtualbox-guest-additions
 # e u virtualbox
-e g x11-drivers/xf86-video-virtualbox
-e g app-containers/docker lxc gimp vlc mplayer google-chrome firefox-bin opera
+e g u x11-drivers/xf86-video-qxl
+e g u app-containers/docker lxc gimp vlc mplayer google-chrome firefox-bin opera
 EOF
 	chmod +x $PROFILETMP/$ETAP
 	if [ "$HOST" == "1" ]; then

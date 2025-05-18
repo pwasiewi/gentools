@@ -11,12 +11,14 @@ echo USUWANIE PARTYCJI ZAKOMENTOWANE w skrypcie
 exit 1
 else
 parted -s ${1} mklabel gpt
-parted ${1} mkpart primary fat32 1MiB 5MiB
-parted ${1} mkpart primary fat32 5MiB 205MiB
+parted ${1} mkpart primary fat32 1MiB 100MiB
+parted ${1} mkpart primary fat32 100MiB 205MiB
 parted ${1} mkpart primary ext4 205MiB 405MiB
 parted ${1} mkpart primary linux-swap 405MiB 1405MiB
 parted ${1} mkpart primary ext4 1405MiB 100%
 parted ${1} set 1 bios on
+parted ${1} set 1 esp on
+mkfs.vfat -F32 ${1}1
 mkfs.ext4 ${1}3 -F
 mkswap ${1}4
 swapon ${1}4

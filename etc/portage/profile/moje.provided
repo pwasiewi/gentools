@@ -1,8 +1,4 @@
 #PYTHON3.4
-app-text/sigil-0.9.6
-app-office/libreoffice-5.1.4.2
-dev-libs/libixion-0.11.1
-dev-libs/liborcus-0.11.2
 
 #STABILITY
 #sys-devel/gcc-5.4.0
@@ -13,7 +9,3 @@ dev-libs/liborcus-0.11.2
 #dev-lang/python-3.5.2
 
 #BASIC ADVANCED
-x11-drivers/ati-drivers-15.12-r1
-x11-drivers/nvidia-drivers-361.28
-sys-kernel/liquorix-sources-4.7.6_p1
-sys-kernel/gentoo-sources-4.8.0

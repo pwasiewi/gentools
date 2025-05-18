@@ -386,7 +386,6 @@ ln -sf /proc/self/mounts /etc/mtab
 
 #sed -i 's/\ -X\ /\ X\ /g' /etc/portage/make.conf
 #sed -i 's/^#ABI/ABI/g' /etc/portage/make.conf
-mv /etc/portage/repos.conf/st*.conf ~
 
 e g u vim
 e g u eix

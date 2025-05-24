@@ -1,0 +1,66 @@
+https://forums.gentoo.org/viewtopic-p-8849386.html
+https://wiki.gentoo.org/wiki/User:Pietinger/Tutorials/Boot_kernel_via_UEFI
+https://wiki.gentoo.org/wiki/Shim
+https://forums.gentoo.org/viewtopic-p-8492354.html#8492354
+https://www.rodsbooks.com/efi-bootloaders/controlling-sb.html
+dual boot
+https://forums.gentoo.org/viewtopic-p-8652037.html#8652037
+
+#/dev/nvme0n1p4  /boot       ext4   defaults,noatime    1 2
+#/dev/nvme0n1p1  /boot/efi   vfat   defaults,noatime    0 2
+
+# for usb pendrive modifies EFI/Boot/bootx64.efi:
+grub-install \
+  --target=x86_64-efi \
+  --efi-directory=/boot/efi \
+  --bootloader-id=Gentoo \
+  --removable \
+  --no-nvram
+
+# only creates EFI/Gentoo good for dual uefi boot
+grub-install \
+  --target=x86_64-efi \
+  --efi-directory=/boot/efi \
+  --boot-directory=/boot \
+  --bootloader-id=Gentoo \
+  --no-nvram
+
+#if /boot/efi/EFI/Boot/bootx64.efi overwritten copy this below
+#cp /boot/efi/EFI/Microsoft/Boot/bootmgfw.efi /boot/efi/EFI/Boot/bootx64.efi
+
+mkdir -p ~/secureboot/keys
+cd ~/secureboot/keys
+
+openssl genrsa -out MOK.key 2048
+openssl req -new -x509 -sha256 -days 3650 \
+  -subj "/CN=Gentoo Secure Boot/" \
+  -key MOK.key -out MOK.crt
+
+sbsign --key MOK.key --cert MOK.crt \
+  --output /boot/efi/EFI/Gentoo/grubx64.efi \
+  /boot/efi/EFI/Gentoo/grubx64.efi
+
+sbverify --list /boot/efi/EFI/Gentoo/grubx64.efi
+
+openssl x509 -in MOK.crt -outform DER -out MOK.der
+mokutil --import MOK.der
+
+cp /usr/share/shim/BOOTX64.EFI /boot/efi/EFI/Gentoo/shimx64.efi
+cp /usr/share/shim/mmx64.efi   /boot/efi/EFI/Gentoo/
+
+efibootmgr --create \
+  --disk /dev/sdX \
+  --part 1 \
+  --label "Gentoo Secure Boot" \
+  --loader '\EFI\Gentoo\shimx64.efi'
+
+/boot/efi/EFI/
+├── Gentoo/
+│   ├── shimx64.efi          ← z BOOTX64.EFI (oryginał shim)
+│   ├── mmx64.efi            ← z mmx64.efi
+│   ├── MOK.der              ← wygenerowany wcześniej
+│   └── grubx64.efi          ← Twój podpisany GRUB (stworzony wcześniej)
+├── Microsoft/
+│   └── Boot/bootmgfw.efi    ← Windows bootloader (nie ruszać)
+
+

@@ -1,0 +1,22 @@
+efibootmgr
+
+efibootmgr -b 0002 -B
+
+efibootmgr --create \
+  --disk /dev/nvme0n1 \
+  --part 1 \
+  --label "Gentoo Secure Boot (GRUB)" \
+  --loader '\EFI\Gentoo\grubx64.efi'
+
+efibootmgr --create \
+  --disk /dev/nvme0n1 \
+  --part 1 \
+  --label "EFI Shell" \
+  --loader '\EFI\Shell\shellx64.efi'
+
+efibootmgr --create \
+  --disk /dev/nvme0n1 \
+  --part 1 \
+  --label "Gentoo EFI Stub" \
+  --loader '\EFI\GentooEFISTUB\vmlinuz-signed.efi'
+

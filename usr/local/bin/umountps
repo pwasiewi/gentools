@@ -16,17 +16,17 @@ fi
 
 # Odmontowanie /dev
 if mountpoint -q "$CHROOT_DIR/dev"; then
-    umount "$CHROOT_DIR/dev"
+    umount -R "$CHROOT_DIR/dev"
 fi
 
 # Odmontowanie /sys
 if mountpoint -q "$CHROOT_DIR/sys"; then
-    umount "$CHROOT_DIR/sys"
+    umount -R "$CHROOT_DIR/sys"
 fi
 
 # Odmontowanie /proc
 if mountpoint -q "$CHROOT_DIR/proc"; then
-    umount "$CHROOT_DIR/proc"
+    umount -R "$CHROOT_DIR/proc"
 fi
 
 echo "Odmontowano wszystkie katalogi w $CHROOT_DIR."

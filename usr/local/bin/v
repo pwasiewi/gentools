@@ -66,39 +66,6 @@ die() {
 #####################################
 ## ${LIVECONF}/profiles/${CD_PROFILE}/settings
 #####################################
-ACCEPT_LICENSE="*"
-RUBY_TARGETS="ruby32"
-GRUB_PLATFORMS="pc emu efi-64"
-PYTHON_SINGLE_TARGET="python3_13"
-PYTHON_TARGETS="python3_13"
-PYTHON_ABIS="3.13"
-USE_PYTHON="3.13"
-POSTGRES_TARGETS="postgres17"
-PORTAGE_NICENESS="19"
-MAKEOPTS="-j4 -l8"
-EMERGE_DEFAULT_OPTS="--getbinpkg --binpkg-respect-use=y --jobs 4 --load-average 8 --quiet-build=y --autounmask=y --autounmask-write --keep-going --verbose-conflicts --autounmask-backtrack=y --backtrack=100"
-FEATURES="${FEATURES} getbinpkg binpkg-request-signature sandbox parallel-fetch metadata-transfer fail-clean -compressdebug"
-CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3 avx avx2"
-
-USE="systemd -elogind"
-#USE="${USE} -X -java systemd -hardened -pic -jit -pgo -graphite branding experimental extras -doc -acl -systemtap"
-#USE="${USE} -kde plasma -gnome -gnome-keyring -nautilus grub -mediacenter user-session"
-#USE="${USE} reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay lvm vnc acl"
-#USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu -cryptsetup kvm fuse threads usb bluetooth network -consolekit ssl sslv3 wifi -pcap -ipv6 -automount -gnutls -hal -ldap policykit ovs sound -experimental -filecaps mount"
-#USE="${USE} -qt4 -qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c++14 -wxwidgets"
-
-#USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l zip"
-#USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype -qrcode devil gegl introspection imagemagick gif qml"
-#USE="${USE} -tools xnest xvfb tslib kms libkms dmx xcb dbus xrandr xorg sna vaapi uxa gbm glamor lcdfilter kdrive infinality xkb"
-#USE="${USE} nvidia uvm -cuda gpu egl -wayland osmesa xa vdpau vulkan opencl tinfo gles"
-#USE="${USE} lua script llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic -hardened"
-#USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot mercurial googledrive"
-
-VIDEO_CARDS="intel radeon nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu"
-PORT_LOGDIR="/var/log/portage"
-QEMU_SOFTMMU_TARGETS="arm x86_64"
-QEMU_USER_TARGETS="arm armeb x86_64"
-JAVA_HOME="/etc/java-config-2/current-system-vm"
 #DEVCHROOT="/dev/sda5"
 #CD_STAGEFILE="stage3-amd64-20161013.tar.bz2"
 #CD_STAGETARBALL="http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/"$CD_STAGEFILE
@@ -128,43 +95,11 @@ CD_PROFILE=${1}
 #[ ! -e "${HOME}/.livecd-pw" ] && die "Cannot find ~/.livecd-pw settings."
 #source ~/.livecd-pw || die "Couldn't find local settings in ~/.livecd-pw." 
 [ ! -e "${LIVECONF}/profiles/global/settings" ] && die "Cannot find global settings."
+[ ! -e "${LIVECONF}/profiles/${CD_PROFILE}/settings" ] && die "Profile \"${CD_PROFILE}\""
 source ${LIVECONF}/profiles/global/settings || die "Couldn't find global settings." 
 CDLOC=$DIST/iso
 [ ! -e $CDLOC ] && mkdir -pv $CDLOC
 
-[ ! -e "${LIVECONF}/profiles/${CD_PROFILE}/settings" ] && die "Profile \"${CD_PROFILE}\" mACCEPT_LICENSE="*"
-RUBY_TARGETS="ruby32"
-GRUB_PLATFORMS="pc emu efi-64"
-PYTHON_SINGLE_TARGET="python3_13"
-PYTHON_TARGETS="python3_13"
-PYTHON_ABIS="3.13"
-USE_PYTHON="3.13"
-POSTGRES_TARGETS="postgres17"
-PORTAGE_NICENESS="19"
-MAKEOPTS="-j4 -l8"
-EMERGE_DEFAULT_OPTS="--getbinpkg --binpkg-respect-use=y --jobs 4 --load-average 8 --quiet-build=y --autounmask=y --autounmask-write --keep-going --verbose-conflicts --autounmask-backtrack=y --backtrack=100"
-FEATURES="${FEATURES} getbinpkg binpkg-request-signature sandbox parallel-fetch metadata-transfer fail-clean -compressdebug"
-CPU_FLAGS_X86="${CPU_FLAGS_X86} mmxext sse sse2 sse3 ssse3 avx avx2"
-
-USE="systemd -elogind"
-#USE="${USE} -X -java systemd -hardened -pic -jit -pgo -graphite branding experimental extras -doc -acl -systemtap"
-#USE="${USE} -kde plasma -gnome -gnome-keyring -nautilus grub -mediacenter user-session"
-#USE="${USE} reiserfs ntfs fat vfat ntfs reiserfs btrfs dmraid hfs jfs mdadm reiser4 xfs xattr f2fs aufs overlay lvm vnc acl"
-#USE="${USE} device-mapper udev openrc kernel-patch -pax_kernel acpi icu -cryptsetup kvm fuse threads usb bluetooth network -consolekit ssl sslv3 wifi -pcap -ipv6 -automount -gnutls -hal -ldap policykit ovs sound -experimental -filecaps mount"
-#USE="${USE} -qt4 -qt5 gtk -gtk2 gtk3 javafx cairo sdl avahi webkit boost c++11 c++14 -wxwidgets"
-
-#USE="${USE} video faac faad mpeg mng wmf ogg mpg123 bluray 3dnow win32codecs divx encode dirac alsa a52 aac ieee1394 jpeg2k mp3 schroedinger v4l2 theora vorbis x264 coreavc ffmpeg -libav ffmpeg-mt stereoscopic xvid 3dnowext openal xinerama xvmc g3dvl dts dvd flac opengl xv shaders pulseaudio gstreamer cdr musicbrainz fdk -jack v4l zip"
-#USE="${USE} gimp exif lcms jpeg png tiff pdf svg openvg xml gd truetype -qrcode devil gegl introspection imagemagick gif qml"
-#USE="${USE} -tools xnest xvfb tslib kms libkms dmx xcb dbus xrandr xorg sna vaapi uxa gbm glamor lcdfilter kdrive infinality xkb"
-#USE="${USE} nvidia uvm -cuda gpu egl -wayland osmesa xa vdpau vulkan opencl tinfo gles"
-#USE="${USE} lua script llcm-gcc -mpi -mpi-threads openmp smp fortran debugger profiler vala v8 perl python gold -objc-gc -objc -objc++ -static-libs lapack -pic -hardened"
-#USE="${USE} cups unicode lzma legacy-systray postgres nsplugin djvu xulrunner bash-completion latex -cleartype -apache2 -apache kpathsea libnotify gnuplot mercurial googledrive"
-
-VIDEO_CARDS="intel radeon nouveau i810 i915 i965 r100 r200 r300 r600 radeonsi amdgpu"
-PORT_LOGDIR="/var/log/portage"
-QEMU_SOFTMMU_TARGETS="arm x86_64"
-QEMU_USER_TARGETS="arm armeb x86_64"
-JAVA_HOME="/etc/java-config-2/current-system-vm" issing \"settings\" file."
 source ${LIVECONF}/profiles/${CD_PROFILE}/settings
 
 PROFILE=${CDLOC}/${CD_PROFILE}
@@ -211,13 +146,30 @@ mount_all() {
 	   done
 	fi
 	
-	for x in /dev /proc /sys /dev/pts $DIST/.portage $DIST/.src64bit $DIST/.repos /home/tmp/.packages ${CCACHEDIR}
+	for x in $DIST/.portage $DIST/.src64bit $DIST/.repos /home/tmp/.packages ${CCACHEDIR}
 	do	
 		[ ! -e ${x} ] && mkdir -pv ${x}
 		[ ! -e ${CHROOT}${x} ] && mkdir -pv ${CHROOT}${x}
 		#echo mount -o bind ${x} ${CHROOT}${x}
 		mount -o bind ${x} ${CHROOT}${x} || chroot_die
 	done
+
+	for x in /proc
+	do	
+		[ ! -e ${x} ] && mkdir -pv ${x}
+		[ ! -e ${CHROOT}${x} ] && mkdir -pv ${CHROOT}${x}
+		#echo mount -o bind ${x} ${CHROOT}${x}
+		mount --types proc ${x} ${CHROOT}${x} || chroot_die
+	done
+	for x in /sys /dev
+	do	
+		[ ! -e ${x} ] && mkdir -pv ${x}
+		[ ! -e ${CHROOT}${x} ] && mkdir -pv ${CHROOT}${x}
+		#echo mount -o bind ${x} ${CHROOT}${x}
+		mount --rbind ${x} ${CHROOT}${x} || chroot_die
+		mount --make-rslave ${CHROOT}${x} || chroot_die
+	done
+
 	#echo mount -o bind $PROFILETMP $CHROOT/tmp/livecd
 	mount -o bind $PROFILETMP $CHROOT/tmp/livecd || chroot_die
 	chmod 1777 $CHROOT/dev/shm
@@ -227,7 +179,12 @@ umount_all() {
 	#echo umount $CHROOT$DIST/portage $CHROOT/tmp/livecd
 	umount $CHROOT$DIST/portage $CHROOT/tmp/livecd 2>/dev/null || true
 	local x
-	for x in /dev/pts ${CCACHEDIR} $DIST/.packages $DIST/.repos $DIST/.src64bit $DIST/distfiles $DIST/.portage /sys /proc /dev /home/tmp/.packages
+	for x in /dev /sys /proc 
+	do
+		#echo umount ${CHROOT}${x}
+		umount -R ${CHROOT}${x} 2>/dev/null || true
+	done
+	for x in ${CCACHEDIR} $DIST/.packages $DIST/.repos $DIST/.src64bit $DIST/distfiles $DIST/.portage /home/tmp/.packages
 	do
 		#echo umount ${CHROOT}${x}
 		umount ${CHROOT}${x} 2>/dev/null || true

@@ -1,0 +1,325 @@
+#!/bin/bash
+# build-nvme — partitions NVMe for triple-boot: Gentoo + Ubuntu + Windows 11
+#
+# Layout (1TB):
+#   p1   1G    EF00  ESP       — shared GRUB/EFI for all systems
+#   p2   16M   0C01  MSR       — Microsoft Reserved (precautionary)
+#   p3   60G   8300  GENTOO    — Gentoo root
+#   p4   60G   8300  UBUNTU    — Ubuntu root
+#   p5   16G   8200  SWAP      — shared swap for both Linux systems
+#   p6   500G  8300  HOME      — shared /home (separate UIDs per distro)
+#   p7   rest  0700  WINDOWS   — Windows 11 NTFS
+#
+# Safety: refuses to run on removable devices (inverse of build-usb).
+# Does NOT format Windows partition — Windows installer handles NTFS.
+# Does NOT install OS — only prepares partition table, formats Linux parts,
+# installs GRUB and writes a placeholder grub.cfg.
+#
+# Usage: sudo build-nvme /dev/nvme0n1
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Partition sizes
+# ---------------------------------------------------------------------------
+ESP_SIZE="1GiB"
+MSR_SIZE="16MiB"
+GENTOO_SIZE="60GiB"
+UBUNTU_SIZE="60GiB"
+SWAP_SIZE="16GiB"
+HOME_SIZE="500GiB"
+# WINDOWS gets the remainder (100%)
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+die()     { echo "❌ $*" >&2; exit 1; }
+confirm() { read -r -p "$1 [yes/NO]: " ans; [[ "$ans" == "yes" ]] || die "Aborted by user."; }
+
+# ---------------------------------------------------------------------------
+# Argument + privilege check
+# ---------------------------------------------------------------------------
+[[ $# -eq 1 ]] || die "Usage: sudo $0 /dev/nvme0n1"
+[[ $EUID -eq 0 ]] || die "Root privileges required."
+
+DEV="${1%/}"
+
+# Accept nvme devices (nvme0n1) or traditional sd* — but not partition nodes
+[[ "$DEV" =~ ^/dev/(nvme[0-9]+n[0-9]+|[a-z]+)$ ]] \
+    || die "Provide block device without partition number, e.g. /dev/nvme0n1"
+[[ -b "$DEV" ]] || die "Block device not found: $DEV"
+
+DEVNAME="${DEV##*/}"
+
+# ---------------------------------------------------------------------------
+# Safety: this script targets internal disks — REFUSE removable devices
+# Inverse logic vs build-usb which requires removable=1
+# ---------------------------------------------------------------------------
+REMOVABLE_PATH="/sys/block/${DEVNAME}/removable"
+[[ -f "$REMOVABLE_PATH" ]] || die "Cannot read $REMOVABLE_PATH — unknown device."
+
+REMOVABLE=$(cat "$REMOVABLE_PATH")
+[[ "$REMOVABLE" == "0" ]] \
+    || die "Device $DEV is removable (removable=1). Use build-usb for USB drives."
+
+# Extra guard: refuse if udevadm reports USB bus
+ID_BUS=$(udevadm info --query=property --name="$DEV" 2>/dev/null | grep '^ID_BUS=' | cut -d= -f2 || true)
+if [[ -n "$ID_BUS" && "$ID_BUS" == "usb" ]]; then
+    die "Device $DEV has ID_BUS=usb. Refusing — use build-usb."
+fi
+
+# ---------------------------------------------------------------------------
+# Show device info
+# ---------------------------------------------------------------------------
+echo ""
+echo "════════════════════════════════════════════════════════"
+echo "  Device     : $DEV"
+echo "  Model      : $(cat /sys/block/${DEVNAME}/device/model 2>/dev/null | xargs || echo '?')"
+echo "  Size       : $(lsblk -dno SIZE "$DEV")"
+echo "  removable  : $REMOVABLE"
+echo "  ID_BUS     : ${ID_BUS:-nieznany}"
+echo ""
+echo "  Planned partition layout:"
+echo "    p1  $ESP_SIZE     EF00  ESP     (FAT32, shared EFI)"
+echo "    p2  $MSR_SIZE    0C01  MSR     (Microsoft Reserved)"
+echo "    p3  $GENTOO_SIZE  8300  GENTOO  (ext4)"
+echo "    p4  $UBUNTU_SIZE  8300  UBUNTU  (ext4)"
+echo "    p5  $SWAP_SIZE   8200  SWAP    (swap)"
+echo "    p6  $HOME_SIZE  8300  HOME    (ext4, shared)"
+echo "    p7  reszta       0700  WINDOWS (raw — formatted by installer)"
+echo "════════════════════════════════════════════════════════"
+echo ""
+echo "⚠️  WARNING: The following operations will IRREVERSIBLY erase $DEV"
+echo ""
+confirm "Are you sure you want to continue?"
+
+# ---------------------------------------------------------------------------
+# Unmount any existing partitions
+# ---------------------------------------------------------------------------
+echo ""
+echo "🔌 Unmounting partitions on $DEV..."
+# NVMe partitions are named nvme0n1p1, sd* partitions are sda1 etc.
+for part in "${DEV}"p* "${DEV}"[0-9]*; do
+    [[ -b "$part" ]] || continue
+    if grep -q "^$part " /proc/mounts 2>/dev/null; then
+        echo "   umount $part"
+        umount "$part" || true
+    fi
+done 2>/dev/null || true
+swapoff -a 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Partition table — GPT via parted
+# Boundaries calculated as cumulative MiB/GiB offsets
+# ---------------------------------------------------------------------------
+echo ""
+echo "📐 Creating GPT partition table on $DEV..."
+
+parted "$DEV" --script \
+    mklabel gpt \
+    mkpart ESP     fat32   1MiB      1025MiB  \
+    set 1 esp on                               \
+    mkpart MSR              1025MiB   1041MiB  \
+    mkpart GENTOO  ext4     1041MiB   62513MiB \
+    mkpart UBUNTU  ext4     62513MiB  123985MiB \
+    mkpart SWAP    linux-swap 123985MiB 140369MiB \
+    mkpart HOME    ext4     140369MiB 652369MiB \
+    mkpart WINDOWS          652369MiB 100%
+
+# Set partition type GUIDs via sgdisk (parted has no 0C01/0700 type support)
+# 0C01 = Microsoft Reserved, 0700 = Microsoft Basic Data
+sgdisk --typecode=2:0c01 --typecode=7:0700 "$DEV"
+
+partprobe "$DEV"
+sleep 2
+
+# ---------------------------------------------------------------------------
+# Resolve partition nodes (nvme0n1p1 vs sda1)
+# ---------------------------------------------------------------------------
+if [[ "$DEV" =~ nvme ]]; then
+    P() { echo "${DEV}p${1}"; }
+else
+    P() { echo "${DEV}${1}"; }
+fi
+
+PART_ESP=$(P 1)
+PART_MSR=$(P 2)
+PART_GENTOO=$(P 3)
+PART_UBUNTU=$(P 4)
+PART_SWAP=$(P 5)
+PART_HOME=$(P 6)
+PART_WINDOWS=$(P 7)
+
+for part in "$PART_ESP" "$PART_GENTOO" "$PART_UBUNTU" "$PART_SWAP" "$PART_HOME" "$PART_WINDOWS"; do
+    [[ -b "$part" ]] || die "Partition does not exist after partprobe: $part"
+done
+
+# ---------------------------------------------------------------------------
+# Format Linux partitions
+# MSR and WINDOWS are intentionally left unformatted
+# ---------------------------------------------------------------------------
+echo ""
+echo "💾 Formatting Linux partitions..."
+
+mkfs.vfat -F32 -n ESP     "$PART_ESP"
+mkfs.ext4 -L GENTOO   -F  "$PART_GENTOO"
+mkfs.ext4 -L UBUNTU   -F  "$PART_UBUNTU"
+mkswap    -L SWAP         "$PART_SWAP"
+mkfs.ext4 -L HOME     -F  "$PART_HOME"
+
+echo "ℹ️  MSR partition ($PART_MSR) and WINDOWS ($PART_WINDOWS) — not formatted."
+echo "   Windows 11 installer will format NTFS and fill MSR automatically."
+
+# ---------------------------------------------------------------------------
+# Mount ESP and install GRUB
+# ---------------------------------------------------------------------------
+MNT_EFI="$(mktemp -d /tmp/nvme-efi-XXXXXX)"
+trap 'umount "$MNT_EFI" 2>/dev/null || true; rmdir "$MNT_EFI" 2>/dev/null || true' EXIT
+
+echo ""
+echo "🔧 Mounting ESP $PART_ESP -> $MNT_EFI"
+mount "$PART_ESP" "$MNT_EFI"
+
+echo "🔧 Installing GRUB EFI..."
+grub-install \
+    --target=x86_64-efi \
+    --efi-directory="$MNT_EFI" \
+    --boot-directory="$MNT_EFI/boot" \
+    --recheck
+
+# ---------------------------------------------------------------------------
+# grub.cfg placeholder — extend after OS installations
+# ---------------------------------------------------------------------------
+GRUB_CFG="$MNT_EFI/boot/grub/grub.cfg"
+mkdir -p "$(dirname "$GRUB_CFG")"
+
+UUID_GENTOO=$(blkid -o value -s UUID "$PART_GENTOO"); [[ -n "$UUID_GENTOO" ]] || die "blkid returned no UUID for $PART_GENTOO"
+UUID_UBUNTU=$(blkid -o value -s UUID "$PART_UBUNTU"); [[ -n "$UUID_UBUNTU" ]] || die "blkid returned no UUID for $PART_UBUNTU"
+UUID_SWAP=$(blkid -o value -s UUID "$PART_SWAP");     [[ -n "$UUID_SWAP"   ]] || die "blkid returned no UUID for $PART_SWAP"
+UUID_HOME=$(blkid -o value -s UUID "$PART_HOME");     [[ -n "$UUID_HOME"   ]] || die "blkid returned no UUID for $PART_HOME"
+
+cat > "$GRUB_CFG" <<GRUBEOF
+set timeout=10
+set default=0
+set gfxpayload=keep
+
+# ---------------------------------------------------------------------------
+# Gentoo
+# Kernel and initrd must be copied to ESP root after Gentoo installation.
+# ---------------------------------------------------------------------------
+menuentry "Gentoo Linux" {
+    linux  /gentoo root=UUID=$UUID_GENTOO ro quiet
+    initrd /initrd-gentoo.img
+}
+
+# ---------------------------------------------------------------------------
+# Ubuntu
+# Update this entry after Ubuntu installation (kernel version may differ).
+# ---------------------------------------------------------------------------
+menuentry "Ubuntu" {
+    linux  /vmlinuz-ubuntu root=UUID=$UUID_UBUNTU ro quiet splash
+    initrd /initrd-ubuntu.img
+}
+
+# ---------------------------------------------------------------------------
+# Windows 11 — chainload from Windows EFI bootloader
+# Uncomment after Windows installation.
+# ---------------------------------------------------------------------------
+#menuentry "Windows 11" {
+#    insmod part_gpt
+#    insmod fat
+#    insmod chain
+#    search --no-floppy --set=root --label ESP
+#    chainloader /EFI/Microsoft/Boot/bootmgfw.efi
+#}
+GRUBEOF
+
+echo "📄 grub.cfg written: $GRUB_CFG"
+
+umount "$MNT_EFI"
+trap - EXIT
+rmdir "$MNT_EFI"
+
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
+echo ""
+echo "✅ Done. Partition layout:"
+lsblk -o NAME,SIZE,FSTYPE,LABEL,UUID "$DEV"
+
+echo ""
+echo "UUIDs for fstab:"
+echo "  GENTOO  : $UUID_GENTOO"
+echo "  UBUNTU  : $UUID_UBUNTU"
+echo "  SWAP    : $UUID_SWAP"
+echo "  HOME    : $UUID_HOME"
+
+# ---------------------------------------------------------------------------
+# Generate fstab for Gentoo
+# ---------------------------------------------------------------------------
+FSTAB_FILE="$(dirname "$0")/fstab.gentoo"
+cat > "$FSTAB_FILE" <<FSTABEOF
+# /etc/fstab — Gentoo on ${DEV} (triple-boot: Gentoo/Ubuntu/Windows)
+# Generated by build-nvme on $(date '+%Y-%m-%d %H:%M:%S')
+# Layout:
+#   ${PART_ESP}  ESP     vfat
+#   ${PART_MSR}  MSR     (no mount)
+#   ${PART_GENTOO}  GENTOO  ext4   $UUID_GENTOO
+#   ${PART_UBUNTU}  UBUNTU  ext4   $UUID_UBUNTU
+#   ${PART_SWAP}  SWAP    swap   $UUID_SWAP
+#   ${PART_HOME}  HOME    ext4   $UUID_HOME
+#   ${PART_WINDOWS}  WINDOWS ntfs   (formatuje installer)
+
+# ---------------------------------------------------------------------------
+# ROOT — Gentoo (${PART_GENTOO})
+# ---------------------------------------------------------------------------
+
+# ext4-ssd (active)
+UUID=$UUID_GENTOO  /  ext4  noatime,discard,data=writeback,barrier=0  0 1
+
+# ext4-evo (Samsung EVO — alternative)
+#UUID=$UUID_GENTOO  /  ext4  noatime,discard,data=writeback,barrier=0,commit=60  0 1
+
+# btrfs-ssd (if formatted via montuj --fs btrfs-ssd)
+#UUID=$UUID_GENTOO  /  btrfs  noatime,ssd,compress=zstd:3,space_cache=v2,discard=async  0 0
+
+# ---------------------------------------------------------------------------
+# HOME — współdzielony Gentoo + Ubuntu (${PART_HOME})
+# ---------------------------------------------------------------------------
+
+# ext4-ssd
+UUID=$UUID_HOME  /home  ext4  noatime,discard,data=writeback  0 2
+
+# btrfs (if formatted as btrfs)
+#UUID=$UUID_HOME  /home  btrfs  noatime,ssd,compress=zstd:3,space_cache=v2,discard=async  0 0
+
+# ---------------------------------------------------------------------------
+# SWAP (${PART_SWAP})
+# ---------------------------------------------------------------------------
+UUID=$UUID_SWAP  none  swap  sw,discard  0 0
+
+# ---------------------------------------------------------------------------
+# ESP — mount manually only when updating kernel/GRUB
+# ---------------------------------------------------------------------------
+#${PART_ESP}  /boot/efi  vfat  noauto,noatime,fmask=0133,dmask=0022  0 2
+
+# ---------------------------------------------------------------------------
+# tmpfs / proc / sys
+# ---------------------------------------------------------------------------
+none  /proc     proc   defaults              0 0
+none  /sys      sysfs  defaults              0 0
+none  /dev/shm  tmpfs  nodev,nosuid,noexec   0 0
+FSTABEOF
+
+echo ""
+echo "📄 fstab generated: $FSTAB_FILE"
+echo "   Copy after installation: cp $FSTAB_FILE /mnt/gentoo/etc/fstab"
+
+echo ""
+echo "Next steps:"
+echo "  1. Install Gentoo on $PART_GENTOO, mount /home from $PART_HOME"
+echo "     sudo montuj --fs ext4-ssd $PART_GENTOO"
+echo "  2. Install Ubuntu on $PART_UBUNTU, mount /home from $PART_HOME (different UID!)"
+echo "  3. Install Windows 11 — select $PART_WINDOWS as target"
+echo "  4. After Windows installation uncomment Windows entry in grub.cfg"
+echo "  5. Copy kernels and initrd to ESP, update grub.cfg"
+echo "  6. cp $FSTAB_FILE /mnt/gentoo/etc/fstab"

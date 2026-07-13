@@ -1,0 +1,27 @@
+#!/bin/bash
+set -euo pipefail
+# ramstop - unmounts bind-mounts mounted by ramstart (reverse order)
+ERRORS=0
+
+echo 3 > /proc/sys/vm/drop_caches; sync
+
+for mp in \
+  /var/cache/binpkgs \
+  /var/lib/containerd \
+  /var/lib/docker \
+  /var/lib/lxd \
+  /var/tmp/.src64bit \
+  /var/tmp/distfiles \
+  /var/tmp/portage; do
+  if mountpoint -q "$mp"; then
+    umount "$mp" && echo "→ unmounted $mp" \
+        || { echo "ERROR: failed to unmount $mp" >&2; ((ERRORS++)) || true; }
+  else
+    echo "  skipped $mp (not mounted)"
+  fi
+done
+
+if (( ERRORS > 0 )); then
+    echo "ERROR: $ERRORS unmount(s) failed" >&2
+    exit 1
+fi

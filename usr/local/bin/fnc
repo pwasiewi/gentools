@@ -1,0 +1,3 @@
+#!/bin/bash
+# fnc - restart fan controller
+systemctl restart fancontrol.service

@@ -1,0 +1,12 @@
+e vkbasalt
+# add to steam command
+ENABLE_VKBASALT=1 %command%
+
+e wine-staging::bobwya wine-mono
+
+# to get NOSTEAMGAME
+protontricks -s "No Man's Sky"
+protontricks NOSTEAMGAME --gui
+
+e =mesa-20.3.0 n b
+e =mesa-9999 n b

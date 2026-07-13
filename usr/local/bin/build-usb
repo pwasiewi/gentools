@@ -1,0 +1,232 @@
+#!/bin/bash
+# build-usb — partitions a USB drive and installs GRUB EFI bootloader.
+#
+# Safety: refuses to operate on non-removable block devices.
+# Does NOT copy kernel/initrd/squashfs — that is a separate step.
+#
+# Partition layout (sizes grow as triangular series):
+#   p1   512MiB   ESP       FAT32, GRUB EFI
+#   p2   ≤30GiB   GENTOO_LIVE  ext4, squashfs target
+#   p3   ≤40GiB   DATA3     ext4
+#   p4   ≤60GiB   DATA4     ext4
+#   p5   ≤90GiB   DATA5     ext4
+#   p6   ≤130GiB  DATA6     ext4  ...and so on until end of disk
+#   Each successive partition cap: prev_cap + (10 * partition_index) GiB
+#
+# Usage: sudo build-usb /dev/sdX
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+die() { echo "❌ $*" >&2; exit 1; }
+confirm() {
+    local prompt="$1"
+    read -r -p "$prompt [yes/NO]: " ans
+    [[ "$ans" == "yes" ]] || die "Aborted by user."
+}
+
+# ---------------------------------------------------------------------------
+# Argument check
+# ---------------------------------------------------------------------------
+[[ $# -eq 1 ]] || die "Usage: sudo $0 /dev/sdX"
+[[ $EUID -eq 0 ]]  || die "Root privileges required."
+
+DEV="$1"
+
+# Normalize: strip trailing slash or partition suffix if user passed /dev/sda1
+DEV="${DEV%/}"
+[[ "$DEV" =~ ^/dev/[a-z]+$ ]] || die "Provide block device without partition number, e.g. /dev/sdb"
+[[ -b "$DEV" ]] || die "Block device not found: $DEV"
+
+DEVNAME="${DEV##*/}"   # e.g. sdb
+
+# ---------------------------------------------------------------------------
+# Safety: verify the device is removable
+# Kernel exposes this via /sys/block/<dev>/removable (1 = removable)
+# ---------------------------------------------------------------------------
+REMOVABLE_PATH="/sys/block/${DEVNAME}/removable"
+[[ -f "$REMOVABLE_PATH" ]] || die "Cannot read $REMOVABLE_PATH — unknown device."
+
+REMOVABLE=$(cat "$REMOVABLE_PATH")
+[[ "$REMOVABLE" == "1" ]] || die "Device $DEV is NOT removable (removable=0). Refusing to operate on internal disk."
+
+# ---------------------------------------------------------------------------
+# Safety: double-check via udevadm (ID_BUS=usb expected)
+# ---------------------------------------------------------------------------
+ID_BUS=$(udevadm info --query=property --name="$DEV" 2>/dev/null | grep '^ID_BUS=' | cut -d= -f2 || true)
+if [[ -n "$ID_BUS" && "$ID_BUS" != "usb" ]]; then
+    die "Device $DEV has ID_BUS=$ID_BUS (expected usb). Refusing."
+fi
+
+# ---------------------------------------------------------------------------
+# Show device info before destructive operations
+# ---------------------------------------------------------------------------
+echo ""
+echo "════════════════════════════════════════════"
+echo "  Device     : $DEV"
+echo "  removable  : $REMOVABLE"
+echo "  ID_BUS     : ${ID_BUS:-unknown (no udevadm)}"
+echo "  Model      : $(cat /sys/block/${DEVNAME}/device/model 2>/dev/null | tr -d ' ' || echo '?')"
+echo "  Size       : $(lsblk -dno SIZE "$DEV")"
+echo "════════════════════════════════════════════"
+echo ""
+echo "⚠️  WARNING: The following operations will IRREVERSIBLY erase $DEV"
+echo ""
+confirm "Are you sure you want to continue?"
+
+# ---------------------------------------------------------------------------
+# Unmount any existing partitions on the device
+# ---------------------------------------------------------------------------
+echo ""
+echo "🔌 Unmounting partitions $DEV (if mounted)..."
+for part in "${DEV}"?*; do
+    if mountpoint -q "$part" 2>/dev/null || grep -q "^$part " /proc/mounts 2>/dev/null; then
+        echo "   umount $part"
+        umount "$part" || true
+    fi
+done
+
+# ---------------------------------------------------------------------------
+# Partition: GPT + ESP, then data partitions with growing size caps
+# Series: 30, 40, 60, 90, 130, 180, 240 GiB... (delta grows by 10 each step)
+# Each partition takes min(cap, remaining_space).
+# Stops when disk is full.
+# ---------------------------------------------------------------------------
+echo ""
+echo "📐 Creating GPT + ESP on $DEV..."
+parted "$DEV" --script \
+    mklabel gpt \
+    mkpart ESP fat32 1MiB 513MiB \
+    set 1 esp on
+
+TOTAL_MIB=$(lsblk -bdno SIZE "$DEV" | awk '{print int($1/1024/1024)}')
+START_MIB=513
+MIN_DATA_MIB=64
+CUR_CAP_GIB=30   # cap for partition 2
+DELTA_GIB=10     # grows by 10 each step
+PART_NUM=2
+DATA_PARTS=()
+
+echo "  Disk total: ${TOTAL_MIB} MiB"
+[[ $(( TOTAL_MIB - START_MIB )) -ge $MIN_DATA_MIB ]] || die "Device is too small: need at least $(( START_MIB + MIN_DATA_MIB )) MiB."
+echo ""
+echo "📐 Adding data partitions..."
+
+while true; do
+    REMAINING=$(( TOTAL_MIB - START_MIB ))
+    [[ $REMAINING -le 0 ]] && break
+
+    CAP_MIB=$(( CUR_CAP_GIB * 1024 ))
+    [[ $CAP_MIB -gt $REMAINING ]] && CAP_MIB=$REMAINING
+
+    END_MIB=$(( START_MIB + CAP_MIB ))
+    END_SPEC="${END_MIB}MiB"
+    IS_LAST=0
+    if [[ $END_MIB -ge $TOTAL_MIB ]]; then
+        # parted treats the exact disk size in MiB as just past the last
+        # addressable sector on some small USB sticks. 100% means "to the end"
+        # without changing the old partition caps for larger devices.
+        END_SPEC="100%"
+        END_MIB=$TOTAL_MIB
+        IS_LAST=1
+    fi
+
+    if [[ $PART_NUM -eq 2 ]]; then
+        LABEL="LIVE"
+    else
+        LABEL="DATA${PART_NUM}"
+    fi
+
+    parted "$DEV" --script mkpart "$LABEL" ext4 "${START_MIB}MiB" "$END_SPEC"
+    DATA_PARTS+=("$PART_NUM")
+    echo "  p${PART_NUM}  ${START_MIB}MiB – ${END_SPEC}  (≤${CUR_CAP_GIB}GiB, label: ${LABEL})"
+
+    START_MIB=$END_MIB
+    [[ $IS_LAST -eq 1 || $(( TOTAL_MIB - START_MIB )) -le 0 ]] && break
+
+    # Next partition cap: cur_cap + delta, delta += 10
+    CUR_CAP_GIB=$(( CUR_CAP_GIB + DELTA_GIB ))
+    DELTA_GIB=$(( DELTA_GIB + 10 ))
+    PART_NUM=$(( PART_NUM + 1 ))
+done
+
+partprobe "$DEV"
+sleep 1
+
+PART_EFI="${DEV}1"
+PART_ROOT="${DEV}2"
+
+[[ -b "$PART_EFI"  ]] || die "EFI partition does not exist: $PART_EFI"
+[[ -b "$PART_ROOT" ]] || die "ROOT partition does not exist: $PART_ROOT"
+
+# ---------------------------------------------------------------------------
+# Format
+# ---------------------------------------------------------------------------
+echo ""
+echo "💾 Formatting partitions..."
+mkfs.vfat -F32 -n EFI         "$PART_EFI"
+mkfs.ext4 -L GENTOO_LIVE -F   "$PART_ROOT"
+
+for N in "${DATA_PARTS[@]:1}"; do   # skip first (PART_ROOT already formatted)
+    PART="${DEV}${N}"
+    [[ -b "$PART" ]] || continue
+    mkfs.ext4 -L "DATA${N}" -F "$PART"
+    echo "  Formatted DATA${N}: $PART"
+done
+
+# ---------------------------------------------------------------------------
+# Mount ESP and install GRUB
+# ---------------------------------------------------------------------------
+MNT_EFI="$(mktemp -d /tmp/usb-efi-XXXXXX)"
+trap 'umount "$MNT_EFI" 2>/dev/null || true; rmdir "$MNT_EFI" 2>/dev/null || true' EXIT
+
+echo ""
+echo "🔧 Mounting $PART_EFI -> $MNT_EFI"
+mount "$PART_EFI" "$MNT_EFI"
+
+echo "🔧 Installing GRUB EFI (--removable, --no-nvram)..."
+grub-install \
+    --target=x86_64-efi \
+    --efi-directory="$MNT_EFI" \
+    --boot-directory="$MNT_EFI/boot" \
+    --removable \
+    --no-nvram
+
+# ---------------------------------------------------------------------------
+# Minimal grub.cfg placeholder
+# ---------------------------------------------------------------------------
+GRUB_CFG="$MNT_EFI/boot/grub/grub.cfg"
+cat > "$GRUB_CFG" <<'GRUBEOF'
+set timeout=5
+set default=0
+set gfxpayload=keep
+
+menuentry "Gentoo Live (UEFI)" {
+    #linux /gentoo root=/dev/ram0 init=/init console=tty1 nomodeset video=efifb:off video=simplefb:force console=tty1
+    #linux /gentoo root=/dev/ram0 init=/init console=tty1
+    #initrd /initrd-debug.img
+    linux /gentoo root=/dev/ram0 init=/init console=tty0
+    initrd /initrd.uuid.cpio.gz
+}
+GRUBEOF
+
+echo ""
+echo "📄 grub.cfg written: $GRUB_CFG"
+
+umount "$MNT_EFI"
+trap - EXIT
+rmdir "$MNT_EFI"
+
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
+echo ""
+echo "✅ Done. Partition layout:"
+lsblk -o NAME,SIZE,FSTYPE,LABEL,UUID "$DEV"
+echo ""
+echo "Next steps:"
+echo "  1. Mount $PART_EFI and copy kernel (gentoo) and initrd.uuid.cpio.gz"
+echo "  2. Mount $PART_ROOT and copy livecd.squashfs"
+echo "  3. Update UUID in build-initrd-uuid-next:"
+echo "     $(blkid -o value -s UUID "$PART_ROOT")"

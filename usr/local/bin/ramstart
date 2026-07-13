@@ -1,0 +1,60 @@
+#!/bin/bash
+# ramstart - bind-mounts for Gentoo environment (portage, docker, lxd)
+# Designed to run from /etc/local.d/ and be safely re-entrant from console.
+set -euo pipefail
+
+ERRORS=0
+
+wait_for_mountpoint() {
+    local path="$1" retries=10 i
+    for ((i=0; i<retries; i++)); do
+        mountpoint -q "$path" && return 0
+        sleep 1
+    done
+    echo "ERROR: $path not mounted after ${retries}s" >&2
+    return 1
+}
+
+do_bind() {
+    local src="$1" dst="$2"
+    mkdir -p "$src" "$dst"
+    if mountpoint -q "$dst"; then
+        echo "SKIP: $dst already mounted"
+        return 0
+    fi
+    if ! mount --bind "$src" "$dst"; then
+        echo "ERROR: failed to bind $src -> $dst" >&2
+        ((ERRORS++)) || true
+    fi
+}
+
+# Wait for external drives used as bind sources
+wait_for_mountpoint /mnt/dc  || { echo "Aborting: /mnt/dc unavailable" >&2; exit 1; }
+wait_for_mountpoint /mnt/db1 || { echo "Aborting: /mnt/db1 unavailable" >&2; exit 1; }
+
+do_bind /home/tmp/portage    /var/tmp/portage
+do_bind /home/tmp/distfiles  /var/tmp/distfiles
+
+mkdir -p /var/tmp/portage/f /var/tmp/portage/g
+
+do_bind /mnt/dc/.src64bit   /var/tmp/.src64bit
+do_bind /mnt/db1/lxd        /var/lib/lxd
+do_bind /mnt/db1/docker     /var/lib/docker
+do_bind /mnt/db1/containerd /var/lib/containerd
+do_bind /home/tmp/binpkgs   /var/cache/binpkgs
+
+ln -sfn /home/tmp/.portage /var/tmp/.portage
+ln -sfn /home/tmp/.repos   /var/tmp/.repos
+ln -sfn /home/tmp/iso      /var/tmp/iso
+
+systemctl start docker || true
+systemctl start lxd || true
+
+# fancontrol - non-fatal, drives may not be spun up yet
+systemctl restart fancontrol.service || true
+
+if (( ERRORS > 0 )); then
+    echo "ERROR: $ERRORS bind-mount(s) failed" >&2
+    exit 1
+fi
+echo "→ All bind-mounts OK"

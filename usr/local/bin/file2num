@@ -1,0 +1,43 @@
+#!/bin/bash
+set -euo pipefail
+help() {
+  cat << EOF
+Number files in the current directory
+Usage: file2num <basename> [start_num]
+
+Arguments:
+  basename    Common name for output files
+  start_num   Starting number (default 0, first file → _000001)
+
+Preserves original file extension.
+Leading zero padding adjusted automatically to the number of files.
+
+Examples:
+  file2num photo          → photo_01.jpg ... or photo_001.jpg ... (depends on file count)
+  file2num track 99       → track_100.flac, track_101.flac, ...
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+
+BASENAME=$1
+j=${2:-0}
+
+shopt -s nullglob
+files=()
+for f in *; do [ -f "$f" ] && files+=("$f"); done
+total=$(( ${#files[@]} + j ))
+width=${#total}
+[ "$width" -lt 2 ] && width=2
+
+for src in "${files[@]}"; do
+  j=$((j+1))
+  ext="${src##*.}"
+  [ "$ext" = "$src" ] && ext="" || ext=".$ext"
+  dst="${BASENAME}_$(printf "%0${width}d" $j)${ext}"
+  if [ -e "$dst" ] && [ "$src" != "$dst" ]; then
+    echo "Skipped: '$src' → '$dst' (target already exists)"
+    continue
+  fi
+  mv -- "$src" "$dst"
+done

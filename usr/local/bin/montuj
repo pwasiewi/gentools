@@ -1,0 +1,236 @@
+#!/bin/bash
+# montuj — format, mount, and unpack livecd.squashfs onto target partition
+#
+# Replaces: montuj-btrfs, montuj-btrfssd, montuj-ssd, montuj-evo + msquash
+#
+# Filesystem profiles:
+#   btrfs-ssd   btrfs with ssd+zstd compression (SSD/NVMe) default
+#   btrfs       btrfs (HDD)
+#   ext4-ssd    ext4 tuned for SSD (stride/stripe, writeback journal)
+#   ext4-evo    ext4 tuned for Samsung EVO (stride=2 stripe=384, discard)
+#   ext4        ext4 
+#
+# Optional LUKS2 encryption:
+#   --luks      wrap partition in LUKS2 before formatting filesystem
+#               requires cryptsetup; compatible with genkernel --luks
+#
+# Usage:
+#   sudo montuj [--fs PROFILE] [--luks] [--mapper NAME] /dev/sdXY
+#
+# Examples:
+#   sudo montuj /dev/nvme0n1p3 (btrfs-ssd)
+#   sudo montuj --fs ext4 /dev/nvme0n1p3
+#   sudo montuj --fs ext4-ssd --luks /dev/nvme0n1p3
+#   sudo montuj --fs ext4-evo --luks --mapper gentoo_crypt /dev/nvme0n1p3
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Defaults
+# ---------------------------------------------------------------------------
+FS_PROFILE="btrfs-ssd"
+DO_LUKS=0
+MAPPER_NAME="gentoo_crypt"
+SQUASHFS="/mnt/cdrom/livecd.squashfs"
+MOUNT_POINT="/mnt/gentoo"
+PART=""
+
+# ---------------------------------------------------------------------------
+# CLI parsing
+# ---------------------------------------------------------------------------
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --fs)     FS_PROFILE="$2"; shift 2 ;;
+        --luks)   DO_LUKS=1; shift ;;
+        --mapper) MAPPER_NAME="$2"; shift 2 ;;
+        --squashfs) SQUASHFS="$2"; shift 2 ;;
+        --mount)  MOUNT_POINT="$2"; shift 2 ;;
+        /dev/*)   PART="$1"; shift ;;
+        -h|--help)
+            sed -n '2,/^set /p' "$0" | grep '^#' | sed 's/^# \?//'
+            exit 0 ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+done
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+die()     { echo "❌  $*" >&2; exit 1; }
+info()    { echo ">>>  $*"; }
+ok()      { echo "✅  $*"; }
+warn()    { echo "⚠️   $*"; }
+confirm() { read -r -p "$1 [yes/NO]: " ans; [[ "$ans" == "yes" ]] || die "Aborted."; }
+
+[[ $EUID -eq 0 ]] || die "Root required: sudo $0"
+[[ -n "$PART" ]]  || die "Provide partition as argument, e.g. /dev/nvme0n1p3"
+[[ -b "$PART" ]]  || die "Block device not found: $PART"
+[[ -f "$SQUASHFS" ]] || die "squashfs not found: $SQUASHFS — check that livecd is mounted at /mnt/cdrom"
+
+# ---------------------------------------------------------------------------
+# Safety — refuse system partitions
+# ---------------------------------------------------------------------------
+ROOT_DEV=$(findmnt -n -o SOURCE / 2>/dev/null || true)
+[[ "$PART" != "$ROOT_DEV" ]] || die "Refusing to format current root: $PART"
+
+DEVNAME="${PART##*/}"
+REMOVABLE=$(cat "/sys/block/${DEVNAME%%[0-9]*}/removable" 2>/dev/null \
+    || cat "/sys/block/${DEVNAME%%p[0-9]*}/removable" 2>/dev/null || echo "?")
+
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
+echo ""
+echo "════════════════════════════════════════════════════════════"
+echo "  Partition   : $PART"
+echo "  FS profile  : $FS_PROFILE"
+echo "  LUKS2       : $([ $DO_LUKS -eq 1 ] && echo "YES (mapper: /dev/mapper/${MAPPER_NAME})" || echo no)"
+echo "  squashfs    : $SQUASHFS"
+echo "  mount target: $MOUNT_POINT"
+echo "  removable   : ${REMOVABLE}"
+echo "════════════════════════════════════════════════════════════"
+echo ""
+warn "WARNING: The following operations will IRREVERSIBLY erase $PART"
+echo ""
+confirm "Are you sure you want to continue?"
+
+# ---------------------------------------------------------------------------
+# LUKS2 setup (optional)
+# ---------------------------------------------------------------------------
+FORMAT_DEV="$PART"
+
+if [[ "$DO_LUKS" -eq 1 ]]; then
+    command -v cryptsetup &>/dev/null || die "cryptsetup not found — install sys-fs/cryptsetup"
+
+    info "Creating LUKS2 container on $PART..."
+    echo ""
+    warn "Enter LUKS2 passphrase — remember it, data is irrecoverable without it."
+    echo ""
+    cryptsetup luksFormat --type luks2 \
+        --cipher aes-xts-plain64 \
+        --key-size 512 \
+        --hash sha256 \
+        --pbkdf argon2id \
+        "$PART"
+
+    info "Opening LUKS2 container as /dev/mapper/$MAPPER_NAME..."
+    cryptsetup luksOpen "$PART" "$MAPPER_NAME"
+
+    FORMAT_DEV="/dev/mapper/$MAPPER_NAME"
+
+    LUKS_UUID=$(cryptsetup luksUUID "$PART")
+    ok "LUKS2 UUID: $LUKS_UUID"
+    echo "  Save this UUID — it will be needed in the kernel cmdline:"
+    echo "  rd.luks.uuid=$LUKS_UUID"
+    echo ""
+fi
+
+# ---------------------------------------------------------------------------
+# Format filesystem
+# ---------------------------------------------------------------------------
+info "Formatting $FORMAT_DEV as $FS_PROFILE..."
+
+# Remove stale signatures (e.g. leftover exFAT boot sector) — btrfs keeps its
+# superblock at 64 KiB, so an old signature at sector 0 can survive mkfs and
+# make blkid/udev misdetect the filesystem type later
+wipefs -a "$FORMAT_DEV"
+
+case "$FS_PROFILE" in
+    btrfs-ssd)
+        command -v mkfs.btrfs &>/dev/null || die "mkfs.btrfs not found — install sys-fs/btrfs-progs"
+        mkfs.btrfs -f "$FORMAT_DEV"
+        ;;
+    btrfs)
+        command -v mkfs.btrfs &>/dev/null || die "mkfs.btrfs not found — install sys-fs/btrfs-progs"
+        mkfs.btrfs -f "$FORMAT_DEV"
+        ;;
+    ext4-ssd)
+        # stride/stripe tuning for SSD, writeback journal for performance
+        mkfs.ext4 -E stride=128,stripe_width=128 "$FORMAT_DEV"
+        tune2fs -O has_journal -o journal_data_writeback "$FORMAT_DEV"
+        ;;
+    ext4-evo)
+        # Samsung EVO tuning: stride=2 stripe=384, TRIM/discard
+        mkfs.ext4 -b 4096 -E stride=2,stripe-width=384 "$FORMAT_DEV"
+        tune2fs -O has_journal -o journal_data_writeback "$FORMAT_DEV"
+        tune2fs -o discard "$FORMAT_DEV"
+        ;;
+    ext4)
+        mkfs.ext4 "$FORMAT_DEV"
+        ;;
+    *)
+        die "Unknown FS profile: $FS_PROFILE. Available: btrfs-ssd btrfs ext4-ssd ext4-evo ext4"
+        ;;
+esac
+
+# ---------------------------------------------------------------------------
+# Mount
+# ---------------------------------------------------------------------------
+mkdir -p "$MOUNT_POINT"
+info "Mounting $FORMAT_DEV -> $MOUNT_POINT..."
+
+# Explicit -t: right after mkfs the udev db may still hold the old ID_FS_TYPE
+# (e.g. exfat), and mount without -t trusts it → wrong mount helper is called
+case "$FS_PROFILE" in
+    btrfs-ssd)
+        mount -t btrfs -o ssd,compress=zstd "$FORMAT_DEV" "$MOUNT_POINT"
+        ;;
+    btrfs)
+        mount -t btrfs "$FORMAT_DEV" "$MOUNT_POINT"
+        ;;
+    *)
+        mount -t ext4 "$FORMAT_DEV" "$MOUNT_POINT"
+        ;;
+esac
+
+mountpoint -q "$MOUNT_POINT" || die "Mount failed: $MOUNT_POINT"
+
+# ---------------------------------------------------------------------------
+# Unpack squashfs (msquash inline)
+# ---------------------------------------------------------------------------
+info "Unpacking $SQUASHFS -> $MOUNT_POINT..."
+cd "$MOUNT_POINT"
+
+unsquashfs -f -d "$MOUNT_POINT" "$SQUASHFS"
+
+# unsquashfs sometimes creates squashfs-root/ subdirectory — flatten if present
+if [[ -d "$MOUNT_POINT/squashfs-root" ]]; then
+    info "Moving squashfs-root/ contents to $MOUNT_POINT..."
+    shopt -s dotglob
+    mv "$MOUNT_POINT/squashfs-root/"* "$MOUNT_POINT/" || {
+        shopt -u dotglob
+        die "mv failed — possible naming conflict in $MOUNT_POINT (partial move, check manually)"
+    }
+    shopt -u dotglob
+    rmdir "$MOUNT_POINT/squashfs-root" || die "squashfs-root/ not empty after move — check $MOUNT_POINT"
+fi
+
+cd /
+
+ok "System unpacked in $MOUNT_POINT"
+echo ""
+
+# ---------------------------------------------------------------------------
+# Post-install hints
+# ---------------------------------------------------------------------------
+ROOT_FS_UUID=$(blkid -o value -s UUID "$FORMAT_DEV" 2>/dev/null || true)
+echo "════════════════════════════════════════════════════════════"
+echo "  Next steps:"
+echo ""
+
+if [[ "$DO_LUKS" -eq 1 ]]; then
+    echo "  1. Add to /etc/crypttab:"
+    echo "     $MAPPER_NAME  UUID=$LUKS_UUID  none  luks"
+    echo ""
+    echo "  2. Add to kernel cmdline (efi-boot --method stub-signed):"
+    echo "     rd.luks.uuid=$LUKS_UUID root=/dev/mapper/$MAPPER_NAME"
+    echo ""
+    echo "  3. Make sure genkernel was built with --luks:"
+    echo "     genkernel --luks --no-ramdisk-modules initramfs"
+    echo ""
+fi
+
+echo "  Root partition UUID: ${ROOT_FS_UUID:-unknown}"
+echo "  Mount point:        $MOUNT_POINT"
+[[ "$DO_LUKS" -eq 1 ]] && echo "  LUKS UUID:          $LUKS_UUID"
+echo "════════════════════════════════════════════════════════════"

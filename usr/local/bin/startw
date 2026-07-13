@@ -1,0 +1,4 @@
+#!/bin/bash
+# startw - launch KDE Plasma on Wayland
+unset DISPLAY
+exec dbus-run-session startplasma-wayland

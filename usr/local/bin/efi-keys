@@ -1,0 +1,462 @@
+#!/bin/bash
+# efi-keys — Secure Boot key generation and optional UEFI enrollment
+#
+# DEFAULT action (no flags): backup current UEFI keys, then generate new keys.
+# Backup runs ALWAYS first — even when called with --enroll or other flags.
+# Backup output: WORKDIR/backup/YYYYMMDD-HHMMSS/{PK,KEK,db,dbx}.esl
+#
+# Generates: PK, KEK, db, MOK keys and certificates.
+# Exports:   *.auth files for full key replacement (own PK — ranks 1 and 2).
+#            db.cer  for db append only (MS PK retained — rank 4, e.g. ThinkPad).
+# Optionally enrolls keys directly via efi-updatevar (requires Setup Mode).
+#
+# Key enrollment strategies (see efi-boot for full security ranking):
+#
+#   Full replacement (ranks 1-2): enroll own PK + KEK + db via BIOS Setup Mode
+#     → use *.auth files; replaces all MS keys
+#     → WARNING: on ThinkPad T-series the Lenovo CA signs GPU/device firmware
+#       OpROMs — old_KEK.esl and old_db.esl are appended automatically here
+#       to preserve Lenovo/MS entries alongside your own
+#
+#   db append only (rank 4): add own db.cer to existing MS db via BIOS Key Management
+#     → MS PK/KEK remain untouched; no Setup Mode required
+#     → BIOS path: Security → Secure Boot → Key Management → db → Append → db.cer
+#     → ThinkPad T14 Gen 6: first exit Deployed Mode in BIOS, then append db.cer
+#
+#   MOK only (rank 3): no BIOS interaction at all
+#     → install shim method, then: mokutil --import MOK.der
+#     → MOK.der generated here, used by efi-boot --method shim
+#
+# Run this FIRST, on any Linux machine. Copy ESP/EFIKEYS/ to target if needed.
+#
+# Usage:
+#   sudo efi-keys [options]
+#
+# Options:
+#   --workdir DIR   working directory for keys and backups (default: ~/secureboot)
+#   --esp DIR       ESP mount point (default: /boot/efi)
+#   --enroll        attempt direct enrollment via efi-updatevar (requires Setup Mode)
+#   --backup-only   backup current UEFI keys and exit, do not generate new keys
+#   --no-backup     skip backup step (not recommended)
+#   --make-restore-auth  after key generation, sign backup ESLs with own KEK
+#                        producing restore_*.auth files re-enrollable via efi-updatevar
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Defaults
+# ---------------------------------------------------------------------------
+WORKDIR="$HOME/secureboot"
+ESP="/boot/efi"
+DO_ENROLL=0
+BACKUP_ONLY=0
+NO_BACKUP=0
+MAKE_RESTORE_AUTH=0
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --workdir)           WORKDIR="$2"; shift 2 ;;
+        --esp)               ESP="$2";     shift 2 ;;
+        --enroll)            DO_ENROLL=1;  shift ;;
+        --backup-only)       BACKUP_ONLY=1; shift ;;
+        --no-backup)         NO_BACKUP=1;  shift ;;
+        --make-restore-auth) MAKE_RESTORE_AUTH=1; shift ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+done
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+die()     { echo "❌  $*" >&2; exit 1; }
+info()    { echo ">>>  $*"; }
+ok()      { echo "✅  $*"; }
+warn()    { echo "⚠️   $*"; }
+confirm() { read -r -p "$1 [yes/NO]: " ans; [[ "$ans" == "yes" ]] || die "Aborted."; }
+need_cmd(){ command -v "$1" &>/dev/null || die "Missing: $1"; }
+
+[[ $EUID -eq 0 ]] || die "Root required: sudo $0"
+
+need_cmd openssl
+need_cmd cert-to-efi-sig-list
+need_cmd sign-efi-sig-list
+need_cmd efi-readvar
+
+if [[ "$DO_ENROLL" -eq 1 ]]; then
+    need_cmd efi-updatevar
+fi
+
+KEYDIR="$WORKDIR/keys"
+BACKUPDIR="$WORKDIR/backup"
+
+# ---------------------------------------------------------------------------
+# PHASE 0 — Backup current UEFI keys (runs by default, skipped with --no-backup)
+#
+# Exports current PK/KEK/db/dbx from UEFI as *.esl (EFI Signature Lists).
+# ESL files are later reused during key generation to preserve MS/Lenovo entries.
+#
+# Limitation: ESL files alone are not directly re-enrollable via BIOS without
+# being wrapped in signed AUTH files. The restore path requires either Setup Mode
+# (efi-updatevar) or a BIOS that accepts raw ESL/CER uploads in Key Management.
+# Back up BEFORE any BIOS key management operations.
+# ---------------------------------------------------------------------------
+backup_uefi_keys() {
+    local STAMP
+    STAMP=$(date '+%Y%m%d-%H%M%S')
+    local BDIR="$BACKUPDIR/$STAMP"
+    mkdir -p "$BDIR"
+
+    info "PHASE 0: Backing up current UEFI keys → $BDIR"
+
+    local found=0
+    for var in PK KEK db dbx; do
+        if efi-readvar -v "$var" -o "$BDIR/${var}.esl" 2>/dev/null; then
+            local size
+            size=$(stat -c%s "$BDIR/${var}.esl" 2>/dev/null || echo 0)
+            if [[ "$size" -gt 0 ]]; then
+                ok "  $var.esl (${size} B)"
+                found=$((found + 1))
+            else
+                rm -f "$BDIR/${var}.esl"
+                warn "  $var — empty (variable empty or Secure Boot disabled)"
+            fi
+        else
+            warn "  $var — cannot be read"
+        fi
+    done
+
+    if [[ "$found" -eq 0 ]]; then
+        warn "No keys could be read from UEFI — ESL backup skipped."
+        warn "System may be booting Legacy/CSM or Secure Boot is disabled."
+        rmdir "$BDIR" 2>/dev/null || true
+        return
+    fi
+
+    # Copy to ESP for access from EFI Shell
+    if mountpoint -q "$ESP" 2>/dev/null; then
+        local ESP_BACKUP="$ESP/EFIKEYS-backup/$STAMP"
+        mkdir -p "$ESP_BACKUP"
+        cp "$BDIR"/*.esl "$ESP_BACKUP/" 2>/dev/null || true
+        ok "  Copied to ESP: $ESP_BACKUP"
+        ok "  From EFI Shell: FS0:\\EFIKEYS-backup\\$STAMP\\"
+    fi
+
+    # Symlink 'latest' → most recent backup
+    ln -sfn "$STAMP" "$BACKUPDIR/latest"
+
+    ok "Backup complete: $BDIR"
+    echo "  Files: $(ls "$BDIR" | tr '\n' ' ')"
+    echo ""
+    warn "Restore: requires Setup Mode or active UEFI keys."
+    warn "Always back up BEFORE any BIOS key management operations."
+    echo ""
+}
+
+# ---------------------------------------------------------------------------
+# Run backup unless --no-backup
+# ---------------------------------------------------------------------------
+if [[ "$NO_BACKUP" -eq 0 ]]; then
+    backup_uefi_keys
+fi
+
+if [[ "$BACKUP_ONLY" -eq 1 ]]; then
+    ok "Mode --backup-only: done."
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Skip generation if keys already exist
+# ---------------------------------------------------------------------------
+if [[ -f "$KEYDIR/db.key" && -f "$KEYDIR/db.crt" ]]; then
+    warn "Keys already exist in $KEYDIR"
+    warn "Delete the directory to regenerate, or use existing keys."
+    echo ""
+    ls -lh "$KEYDIR"/*.key "$KEYDIR"/*.crt "$KEYDIR"/*.auth 2>/dev/null || true
+    if [[ "$DO_ENROLL" -eq 0 ]]; then
+        exit 0
+    fi
+    cd "$KEYDIR"
+else
+
+mkdir -p "$KEYDIR"
+cd "$KEYDIR"
+
+# ---------------------------------------------------------------------------
+# PHASE 1 — Generate keys
+# ---------------------------------------------------------------------------
+info "PHASE 1: Generating keys..."
+
+info "  PK (Platform Key)..."
+openssl req -new -x509 -newkey rsa:2048 \
+    -subj "/CN=Platform Key/" \
+    -keyout PK.key -out PK.crt \
+    -days 10000 -nodes -sha256
+
+info "  KEK (Key Exchange Key)..."
+openssl req -new -x509 -newkey rsa:2048 \
+    -subj "/CN=Key Exchange Key/" \
+    -keyout KEK.key -out KEK.crt \
+    -days 10000 -nodes -sha256
+
+info "  db (Signature Database)..."
+openssl req -new -x509 -newkey rsa:2048 \
+    -subj "/CN=Signature Database/" \
+    -keyout db.key -out db.crt \
+    -days 10000 -nodes -sha256
+
+info "  MOK (Machine Owner Key)..."
+openssl genrsa -out MOK.key 2048
+openssl req -new -x509 -sha256 -days 3650 \
+    -subj "/CN=Gentoo Secure Boot MOK/" \
+    -key MOK.key -out MOK.crt
+
+# ---------------------------------------------------------------------------
+# PHASE 2 — ESL and DER exports
+# ---------------------------------------------------------------------------
+info "FAZA 2: Eksport ESL i DER..."
+cert-to-efi-sig-list PK.crt  PK.esl
+cert-to-efi-sig-list KEK.crt KEK.esl
+cert-to-efi-sig-list db.crt  db.esl
+
+openssl x509 -in PK.crt  -outform DER -out PK.cer
+openssl x509 -in KEK.crt -outform DER -out KEK.cer
+openssl x509 -in db.crt  -outform DER -out db.cer
+openssl x509 -in MOK.crt -outform DER -out MOK.der
+
+# ---------------------------------------------------------------------------
+# PHASE 3 — Append existing MS/Lenovo keys to KEK and db
+# Uses ESLs from PHASE 0 backup to avoid duplicate efi-readvar calls.
+# Falls back to live efi-readvar if backup did not capture them.
+# Critical on ThinkPad: Lenovo CA signs GPU OpROMs — without appending,
+# device firmware will fail signature check after PK replacement.
+# ---------------------------------------------------------------------------
+info "FAZA 3: Dołączam istniejące klucze MS/Lenovo do KEK i db..."
+
+LATEST_BACKUP="$BACKUPDIR/latest"
+
+_append_esl() {
+    local var="$1"
+    local target="$2"
+    local bfile="$LATEST_BACKUP/${var}.esl"
+
+    if [[ -L "$LATEST_BACKUP" && -f "$bfile" && -s "$bfile" ]]; then
+        cat "$bfile" >> "$target"
+        info "  Dołączono $var z backupu ($(stat -c%s "$bfile") B)"
+    else
+        local tmp="old_${var}_live.esl"
+        if efi-readvar -v "$var" -o "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+            cat "$tmp" >> "$target"
+            info "  Dołączono $var z UEFI live ($(stat -c%s "$tmp") B)"
+        else
+            warn "  $var — brak istniejących wpisów do dołączenia"
+        fi
+    fi
+}
+
+_append_esl KEK KEK.esl
+_append_esl db  db.esl
+
+# ---------------------------------------------------------------------------
+# PHASE 4 — AUTH files
+# ---------------------------------------------------------------------------
+info "PHASE 4: Creating AUTH files..."
+sign-efi-sig-list -k PK.key  -c PK.crt  PK  PK.esl  PK.auth
+sign-efi-sig-list -k PK.key  -c PK.crt  KEK KEK.esl KEK.auth
+sign-efi-sig-list -k KEK.key -c KEK.crt db  db.esl  db.auth
+
+# dbx — prefer backup, fallback to live
+DBX_ESL=""
+if [[ -L "$LATEST_BACKUP" && -f "$LATEST_BACKUP/dbx.esl" && -s "$LATEST_BACKUP/dbx.esl" ]]; then
+    DBX_ESL="$LATEST_BACKUP/dbx.esl"
+else
+    efi-readvar -v dbx -o old_dbx_live.esl 2>/dev/null || true
+    [[ -s old_dbx_live.esl ]] && DBX_ESL="old_dbx_live.esl"
+fi
+if [[ -n "$DBX_ESL" ]]; then
+    sign-efi-sig-list -k KEK.key -c KEK.crt dbx "$DBX_ESL" dbx.auth
+    info "  dbx.auth generated"
+fi
+
+# ---------------------------------------------------------------------------
+# PHASE 5 — Copy to ESP/EFIKEYS
+# ---------------------------------------------------------------------------
+if mountpoint -q "$ESP" 2>/dev/null; then
+    mkdir -p "$ESP/EFIKEYS"
+    cp PK.auth KEK.auth db.auth "$ESP/EFIKEYS/"
+    cp PK.cer KEK.cer db.cer MOK.der "$ESP/EFIKEYS/"
+    [[ -f dbx.auth ]] && cp dbx.auth "$ESP/EFIKEYS/"
+    ok "Copied to $ESP/EFIKEYS/ (EFI Shell: FS0:\\EFIKEYS\\)"
+else
+    warn "ESP not mounted ($ESP) — copy $KEYDIR/*.auth manually"
+fi
+
+ok "Keys ready: $KEYDIR"
+ls -lh "$KEYDIR"
+
+fi  # end key generation block
+
+# ---------------------------------------------------------------------------
+# Optional: create restore_*.auth files from backup ESLs signed with own KEK
+#
+# Produces AUTH files that wrap the ORIGINAL MS/Lenovo ESL content but are
+# signed with your own KEK.key. This means they can be re-enrolled via
+# efi-updatevar or BIOS Key Management as long as your own PK/KEK are active.
+#
+# Limitation: these restore files contain MS/Lenovo key *content* but carry
+# YOUR signature — they restore what was in UEFI before, authenticated by
+# your own key hierarchy. They do NOT restore the original MS-signed state.
+# To get back to factory MS keys you would need to use the BIOS "Restore
+# Factory Keys" option instead.
+# ---------------------------------------------------------------------------
+make_restore_auth() {
+    info "PHASE RESTORE: Creating restore_*.auth from backup ESLs..."
+
+    [[ -f "$KEYDIR/KEK.key" && -f "$KEYDIR/KEK.crt" ]] \
+        || die "Missing KEK.key/KEK.crt in $KEYDIR — generate keys first."
+    [[ -f "$KEYDIR/PK.key"  && -f "$KEYDIR/PK.crt"  ]] \
+        || die "Missing PK.key/PK.crt in $KEYDIR — generate keys first."
+
+    local LATEST="$BACKUPDIR/latest"
+    [[ -L "$LATEST" ]] \
+        || die "No backup found in $BACKUPDIR/latest — run backup first."
+
+    local RDIR="$BACKUPDIR/restore-auth"
+    mkdir -p "$RDIR"
+
+    local generated=0
+
+    # db — signed with own KEK (contains original MS+Lenovo db content)
+    if [[ -f "$LATEST/db.esl" && -s "$LATEST/db.esl" ]]; then
+        sign-efi-sig-list \
+            -k "$KEYDIR/KEK.key" -c "$KEYDIR/KEK.crt" \
+            db "$LATEST/db.esl" "$RDIR/restore_db.auth"
+        ok "  restore_db.auth ($(stat -c%s "$RDIR/restore_db.auth") B)"
+        generated=$((generated + 1))
+    else
+        warn "  db.esl missing or empty — restore_db.auth skipped"
+    fi
+
+    # KEK — signed with own PK (contains original MS+Lenovo KEK content)
+    if [[ -f "$LATEST/KEK.esl" && -s "$LATEST/KEK.esl" ]]; then
+        sign-efi-sig-list \
+            -k "$KEYDIR/PK.key" -c "$KEYDIR/PK.crt" \
+            KEK "$LATEST/KEK.esl" "$RDIR/restore_KEK.auth"
+        ok "  restore_KEK.auth ($(stat -c%s "$RDIR/restore_KEK.auth") B)"
+        generated=$((generated + 1))
+    else
+        warn "  KEK.esl missing or empty — restore_KEK.auth skipped"
+    fi
+
+    # dbx — signed with own KEK
+    if [[ -f "$LATEST/dbx.esl" && -s "$LATEST/dbx.esl" ]]; then
+        sign-efi-sig-list \
+            -k "$KEYDIR/KEK.key" -c "$KEYDIR/KEK.crt" \
+            dbx "$LATEST/dbx.esl" "$RDIR/restore_dbx.auth"
+        ok "  restore_dbx.auth ($(stat -c%s "$RDIR/restore_dbx.auth") B)"
+        generated=$((generated + 1))
+    else
+        warn "  dbx.esl missing or empty — restore_dbx.auth skipped"
+    fi
+
+    if [[ "$generated" -eq 0 ]]; then
+        warn "No restore_*.auth files generated — backup ESL was empty."
+        return
+    fi
+
+    # Copy to ESP
+    if mountpoint -q "$ESP" 2>/dev/null; then
+        local ESP_RESTORE="$ESP/EFIKEYS-restore"
+        mkdir -p "$ESP_RESTORE"
+        cp "$RDIR"/restore_*.auth "$ESP_RESTORE/"
+        ok "  Copied to ESP: $ESP_RESTORE (EFI Shell: FS0:\\EFIKEYS-restore\\)"
+    fi
+
+    ok "Restore AUTH gotowe: $RDIR"
+    echo ""
+    echo "  To restore original MS/Lenovo keys (requires own PK active in UEFI):"
+    echo "    efi-updatevar -f $RDIR/restore_db.auth  db"
+    echo "    efi-updatevar -f $RDIR/restore_KEK.auth KEK"
+    echo "    efi-updatevar -f $RDIR/restore_dbx.auth dbx"
+    echo ""
+    echo "  Note: restore brings back the CONTENT (MS/Lenovo keys) but signed"
+    echo "  with your KEK — this is NOT a return to original MS-signed AUTH."
+    echo "  To return to factory MS keys use: BIOS → Restore Factory Keys"
+    echo ""
+}
+
+if [[ "$MAKE_RESTORE_AUTH" -eq 1 ]]; then
+    make_restore_auth
+fi
+
+# ---------------------------------------------------------------------------
+# Optional: direct enrollment via efi-updatevar (requires UEFI Setup Mode)
+# ---------------------------------------------------------------------------
+if [[ "$DO_ENROLL" -eq 1 ]]; then
+    echo ""
+    echo "════════════════════════════════════════════════════════════"
+    echo "  Attempting direct UEFI key enrollment via efi-updatevar"
+    echo "  REQUIRES: Secure Boot in Setup Mode (PK cleared in BIOS)"
+    echo "════════════════════════════════════════════════════════════"
+    echo ""
+
+    [[ -d /sys/firmware/efi/efivars ]] \
+        || die "Missing /sys/firmware/efi/efivars — system did not boot via UEFI."
+
+    # Last byte of SetupMode EFI variable: 01 = Setup Mode, 00 = User Mode
+    SETUP_MODE=$(cat /sys/firmware/efi/efivars/SetupMode-* 2>/dev/null \
+        | od -An -tx1 | tr -d ' \n' | tail -c2 || echo "??")
+
+    if [[ "$SETUP_MODE" == "01" ]]; then
+        ok "UEFI is in Setup Mode — proceeding with enrollment"
+    else
+        warn "UEFI is NOT in Setup Mode (SetupMode=$SETUP_MODE)"
+        warn "Key enrollment may fail."
+        confirm "Continue anyway?"
+    fi
+
+    cd "$KEYDIR"
+    info "Enrolling db..."
+    efi-updatevar -f db.auth  db  && ok "db enrolled"  || die "db enrollment failed"
+
+    info "Enrolling KEK..."
+    efi-updatevar -f KEK.auth KEK && ok "KEK enrolled" || die "KEK enrollment failed"
+
+    info "Enrolling PK (activates User Mode — last step)..."
+    efi-updatevar -f PK.auth  PK  && ok "PK enrolled — Secure Boot active" \
+        || die "PK enrollment failed — Secure Boot is NOT active"
+
+    echo ""
+    info "Verifying UEFI variables:"
+    efi-readvar || true
+fi
+
+# ---------------------------------------------------------------------------
+# Instructions
+# ---------------------------------------------------------------------------
+echo ""
+echo "════════════════════════════════════════════════════════════"
+echo "  Manual BIOS key enrollment:"
+echo "════════════════════════════════════════════════════════════"
+echo "  Full key replacement (rank 1-2, requires Setup Mode):"
+echo "    1. BIOS → Secure Boot → Key Management → Reset to Setup Mode"
+echo "    2. Enroll in order:"
+echo "         db.auth   → Signature Database"
+echo "         KEK.auth  → Key Exchange Key"
+echo "         PK.auth   → Platform Key  (activates User Mode — last!)"
+echo "    3. Files: $ESP/EFIKEYS/ lub EFI Shell: FS0:\\EFIKEYS\\"
+echo ""
+echo "  Append db.cer to existing MS database (rank 4):"
+echo "  (ThinkPad: first BIOS → Exit Deployed Mode, then:)"
+echo "    1. BIOS → Security → Secure Boot → Key Management"
+echo "    2. Authorized Signatures (db) → Enroll Signature → db.cer"
+echo "    3. Plik: $ESP/EFIKEYS/db.cer"
+echo ""
+echo "  MOK only — no BIOS interaction (rank 3, shim method):"
+echo "    sudo efi-boot --method shim"
+echo "    mokutil --import $ESP/EFI/GentooShim/MOK.der"
+echo "    reboot → MokManager → Enroll MOK"
+echo ""
+echo "  UEFI key backup: $BACKUPDIR/latest/"
+echo "════════════════════════════════════════════════════════════"
+echo ""
+echo "Next step: sudo efi-boot [--method stub-signed|grub|shim|stub|all]"

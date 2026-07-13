@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+# Ollama Docker management wrapper
+# Usage: docker_ollama <command> [args...]
+
+set -euo pipefail
+
+CONTAINER="ollama"
+IMAGE="ollama/ollama"
+MODELS_DIR="/mnt/db1/ollama"
+PORT="11434"
+
+_is_running() {
+    docker ps --filter "name=^${CONTAINER}$" --filter "status=running" -q | grep -q .
+}
+
+_exists() {
+    docker ps -a --filter "name=^${CONTAINER}$" -q | grep -q .
+}
+
+cmd_start() {
+    if _is_running; then
+        echo "Already running."
+        return
+    fi
+    if _exists; then
+        if ! docker start "$CONTAINER" 2>/dev/null; then
+            if docker start "$CONTAINER" 2>&1 | grep -q "RWLayer.*nil"; then
+                echo "Corrupted RWLayer detected. Run: docker_ollama repair" >&2
+                exit 1
+            fi
+            docker start "$CONTAINER"
+        fi
+    else
+        docker run -d --gpus=all \
+    	    -e OLLAMA_HOST=0.0.0.0:11434 \
+            -e OLLAMA_ORIGINS=* \
+            -v "${MODELS_DIR}:/root/.ollama/models" \
+            -p "${PORT}:11434" \
+            --name "$CONTAINER" \
+            "$IMAGE"
+    fi
+    echo "Started."
+}
+
+cmd_stop() {
+    if ! _exists; then
+        echo "Container does not exist."
+        return
+    fi
+    docker stop "$CONTAINER"
+    echo "Stopped."
+}
+
+cmd_restart() {
+    cmd_stop || true
+    cmd_start
+}
+
+cmd_update() {
+    # Pull latest image, remove container, recreate — models are safe on bind mount
+    echo "Pulling latest image: $IMAGE"
+    docker pull "$IMAGE"
+    echo "Removing container..."
+    docker rm -f "$CONTAINER" 2>/dev/null || true
+    echo "Recreating container..."
+    docker run -d --gpus=all \
+    	-e OLLAMA_HOST=0.0.0.0:11434 \
+        -e OLLAMA_ORIGINS=* \
+        -v "${MODELS_DIR}:/root/.ollama/models" \
+        -p "${PORT}:11434" \
+        --name "$CONTAINER" \
+        "$IMAGE"
+    echo "Updated and started."
+}
+
+cmd_repair() {
+    # Remove container and image, re-pull, recreate — fixes corrupted RWLayer
+    echo "Removing container..."
+    docker rm -f "$CONTAINER" 2>/dev/null || true
+    echo "Removing image: $IMAGE"
+    docker rmi -f "$IMAGE" 2>/dev/null || true
+    echo "Pulling fresh image..."
+    docker pull "$IMAGE"
+    echo "Recreating container..."
+    docker run -d --gpus=all \
+    	-e OLLAMA_HOST=0.0.0.0:11434 \
+        -e OLLAMA_ORIGINS=* \
+        -v "${MODELS_DIR}:/root/.ollama/models" \
+        -p "${PORT}:11434" \
+        --name "$CONTAINER" \
+        "$IMAGE"
+    echo "Repaired and started."
+}
+
+cmd_list() {
+    docker exec "$CONTAINER" ollama list
+}
+
+cmd_pull() {
+    [[ $# -lt 1 ]] && { echo "Usage: docker_ollama pull <model>"; exit 1; }
+    docker exec "$CONTAINER" ollama pull "$@"
+}
+
+cmd_run() {
+    [[ $# -lt 1 ]] && { echo "Usage: docker_ollama run <model> [prompt]"; exit 1; }
+    docker exec -it "$CONTAINER" ollama run "$@"
+}
+
+cmd_rm() {
+    [[ $# -lt 1 ]] && { echo "Usage: docker_ollama rm <model>"; exit 1; }
+    docker exec "$CONTAINER" ollama rm "$@"
+}
+
+cmd_logs() {
+    docker logs --tail "${1:-50}" -f "$CONTAINER"
+}
+
+cmd_ps() {
+    docker exec "$CONTAINER" ollama ps
+}
+
+cmd_status() {
+    if _is_running; then
+        echo "Running"
+        docker exec "$CONTAINER" ollama ps
+    elif _exists; then
+        echo "Stopped"
+    else
+        echo "Not created"
+    fi
+}
+
+usage() {
+    cat <<EOF
+Usage: docker_ollama <command> [args]
+
+Container management:
+  start             Start (or create) the container
+  stop              Stop the container
+  restart           Stop and start
+  status            Show container and loaded models status
+  logs [n]          Tail logs (default: 50 lines)
+  update            Pull latest image and recreate container (models preserved)
+  repair            Remove container + image, re-pull, recreate (fixes RWLayer corruption)
+
+Model management:
+  list              List available models
+  pull <model>      Pull a model
+  run <model>       Interactive chat with a model
+  rm <model>        Remove a model
+  ps                Show running models
+EOF
+}
+
+[[ $# -lt 1 ]] && { usage; exit 1; }
+
+case "$1" in
+    start)   cmd_start ;;
+    stop)    cmd_stop ;;
+    restart) cmd_restart ;;
+    status)  cmd_status ;;
+    logs)    cmd_logs "${2:-50}" ;;
+    update)  cmd_update ;;
+    repair)  cmd_repair ;;
+    list)    cmd_list ;;
+    pull)    shift; cmd_pull "$@" ;;
+    run)     shift; cmd_run "$@" ;;
+    rm)      shift; cmd_rm "$@" ;;
+    ps)      cmd_ps ;;
+    *)       usage; exit 1 ;;
+esac

@@ -1,0 +1,84 @@
+#!/bin/bash
+set -euo pipefail
+# fslock - mount encrypted filesystems (gocryptfs / encfs)
+die() { echo "Error: $*" >&2; exit 1; }
+
+help() {
+  cat << 'EOF'
+Mount an encrypted filesystem
+Usage: fslock [options] <source_dir> <mount_point>
+       fslock -u <mount_point>
+
+Options:
+  -e         Use encfs (default: gocryptfs)
+  -p <file>  Password file (gocryptfs only)
+  -u         Unmount (fusermount -u)
+  -v         Verbose mode
+  -f         Force mount even if mount point is not empty
+
+Examples:
+  fslock /home/user/enc /home/user/open
+  fslock -e /home/user/enc /home/user/open
+  fslock -p ~/.pass /home/user/enc /home/user/open
+  fslock -u /home/user/open
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+TYPE="gocryptfs"
+PASSFILE=""
+VERBOSE=0
+FORCE=0
+UMOUNT=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -e) TYPE="encfs"; shift ;;
+    -p) PASSFILE=$2;  shift 2 ;;
+    -v) VERBOSE=1;   shift ;;
+    -f) FORCE=1;     shift ;;
+    -u) UMOUNT=1;    shift ;;
+    -h|--help) help; exit 0 ;;
+    -*) help; die "unknown option '$1'" ;;
+    *)  break ;;
+  esac
+done
+
+if [ "$UMOUNT" -eq 1 ]; then
+  [ $# -lt 1 ] && { help; die "provide mount point"; }
+  fusermount -u "$1"
+  echo "→ Unmounted: $1"
+  exit 0
+fi
+
+[ $# -lt 2 ] && { help; die "two arguments required"; }
+SRC="$1"; MNT="$2"
+
+[ ! -d "$SRC" ] && die "'$SRC' does not exist"
+[ ! -d "$MNT" ] && die "'$MNT' does not exist"
+[ "$FORCE" -eq 0 ] && [ -n "$(ls -A "$MNT" 2>/dev/null)" ] && \
+  die "'$MNT' is not empty (use -f to force)"
+
+case "$TYPE" in
+  gocryptfs)
+    command -v gocryptfs &>/dev/null || die "gocryptfs is not installed"
+    [ "$VERBOSE" -eq 1 ] && echo "→ gocryptfs: $SRC → $MNT"
+    if [ -n "$PASSFILE" ] && [ -f "$PASSFILE" ]; then
+      gocryptfs "$SRC" "$MNT" -passfile "$PASSFILE"
+    else
+      gocryptfs "$SRC" "$MNT"
+    fi
+    ;;
+  encfs)
+    command -v encfs &>/dev/null || die "encfs is not installed"
+    grep -q '^fuse ' /proc/filesystems 2>/dev/null || modprobe fuse 2>/dev/null || true
+    [ "$VERBOSE" -eq 1 ] && echo "→ encfs: $SRC → $MNT"
+    encfs "$SRC" "$MNT"
+    ;;
+  *)
+    die "unknown type '$TYPE' (available: gocryptfs, encfs)"
+    ;;
+esac
+
+echo "→ Mounted ($TYPE) at: $MNT"

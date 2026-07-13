@@ -1,0 +1,27 @@
+#!/bin/bash
+# cflagsdiff - compare gcc flags for two processor architectures
+help() {
+  cat << 'EOF'
+Compare gcc flags between two processor architectures
+Usage: cflagsdiff <arch1> <arch2>
+
+Available architectures (examples):
+  Intel: nocona core2 nehalem westmere sandybridge ivybridge haswell broadwell
+         skylake skylake-avx512 icelake-client icelake-server
+  AMD:   k8 opteron amdfam10 barcelona bdver1 bdver2 bdver3 bdver4
+         znver1 znver2 znver3 btver1 btver2
+  Other: atom silvermont x86-64 native
+
+Examples:
+  cflagsdiff native znver3
+  cflagsdiff btver1 core2
+  cflagsdiff haswell skylake
+EOF
+}
+
+( [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+diff -u \
+  <(gcc -march="$1" -Q --help=target 2>/dev/null) \
+  <(gcc -march="$2" -Q --help=target 2>/dev/null) \
+  | grep "^[-+] " || echo "(no differences)"

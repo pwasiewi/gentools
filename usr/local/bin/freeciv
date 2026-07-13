@@ -1,0 +1,79 @@
+#!/bin/bash
+help() {
+  cat << EOF
+Freeciv game management (Docker)
+Usage:
+  freeciv server  [savefile] [dir]         Start game server
+  freeciv client  [ip_address]             Start client (default: localhost)
+  freeciv start   [savefile] [dir]         Server + client
+  freeciv new     [savefile] [dir]         Remove old containers and start server
+  freeciv connect <ip_address>             Connect client to a specific server
+
+Arguments:
+  savefile     .bz2 save file (optional)
+  dir          Save directory (optional, default: current)
+  ip_address   Freeciv server IP address
+
+Examples:
+  freeciv server                    → new game in random directory
+  freeciv server save.bz2           → load save from current directory
+  freeciv server save.bz2 temp1234  → load save from directory temp1234
+  freeciv client                    → client (localhost)
+  freeciv connect 192.168.4.26      → client on specific IP
+  freeciv start                     → server + client at once
+  freeciv new                       → reset all containers + new game
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+
+start_server() {
+  local SAVE=$1
+  local DIR=$2
+  if [ -z "$SAVE" ]; then
+    local RANDIR
+    RANDIR=$(mktemp -d -p . -t tempXXXX)
+    echo "Game started in $RANDIR"
+    docker run -d -v "$(pwd)/$RANDIR":/freeciv -p 5556:5556 42n4/freeciv
+  elif [ -z "$DIR" ]; then
+    docker run -d -v "$(pwd)":/freeciv -p 5556:5556 42n4/freeciv "$SAVE"
+  else
+    docker run -d -v "$(pwd)/$DIR":/freeciv -p 5556:5556 42n4/freeciv "$SAVE"
+  fi
+}
+
+start_client() {
+  xhost +
+  docker run --rm -v /tmp/.X11-unix:/tmp/.X11-unix --device /dev/snd --privileged \
+    42n4/freeciv-client "$DISPLAY" "${1:-}"
+}
+
+CMD=$1
+shift
+
+case $CMD in
+  server)
+    start_server "$1" "$2"
+    ;;
+  client)
+    start_client
+    ;;
+  connect)
+    [ $# -lt 1 ] && { echo "Error: provide IP address"; help; exit 1; }
+    start_client "$1"
+    ;;
+  start)
+    start_server "$1" "$2"
+    start_client
+    ;;
+  new)
+    docker ps -aq --filter ancestor=42n4/freeciv | xargs -r docker rm -f 2>/dev/null || true
+    docker ps -aq --filter ancestor=42n4/freeciv-client | xargs -r docker rm -f 2>/dev/null || true
+    start_server "$1" "$2"
+    ;;
+  *)
+    echo "Error: unknown command '$CMD'"
+    help
+    exit 1
+    ;;
+esac

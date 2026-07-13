@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+help() {
+  cat << EOF
+  Shader generation for KDE Plasma 6
+  Provide shader name e.g. qsb Wave.frag
+EOF
+}
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1;
+/usr/lib64/qt6/bin/qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -o "${1}.qsb" "$1"

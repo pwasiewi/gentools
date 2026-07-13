@@ -1,0 +1,82 @@
+CREATE TABLE u_data (
+  userid INT,
+  movieid INT,
+  rating INT,
+  unixtime STRING)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'
+STORED AS TEXTFILE;
+wget http://www.grouplens.org/system/files/ml-data.tar__0.gz
+tar xvzf ml-data.tar__0.gz
+LOAD DATA LOCAL INPATH 'ml-data/u.data'
+OVERWRITE INTO TABLE u_data;
+SELECT COUNT(*) FROM u_data;
+import sys
+import datetime
+
+for line in sys.stdin:
+  line = line.strip()
+  userid, movieid, rating, unixtime = line.split('\t')
+  weekday = datetime.datetime.fromtimestamp(float(unixtime)).isoweekday()
+  print '\t'.join([userid, movieid, rating, str(weekday)])
+CREATE TABLE u_data_new (
+  userid INT,
+  movieid INT,
+  rating INT,
+  weekday INT)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t';
+
+add FILE ./weekday_mapper.py;
+
+INSERT OVERWRITE TABLE u_data_new
+SELECT
+  TRANSFORM (userid, movieid, rating, unixtime)
+  USING 'python ./weekday_mapper.py'
+  AS (userid, movieid, rating, weekday)
+FROM u_data;
+
+SELECT weekday, COUNT(*)
+FROM u_data_new
+GROUP BY weekday;
+
+git clone git://github.com/cloudera/sqoop.git
+
+svn co http://svn.apache.org/repos/asf/hadoop/hive/trunk hive
+cd hive
+ant package
+cd build/dist
+
+svn co https://hadoopdb.svn.sourceforge.net/svnroot/hadoopdb hadoopdb
+
+L1 = generateL1() // which is a word-count like program
+
+  repeat {
+     countCandidates()
+     generateCandidates()
+  }
+
+countCandidates() {
+    candidate set is already in HDFS
+    every task JVM reads the candidate set into memory ( hash-tree can be
+used here)
+    input : data set which is stored in sequence files
+    in mapper, for each candidate that is contained in the input, emit <C,
+1>
+    in reducer sum up the values for Candidate C
+    emit candidates with support greater than threshold
+}
+
+generateCandidates() {
+   mapper:
+      for pattern P = [p1,p2,...pn]
+         emit < p1, [p2,...pn] >  //with a special flag for first
+         emit < [p1, p2,...pn-1], pn > //with a special flag for last
+
+    reducer :  //keys are sub-patterns [p1,....pn-1] of length n-1, values
+are individual items
+         for each first value v_f
+            for each last value v_l
+               emit  [ v_f, p1, .. pn-1, v_l ]
+}
+

@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+# docker_netinfo - Docker container network information
+import json
+import subprocess
+import sys
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("\n\tProvide container name.")
+        print("\t\tExample: docker_netinfo my_container\n")
+        sys.exit(1)
+
+    container = sys.argv[1]
+    proc = subprocess.run(
+        ["docker", "inspect", container],
+        capture_output=True, text=True
+    )
+    if proc.returncode != 0:
+        print(f"Error: {proc.stderr.strip()}")
+        sys.exit(1)
+
+    json_data = json.loads(proc.stdout)[0]
+    networks = json_data["NetworkSettings"]["Networks"]
+
+    for network, cfg in networks.items():
+        mac   = cfg["MacAddress"] or "null"
+        ipv4  = cfg["IPAddress"] or "null"
+        cidr  = str(cfg["IPPrefixLen"] or "null")
+        gw4   = cfg["Gateway"] or "null"
+        ipv6  = cfg["GlobalIPv6Address"] or "null"
+        cidr6 = str(cfg["GlobalIPv6PrefixLen"] or "null")
+        gw6   = cfg["IPv6Gateway"] or "null"
+
+        print(f"\n[{network}]")
+        print(f"\n{mac}{'IP/NETWORK':>13} {'GATEWAY':>14}")
+        print("--------------------------------------------")
+        print(f"IPv4 settings:{ipv4:>16}/{cidr:<5}  {gw4}")
+        print(f"IPv6 settings:{ipv6:>16}/{cidr6:<5}  {gw6}")
+
+
+if __name__ == "__main__":
+    main()

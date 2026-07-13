@@ -1,0 +1,150 @@
+#!/bin/bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  docker_cleanup --prune
+  docker_cleanup --all
+  docker_cleanup --destroy --yes
+
+Modes:
+  --prune       Remove dead/exited containers, dangling images and dangling volumes.
+  --all         Remove all containers, all Docker volumes and dangling images.
+  --destroy     Stop Docker/containerd and remove /var/lib/docker + /var/lib/containerd. Requires --yes.
+
+Options:
+  --yes         Required for --destroy.
+  -h, --help    Show this help.
+USAGE
+}
+
+run_if_any() {
+  local description="$1"
+  shift
+
+  local out
+  out="$($@ || true)"
+
+  if [[ -n "${out}" ]]; then
+    echo "${description}:"
+    echo "${out}"
+    return 0
+  fi
+
+  echo "${description}: nothing found"
+  return 1
+}
+
+remove_items() {
+  local description="$1"
+  shift
+
+  local cmd=("$@")
+  local out
+  out="${cmd[-1]}"
+
+  if [[ -n "${out}" ]]; then
+    echo "${description}: ${out}"
+    "${cmd[@]:0:${#cmd[@]}-1}" ${out}
+  else
+    echo "${description}: nothing found"
+  fi
+}
+
+remove_dead_or_exited_containers() {
+  local out
+  out="$(docker ps -aq -f status=dead -f status=exited)"
+  remove_items "Removing dead/exited containers" docker rm -v "${out}"
+}
+
+remove_all_containers() {
+  local out
+  out="$(docker ps -aq)"
+  remove_items "Removing all containers" docker rm -f -v "${out}"
+}
+
+remove_dangling_images() {
+  local out
+  out="$(docker images -q -f dangling=true)"
+  remove_items "Removing dangling images" docker rmi "${out}"
+}
+
+remove_dangling_volumes() {
+  local out
+  out="$(docker volume ls -qf dangling=true)"
+  remove_items "Removing dangling volumes" docker volume rm "${out}"
+}
+
+remove_all_volumes() {
+  local out
+  out="$(docker volume ls -q)"
+  remove_items "Removing all Docker volumes" docker volume rm "${out}"
+}
+
+destroy_docker_state() {
+  echo "Stopping docker and containerd"
+  systemctl stop docker containerd \
+    || { echo "Failed to stop docker/containerd — aborting wipe" >&2; exit 1; }
+
+  echo "Killing remaining containerd shims"
+  pkill -9 containerd-shim-runc-v2 2>/dev/null || true
+
+  echo "Removing /var/lib/docker and /var/lib/containerd"
+  rm -rf /var/lib/docker/* /var/lib/containerd/*
+
+  echo "Starting containerd and docker"
+  systemctl start containerd docker
+}
+
+mode=""
+yes=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prune|--all|--destroy)
+      if [[ -n "${mode}" ]]; then
+        echo "Only one mode can be selected" >&2
+        exit 2
+      fi
+      mode="$1"
+      ;;
+    --yes)
+      yes=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+case "${mode}" in
+  --prune)
+    remove_dead_or_exited_containers
+    remove_dangling_images
+    remove_dangling_volumes
+    ;;
+  --all)
+    remove_all_containers
+    remove_dangling_images
+    remove_all_volumes
+    ;;
+  --destroy)
+    if [[ "${yes}" -ne 1 ]]; then
+      echo "Refusing destructive cleanup without --yes" >&2
+      exit 2
+    fi
+    destroy_docker_state
+    ;;
+  "")
+    usage >&2
+    exit 2
+    ;;
+esac

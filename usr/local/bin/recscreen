@@ -1,0 +1,66 @@
+#!/bin/bash
+# recscreen - screen recording (ffmpeg + ALSA/PulseAudio + X11grab)
+help() {
+  cat << 'EOF'
+Screen recording with audio (ffmpeg)
+Usage: recscreen [options] <output_file.mp4>
+
+Options:
+  -s <WxH>     Resolution (default: 1920x1080)
+  -o <x,y>     Screen offset (default: 0,0)
+  -r <fps>     Frames per second (default: 24)
+  -q <crf>     Video quality 0-51, lower=better (default: 28)
+  -p <preset>  Preset: ultrafast..veryslow (default: veryfast)
+  -a <src>     Audio source: pulse alsa none (default: pulse)
+  -d <:N>      X11 display (default: :0.0)
+  -2           Dual-monitor mode: offset 1280,0
+
+Examples:
+  recscreen recording.mp4
+  recscreen -s 1920x1080 -o 1280,0 -q 23 screen.mp4
+  recscreen -2 dual.mp4
+  recscreen -a none silent.mp4
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+SIZE="1920x1080"
+OFFSET="0,0"
+FPS=24
+CRF=28
+PRESET="veryfast"
+AUDIO_SRC="pulse"
+DISPLAY_ID=":0.0"
+OUTFILE=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -s) SIZE=$2;       shift 2 ;;
+    -o) OFFSET=$2;     shift 2 ;;
+    -r) FPS=$2;        shift 2 ;;
+    -q) CRF=$2;        shift 2 ;;
+    -p) PRESET=$2;     shift 2 ;;
+    -a) AUDIO_SRC=$2;  shift 2 ;;
+    -d) DISPLAY_ID=$2; shift 2 ;;
+    -2) OFFSET="1280,0"; shift ;;
+    -*) echo "Error: unknown option '$1'"; help; exit 1 ;;
+    *)  OUTFILE="$1"; shift ;;
+  esac
+done
+
+[ -z "$OUTFILE" ] && { echo "Error: provide output file"; help; exit 1; }
+
+VIDEO_OPTS=(-f x11grab -r "$FPS" -s "$SIZE" -i "${DISPLAY_ID}+${OFFSET}")
+ENCODE_OPTS=(-vcodec libx264 -preset "$PRESET" -crf "$CRF" -threads 4)
+
+if [ "$AUDIO_SRC" = "none" ]; then
+  AUDIO_OPTS=(-an)
+elif [ "$AUDIO_SRC" = "pulse" ]; then
+  AUDIO_OPTS=(-f alsa -i pulse -acodec libmp3lame)
+else
+  AUDIO_OPTS=(-f alsa -i "$AUDIO_SRC" -acodec libmp3lame)
+fi
+
+echo "→ Recording: ${SIZE}+${OFFSET} @ ${FPS}fps (Ctrl+C to stop)"
+ffmpeg "${AUDIO_OPTS[@]}" "${VIDEO_OPTS[@]}" "${ENCODE_OPTS[@]}" "$OUTFILE"

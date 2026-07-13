@@ -1,0 +1,111 @@
+#!/bin/bash
+set -euo pipefail
+die() { echo "Error: $*" >&2; exit 1; }
+
+# Function to display help
+show_help() {
+    cat << EOF
+Usage: $0 [OPTIONS] <source_directory> <mount_point>
+
+Secure EncFS mount script with proper argument handling.
+
+Arguments:
+  source_directory    Directory to encrypt (must exist)
+  mount_point         Mount point for encrypted directory (must exist)
+
+Options:
+  -h, --help          Display this help message
+  -v, --verbose       Enable verbose output
+  -f, --force         Force mount even if mount point is not empty
+
+Examples:
+  $0 /home/user/secret /home/user/secret_enc
+  $0 -v /home/user/secret /home/user/secret_enc
+
+EOF
+}
+
+# Default values
+VERBOSE=false
+FORCE=false
+
+# Parse command line options
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -v|--verbose)
+            VERBOSE=true
+            shift
+            ;;
+        -f|--force)
+            FORCE=true
+            shift
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            show_help
+            exit 1
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+# Check if we have at least 2 arguments (source and mount point)
+if [[ $# -lt 2 ]]; then
+    echo "Error: Missing required arguments" >&2
+    show_help
+    exit 1
+fi
+
+# Get arguments
+SOURCE_DIR="$1"
+MOUNT_POINT="$2"
+
+# Validate source directory
+if [[ ! -d "$SOURCE_DIR" ]]; then
+    echo "Error: Source directory '$SOURCE_DIR' does not exist or is not a directory" >&2
+    exit 1
+fi
+
+# Validate mount point
+if [[ ! -d "$MOUNT_POINT" ]]; then
+    echo "Error: Mount point '$MOUNT_POINT' does not exist or is not a directory" >&2
+    exit 1
+fi
+
+# Check if mount point is empty (unless force is specified)
+if [[ ! "$FORCE" && -n "$(ls -A "$MOUNT_POINT")" ]]; then
+    echo "Error: Mount point '$MOUNT_POINT' is not empty. Use -f/--force to override." >&2
+    exit 1
+fi
+
+# Check if fuse module is loaded
+if ! grep -q "^fuse " /proc/filesystems 2>/dev/null; then
+    echo "Loading fuse module..."
+    if ! modprobe fuse; then
+        echo "Error: Failed to load fuse module" >&2
+        exit 1
+    fi
+fi
+
+# Check if encfs is available
+if ! command -v encfs >/dev/null 2>&1; then
+    echo "Error: encfs command not found" >&2
+    exit 1
+fi
+
+# Set up logging if verbose
+if [[ "$VERBOSE" == true ]]; then
+    echo "Mounting EncFS..."
+    echo "Source: $SOURCE_DIR"
+    echo "Mount point: $MOUNT_POINT"
+fi
+
+# Perform the mount
+encfs "$SOURCE_DIR" "$MOUNT_POINT"
+echo "EncFS mounted successfully at $MOUNT_POINT"

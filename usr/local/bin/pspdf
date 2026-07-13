@@ -1,0 +1,26 @@
+#!/bin/bash
+# pspdf - converts PostScript to PDF (landscape A4)
+help() {
+  cat << 'EOF'
+Convert a PostScript file to PDF in landscape orientation (A4)
+Usage: pspdf <file.ps> [output_file.pdf]
+
+Examples:
+  pspdf document.ps
+  pspdf report.ps report_landscape.pdf
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+IN="$1"
+BASE=$(basename "$IN" .ps)
+TMP="${BASE}_rotated.ps"
+OUT="${2:-${BASE}.pdf}"
+
+[ ! -f "$IN" ] && { echo "Error: '$IN' not found"; exit 1; }
+
+pstops '1:0L(29.7cm,0)' "$IN" "$TMP"
+gs -dNOPAUSE -sDEVICE=pdfwrite -dBATCH -sOutputFile="$OUT" -sPAPERSIZE=a4 "$TMP"
+rm -f "$TMP"
+echo "→ $OUT"

@@ -1,0 +1,73 @@
+#!/bin/bash
+help() {
+  cat << EOF
+Compile LaTeX to PDF
+Usage: tex2pdf [-m <mode>] <file.tex|basename>
+
+Modes (-m):
+  pdflatex  (default): pdflatex → evince
+  latex:    latex + bibtex + dvips + ps2pdf → evince
+  sweave:   R Sweave + pdflatex + bibtex → evince
+  gtx:      latex + dvips → gv (ghostview)
+  lualatex: lualatex + asy + lualatex → qpdfview
+
+Examples:
+  tex2pdf thesis.tex
+  tex2pdf thesis             (works without extension too)
+  tex2pdf -m latex thesis.tex
+  tex2pdf -m sweave analysis.Rnw
+  tex2pdf -m lualatex presentation.tex
+  tex2pdf -m gtx slides.tex
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+
+MODE="pdflatex"
+if [ "$1" = "-m" ]; then
+  [ -z "$2" ] && { echo "Error: no mode specified after -m"; help; exit 1; }
+  MODE=$2
+  shift 2
+fi
+
+[ $# -eq 0 ] && { echo "Error: provide a .tex file"; help; exit 1; }
+
+FILE=$1
+if [ -f "$FILE" ]; then
+  j=$(basename "$FILE" .tex)
+  j=$(basename "$j" .Rnw)
+else
+  j=$FILE
+fi
+
+case $MODE in
+  pdflatex)
+    pdflatex "${j}.tex" && evince "${j}.pdf"
+    ;;
+  latex)
+    latex "${j}.tex" && bibtex "$j" && latex "${j}.tex" && latex "${j}.tex"
+    dvips "${j}.dvi" -o "${j}.ps"
+    ps2pdf -sPAPERSIZE=a4 "${j}.ps" "${j}.pdf"
+    evince "${j}.pdf"
+    ;;
+  sweave)
+    R CMD Sweave "${j}.Rnw"
+    pdflatex "${j}.tex" && bibtex "$j"
+    pdflatex "${j}.tex" && pdflatex "${j}.tex"
+    evince "${j}.pdf"
+    ;;
+  gtx)
+    latex "${j}.tex" && dvips "${j}.dvi" -o "${j}.ps" && gv "${j}.ps"
+    ;;
+  lualatex)
+    lualatex --shell-escape "${j}.tex"
+    asy --tex lualatex "$(basename "${j}" .tex)"*.asy
+    lualatex --shell-escape "${j}.tex"
+    qpdfview "${j}.pdf"
+    ;;
+  *)
+    echo "Error: unknown mode '$MODE'"
+    help
+    exit 1
+    ;;
+esac

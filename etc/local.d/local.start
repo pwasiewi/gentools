@@ -1,0 +1,6 @@
+echo 3 > /proc/sys/vm/drop_caches; sync
+
+sysctl kernel.sem="3355 33550 320 33550"
+echo 6900000 > /proc/sys/fs/file-max
+
+

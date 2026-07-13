@@ -1,0 +1,28 @@
+#!/bin/bash
+help() {
+  cat << EOF
+Trim all mounted partitions that support DISCARD (SSD/NVMe)
+Usage: fstrimall [-i]
+
+Options:
+  (none)  Run fstrim on all qualifying filesystems
+  -i      Info only: show disks and their TRIM support (no trim)
+
+fstrim -av automatically skips HDDs and partitions without DISCARD support.
+For automatic weekly trim: systemctl enable --now fstrim.timer
+EOF
+}
+
+[ "$1" = "-h" ] || [ "$1" = "--help" ] && help && exit 0
+
+echo "=== TRIM/DISCARD support per lsblk ==="
+lsblk -D -o NAME,TYPE,MOUNTPOINTS,DISC-GRAN,DISC-MAX | \
+  awk 'NR==1 || $4 != "0B"'
+echo ""
+
+[ "$1" = "-i" ] && exit 0
+
+echo "=== fstrim -av ==="
+fstrim -av
+echo ""
+echo "Tip: systemctl enable --now fstrim.timer → weekly trim automatically"

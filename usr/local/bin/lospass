@@ -1,0 +1,45 @@
+#!/bin/bash
+# lospass - password generator using multiple methods
+help() {
+  cat << 'EOF'
+Password generator using various methods
+Usage: lospass <count> [length]
+
+Arguments:
+  count     Number of passwords to generate
+  length    Password length (default: 16)
+
+Examples:
+  lospass 5
+  lospass 10 20
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+N="$1"
+LEN="${2:-16}"
+
+sep() { echo "── $1 ──"; }
+
+sep "tr /dev/urandom (alnum)"
+tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w "$LEN" | head -n "$N"
+
+sep "tr /dev/urandom (symbols)"
+tr -dc 'a-zA-Z0-9!@#$%^&*' < /dev/urandom | fold -w "$LEN" | head -n "$N"
+
+sep "tr /dev/urandom (left-hand)"
+tr -dc '12345!@#$%qwertQWERTasdfgASDFGzxcvbZXCVB' < /dev/urandom | fold -w "$LEN" | head -n "$N"
+
+sep "openssl rand"
+for _ in $(seq 1 "$N"); do openssl rand -base64 "$LEN" | head -c "$LEN"; echo; done
+
+if command -v gpg &>/dev/null; then
+  sep "gpg --gen-random"
+  for _ in $(seq 1 "$N"); do gpg --gen-random --armor 1 "$LEN" 2>/dev/null | head -c "$LEN"; echo; done
+fi
+
+if command -v pwgen &>/dev/null; then
+  sep "pwgen"
+  pwgen -cynB1 "$LEN" "$N"
+fi

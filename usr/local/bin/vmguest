@@ -1,0 +1,106 @@
+#!/bin/bash
+set -euo pipefail
+help() {
+  cat << EOF
+Post-installation configuration: GuestAdditions + SSH forwarding
+Usage: vmguest [options] <vm_name>
+
+What it does:
+  1. Detaches the installation ISO from the DVD drive
+  2. Downloads VBoxGuestAdditions matching the installed VirtualBox version
+  3. Mounts GuestAdditions in the DVD drive
+  4. Sets up SSH port forwarding
+
+Options:
+  --port <n>        IDE DVD port (default: 1, Vagrant: 0)
+  --ssh-port <n>    SSH forwarding port on host (default: 2222)
+  --iso <path>      Custom ISO file (default: auto-download)
+  --iso-dir <dir>   ISO cache directory (default: /mnt/dc/IMAGES)
+  --no-ssh          Do not configure SSH forwarding
+  --vagrant         Vagrant mode: port 0, remove and re-add forwarding
+
+Examples:
+  vmguest ubuntu24
+  vmguest --vagrant mybox
+  vmguest --ssh-port 2223 vm2
+  vmguest --iso /tmp/VBoxGuestAdditions.iso ubuntu24
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+DVD_PORT=1
+SSH_PORT=2222
+ISO=""
+ISO_DIR="/mnt/dc/IMAGES"
+NO_SSH=0
+VAGRANT=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --port)     DVD_PORT=$2; shift 2 ;;
+    --ssh-port) SSH_PORT=$2; shift 2 ;;
+    --iso)      ISO=$2;      shift 2 ;;
+    --iso-dir)  ISO_DIR=$2;  shift 2 ;;
+    --no-ssh)   NO_SSH=1;    shift ;;
+    --vagrant)  VAGRANT=1; DVD_PORT=0; shift ;;
+    --*)        echo "Error: unknown option '$1'"; help; exit 1 ;;
+    *)          break ;;
+  esac
+done
+
+[ $# -lt 1 ] && { echo "Error: provide VM name"; help; exit 1; }
+VM=$1
+
+VBoxManage showvminfo "$VM" &>/dev/null || { echo "Error: VM '$VM' does not exist"; exit 1; }
+
+# ── get VirtualBox version and select ISO ─────────────────────────────────────
+if [ -z "$ISO" ]; then
+  VBOX_VER=$(VBoxManage --version | sed 's/r.*//' | tr -d '[:space:]')
+  echo "→ VirtualBox version: $VBOX_VER"
+
+  # Check local copies
+  LOCAL_ISO="${ISO_DIR}/VBoxGuestAdditions_${VBOX_VER}.iso"
+  SYSTEM_ISO="/usr/share/virtualbox/VBoxGuestAdditions.iso"
+
+  if [ -f "$LOCAL_ISO" ]; then
+    ISO="$LOCAL_ISO"
+    echo "→ Using local ISO: $ISO"
+  elif [ -f "$SYSTEM_ISO" ]; then
+    ISO="$SYSTEM_ISO"
+    echo "→ Using system ISO: $ISO"
+  else
+    echo "→ Downloading VBoxGuestAdditions_${VBOX_VER}.iso..."
+    mkdir -p "$ISO_DIR"
+    wget -c --show-progress \
+      "https://download.virtualbox.org/virtualbox/${VBOX_VER}/VBoxGuestAdditions_${VBOX_VER}.iso" \
+      -O "$LOCAL_ISO"
+    ISO="$LOCAL_ISO"
+  fi
+fi
+
+[ -f "$ISO" ] || { echo "Error: ISO file '$ISO' does not exist"; exit 1; }
+
+# ── detach current medium from DVD ───────────────────────────────────────────
+echo "→ Detaching ISO from DVD (port $DVD_PORT)..."
+VBoxManage storageattach "$VM" --storagectl IDE \
+  --port "$DVD_PORT" --device 0 --type dvddrive --medium none 2>/dev/null || true
+
+# ── mount GuestAdditions ─────────────────────────────────────────────────────
+echo "→ Mounting GuestAdditions: $ISO"
+VBoxManage storageattach "$VM" --storagectl IDE \
+  --port "$DVD_PORT" --device 0 --type dvddrive --medium "$ISO"
+
+# ── SSH forwarding ───────────────────────────────────────────────────────────
+if [ "$NO_SSH" -eq 0 ]; then
+  echo "→ Configuring SSH forwarding: host:${SSH_PORT} → guest:22"
+  # In Vagrant mode remove existing rule and add a new one
+  if [ "$VAGRANT" -eq 1 ]; then
+    VBoxManage modifyvm "$VM" --natpf1 delete guestssh 2>/dev/null || true
+  fi
+  VBoxManage modifyvm "$VM" --natpf1 "guestssh,tcp,,${SSH_PORT},,22" 2>/dev/null || \
+    echo "  (rule already exists or VM is running — skipping)"
+fi
+
+echo ""
+echo "✓ Done. GuestAdditions mounted, connect via: ssh -p ${SSH_PORT} user@localhost"

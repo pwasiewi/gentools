@@ -1,0 +1,3 @@
+#!/bin/bash
+# rstudio - launch RStudio in the background
+/opt/rstudio/rstudio &

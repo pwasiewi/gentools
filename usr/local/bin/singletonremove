@@ -1,0 +1,10 @@
+#!/bin/bash
+# singletonremove - removes browser singleton locks (Brave, Chrome, Opera)
+# Use when the browser claims it's already running after a system crash
+rm -f \
+  ~/.config/BraveSoftware/Brave-Browser/Singleton* \
+  ~/.config/google-chrome/Singleton* \
+  ~/.config/google-chrome-beta/Singleton* \
+  ~/.config/google-chrome-unstable/Singleton* \
+  ~/.config/opera-developer/Singleton*
+echo "→ Browser singleton locks removed"

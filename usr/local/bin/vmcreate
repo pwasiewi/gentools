@@ -1,0 +1,175 @@
+#!/bin/bash
+set -euo pipefail
+help() {
+  cat << EOF
+Create a VirtualBox virtual machine
+Usage: vmcreate [options] <name> <os_type> <folder> <iso>
+
+Arguments:
+  name      VM name (e.g. ubuntu24, centos9)
+  os_type   OS type from VBoxManage list ostypes (e.g. Ubuntu_64, RedHat_64)
+  folder    Parent directory for the VM (e.g. /mnt/vms)
+  iso       Path to the installation ISO
+
+Resource options:
+  --cpus <n>        Number of vCPUs (default: 2)
+  --ram <MB>        RAM in MB (default: 2048)
+  --disk <MB>       Primary disk size (default: 20480 = 20GB)
+  --disk2 <MB>      Second disk (default: none)
+  --vram <MB>       VRAM (default: 128)
+
+Network options:
+  --bridge <iface>  Bridge interface for nic2 (default: enp0s31f6)
+  --nat-only        NAT only without bridge (Vagrant/headless mode)
+  --ssh-port <n>    NAT SSH forwarding port (default: 2222)
+  --virtio          Use virtio instead of 82540EM (faster for Linux)
+
+Advanced options:
+  --nested          Nested virtualization (required for Proxmox/KVM in VM)
+  --usb3            Enable USB 3.0 controller (xHCI)
+  --clipboard       Bidirectional clipboard (host↔guest)
+  --no-audio        Disable audio
+  --vagrant         Vagrant mode: 2 disks, IDE port 0, NAT only
+
+Examples:
+  vmcreate ubuntu24 Ubuntu_64 /mnt/vms /iso/ubuntu-24.04.iso
+  vmcreate --ram 4096 --disk 40960 centos9 RedHat_64 /mnt/vms /iso/centos9.iso
+  vmcreate --vagrant --disk 20480 --disk2 8192 vagbox Ubuntu_64 /mnt/vms /iso/ubuntu.iso
+  vmcreate --nested --ram 8192 proxmox Debian_64 /mnt/vms /iso/proxmox.iso
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+# ── default settings ─────────────────────────────────────────────────────────
+CPUS=2
+RAM=2048
+DISK=20480
+DISK2=""
+VRAM=128
+BRIDGE="enp0s31f6"
+NAT_ONLY=0
+SSH_PORT=2222
+VIRTIO=0
+NESTED=0
+USB3=0
+CLIPBOARD=0
+AUDIO=1
+VAGRANT=0
+
+# ── argument parsing ──────────────────────────────────────────────────────────
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --cpus)      CPUS=$2;    shift 2 ;;
+    --ram)       RAM=$2;     shift 2 ;;
+    --disk)      DISK=$2;    shift 2 ;;
+    --disk2)     DISK2=$2;   shift 2 ;;
+    --vram)      VRAM=$2;    shift 2 ;;
+    --bridge)    BRIDGE=$2;  shift 2 ;;
+    --ssh-port)  SSH_PORT=$2; shift 2 ;;
+    --nat-only)  NAT_ONLY=1; shift ;;
+    --virtio)    VIRTIO=1;   shift ;;
+    --nested)    NESTED=1;   shift ;;
+    --usb3)      USB3=1;     shift ;;
+    --clipboard) CLIPBOARD=1; shift ;;
+    --no-audio)  AUDIO=0;    shift ;;
+    --vagrant)   VAGRANT=1; NAT_ONLY=1; shift ;;
+    --*)         echo "Error: unknown option '$1'"; help; exit 1 ;;
+    *)           break ;;
+  esac
+done
+
+[ $# -lt 4 ] && { echo "Error: too few arguments"; help; exit 1; }
+
+VM=$1; VBOS=$2; VBFOLDER=$3; ISO4VM=$4
+VMFOLDER="${VBFOLDER}/${VM}"
+NIC_TYPE=$( [ "$VIRTIO" -eq 1 ] && echo "virtio" || echo "82540EM" )
+IDE_PORT=$( [ "$VAGRANT" -eq 1 ] && echo "0" || echo "1" )
+
+# ── prepare directory ────────────────────────────────────────────────────────
+[ -d "$VBFOLDER" ] || mkdir -p "$VBFOLDER"
+cd "$VBFOLDER"
+
+# ── stop and remove if exists ────────────────────────────────────────────────
+if VBoxManage showvminfo "$VM" &>/dev/null; then
+  echo "→ Stopping existing VM: $VM"
+  VBoxManage controlvm "$VM" poweroff 2>/dev/null || true
+  sleep 2
+  VBoxManage unregistervm --delete "$VM"
+fi
+
+# ── create VM ────────────────────────────────────────────────────────────────
+echo "→ Creating VM: $VM ($VBOS) | CPU:$CPUS RAM:${RAM}MB Disk:${DISK}MB"
+VBoxManage createvm --name "$VM" --ostype "$VBOS" --register
+
+# ── disks ────────────────────────────────────────────────────────────────────
+VBoxManage createmedium disk --filename "${VMFOLDER}/${VM}_1.vdi" \
+  --size "$DISK" --format VDI
+if [ -n "$DISK2" ]; then
+  VBoxManage createmedium disk --filename "${VMFOLDER}/${VM}_2.vdi" \
+    --size "$DISK2" --format VDI
+fi
+
+# ── VM parameters ────────────────────────────────────────────────────────────
+VBoxManage modifyvm "$VM" \
+  --cpus "$CPUS" \
+  --memory "$RAM" \
+  --vram "$VRAM" \
+  --acpi on \
+  --ioapic on \
+  --x2apic on \
+  --pae on \
+  --paravirtprovider kvm \
+  --graphicscontroller vmsvga \
+  --boot1 dvd --boot2 disk --boot3 none --boot4 none \
+  --rtcuseutc on \
+  --hwvirtex on \
+  --largepages on
+
+[ "$NESTED" -eq 1 ] && VBoxManage modifyvm "$VM" --nested-hw-virt on
+[ "$CLIPBOARD" -eq 1 ] && VBoxManage modifyvm "$VM" --clipboard-mode bidirectional \
+  --draganddrop bidirectional
+
+if [ "$AUDIO" -eq 1 ]; then
+  VBoxManage modifyvm "$VM" --audio-driver alsa --audio-controller ac97 \
+    --audio-in on --audio-out on 2>/dev/null || \
+  VBoxManage modifyvm "$VM" --audio alsa --audiocontroller ac97 2>/dev/null || true
+fi
+
+# ── USB ──────────────────────────────────────────────────────────────────────
+if [ "$USB3" -eq 1 ]; then
+  VBoxManage modifyvm "$VM" --usbxhci on
+else
+  VBoxManage modifyvm "$VM" --usbehci on 2>/dev/null || true
+fi
+
+# ── storage controllers ───────────────────────────────────────────────────────
+VBoxManage storagectl "$VM" --name IDE --add ide --controller PIIX4 --bootable on
+VBoxManage storageattach "$VM" --storagectl IDE --port "$IDE_PORT" --device 0 \
+  --type dvddrive --tempeject on --medium "$ISO4VM"
+
+VBoxManage storagectl "$VM" --name SATA --add sata --controller IntelAhci \
+  --portcount 4 --bootable on
+SATA_PORT=$( [ "$VAGRANT" -eq 1 ] && echo "1" || echo "0" )
+VBoxManage storageattach "$VM" --storagectl SATA --port "$SATA_PORT" --device 0 \
+  --type hdd --medium "${VMFOLDER}/${VM}_1.vdi" --discard on --nonrotational on
+
+if [ -n "$DISK2" ]; then
+  VBoxManage storageattach "$VM" --storagectl SATA --port $((SATA_PORT+1)) --device 0 \
+    --type hdd --medium "${VMFOLDER}/${VM}_2.vdi" --discard on --nonrotational on
+fi
+
+# ── network ──────────────────────────────────────────────────────────────────
+VBoxManage modifyvm "$VM" \
+  --nic1 nat --nictype1 "$NIC_TYPE" --cableconnected1 on \
+  --natpf1 "guestssh,tcp,,${SSH_PORT},,22"
+
+if [ "$NAT_ONLY" -eq 0 ]; then
+  VBoxManage modifyvm "$VM" \
+    --nic2 bridged --nictype2 "$NIC_TYPE" \
+    --bridgeadapter2 "$BRIDGE" --cableconnected2 on
+fi
+
+echo ""
+echo "✓ VM '$VM' ready. Start with: VBoxManage startvm '$VM' --type headless"
+VBoxManage showvminfo "$VM" | grep -E "^(Name|Memory|CPUs|VRAM|NIC|Storage)" | head -20

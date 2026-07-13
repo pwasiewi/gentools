@@ -1,0 +1,40 @@
+#!/bin/bash
+set -euo pipefail
+# git-prune-files - permanently remove files from git history
+# Requires: git filter-repo (pip install git-filter-repo)
+# Alternatively uses older filter-branch (slower, deprecated)
+help() {
+  cat << 'EOF'
+Permanently removes files/directories from the entire git repository history
+Usage: git-prune-files <path1> [path2 ...]
+
+WARNING: Modifies history — force push required after completion!
+
+Requires: git filter-repo (pip install git-filter-repo)
+
+Examples:
+  git-prune-files secret.key
+  git-prune-files passwords/ config/secrets.yml
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+[ ! -d .git ] && { echo "Error: run from the root of the repository"; exit 1; }
+
+if command -v git-filter-repo &>/dev/null; then
+  for path in "$@"; do
+    echo "→ Removing: $path"
+    git filter-repo --path "$path" --invert-paths --force
+  done
+else
+  echo "Warning: git-filter-repo not available, using filter-branch (slower)"
+  echo "         Install with: pip install git-filter-repo"
+  git filter-branch --index-filter \
+    "git rm -rf --cached --ignore-unmatch $*" HEAD
+  rm -rf .git/refs/original/
+  git reflog expire --all
+  git gc --aggressive --prune
+fi
+
+echo "→ Done. Remember to: git push --force-with-lease"

@@ -1,0 +1,11 @@
+#PYTHON3.4
+
+#STABILITY
+#sys-devel/gcc-5.4.0
+#sys-libs/glibc-2.23-r2
+#sys-devel/llvm-9999
+#sys-devel/clang-9999
+#dev-lang/perl-5.24.0-r1
+#dev-lang/python-3.5.2
+
+#BASIC ADVANCED

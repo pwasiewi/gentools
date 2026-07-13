@@ -1,0 +1,6 @@
+#!/bin/bash
+# stopc - suspend the system (suspend to RAM)
+orgb black
+systemctl suspend
+orgb green
+#runuser -u pwas -- /usr/local/bin/fixpanel || /usr/local/bin/fixpanel

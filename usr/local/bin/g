@@ -1,0 +1,3 @@
+#!/bin/bash
+# g - recursive grep in current directory
+grep -R "$@" .

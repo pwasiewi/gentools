@@ -1,0 +1,28 @@
+#!/bin/bash
+help() {
+  cat << EOF
+Recursive website download via wget
+Usage: mwg [-P|--no-parent] <url>
+
+Options:
+  -P, --no-parent   Do not ascend to directories above the start point
+
+Examples:
+  mwg http://example.com/docs/
+  mwg --no-parent http://example.com/docs/
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+
+NO_PARENT=""
+if [ "$1" = "-P" ] || [ "$1" = "--no-parent" ]; then
+  NO_PARENT="--no-parent"
+  shift
+fi
+
+[ $# -eq 0 ] && { echo "Error: provide URL"; help; exit 1; }
+
+nohup wget -np -r -m -k -x -c --proxy=on --follow-ftp \
+  $NO_PARENT \
+  --accept=txt,html,htm,asp,shtml,php,phtml,php3,jpg,gif,zip,tgz,jar,ps,pdf,swf,clj "$1" &

@@ -1,0 +1,7 @@
+DEVCHROOT="/dev/sdb6"
+CD_STAGEFILE="stage3-amd64-systemd-20250511T165428Z.tar.xz"
+CD_STAGETARBALL="https://distfiles.gentoo.org/releases/amd64/autobuilds/20250511T165428Z/"$CD_STAGEFILE
+#####################################
+#Czy instalujemy z RAM dysku np. z liveusb/dvd?
+RAMDISK=0
+BINHOST_MOUNT=1

@@ -1,0 +1,84 @@
+#!/bin/bash
+help() {
+  cat << EOF
+Audio conversion - convert files to another format
+Usage: wav2x <format> <basename> [start_num]
+
+Formats:
+  flac        WAV → FLAC (sox)
+  mp3         WAV → MP3 (lame -h)
+  mp3-320     WAV → MP3 320kbps (lame -b 320)
+  ogg         WAV → OGG (oggenc -q 0)
+  ogg-96      WAV → OGG 96kbps (oggenc -m 96)
+  cdda2mp3    CDDA raw → MP3 (lame -h, files track??.cdda.*)
+  flac2mp3    FLAC → MP3 (ffmpeg parallel, all *.flac in directory)
+
+Arguments:
+  basename    Common name for output files
+  start_num   Start numbering from (default 0, first file = _01)
+
+Examples:
+  wav2x flac grozanocy        → grozanocy_01.flac, grozanocy_02.flac, ...
+  wav2x mp3 grozanocy 5       → numbering from 6: grozanocy_06.mp3, ...
+  wav2x mp3-320 album
+  wav2x ogg-96 broadcast
+  wav2x cdda2mp3 disc
+  wav2x flac2mp3              → converts all *.flac in the current directory
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+
+FORMAT=$1
+shift
+
+case $FORMAT in
+  flac2mp3)
+    parallel ffmpeg -i {} -qscale:a 0 {.}.mp3 ::: ./*.flac
+    exit $?
+    ;;
+  flac|mp3|mp3-320|ogg|ogg-96|cdda2mp3)
+    ;;
+  *)
+    echo "Error: unknown format '$FORMAT'"
+    help
+    exit 1
+    ;;
+esac
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && { echo "Error: provide basename for output files"; help; exit 1; }
+
+BASENAME=$1
+j=${2:-0}
+
+case $FORMAT in
+  cdda2mp3)
+    for i in track??.cdda.*; do
+      [ -f "$i" ] || continue
+      j=$((j+1))
+      if [ "$j" -lt 10 ]; then
+        lame -h "$i" "${BASENAME}_0${j}.mp3"
+      else
+        lame -h "$i" "${BASENAME}_${j}.mp3"
+      fi
+    done
+    ;;
+  *)
+    for i in *.wav; do
+      [ -f "$i" ] || continue
+      j=$((j+1))
+      if [ "$j" -lt 10 ]; then
+        out="${BASENAME}_0${j}"
+      else
+        out="${BASENAME}_${j}"
+      fi
+      case $FORMAT in
+        flac)    sox -V3 "$i" "${out}.flac" ;;
+        mp3)     lame -h "$i" -o "${out}.mp3" ;;
+        mp3-320) lame -b 320 "$i" -o "${out}.mp3" ;;
+        ogg)     oggenc -q 0 "$i" -o "${out}.ogg" ;;
+        ogg-96)  oggenc -m 96 "$i" -o "${out}.ogg" ;;
+      esac
+    done
+    ;;
+esac

@@ -1,0 +1,51 @@
+#!/bin/bash
+set -euo pipefail
+# genformathdemo - GPT disk partitioning for Gentoo installation (VirtualBox/demo)
+# Layout: bios-boot(4MB) + EFI(200MB) + /boot(200MB) + swap(1GB) + / (rest)
+
+die()     { echo "Error: $*" >&2; exit 1; }
+confirm() { read -r -p "$1 [yes/NO]: " _ans; [[ "$_ans" == "yes" ]] || die "Aborted."; }
+
+help() {
+  cat << 'EOF'
+Creates GPT partitions on a disk for Gentoo installation
+Usage: genformathdemo <disk>
+
+WARNING: ALL DATA ON THE DISK WILL BE ERASED!
+Typically used in VirtualBox with a blank disk.
+
+Partitions:
+  1  1-5 MiB     BIOS boot (bios_grub)
+  2  5-205 MiB   EFI / /boot/efi (FAT32)
+  3  205-405 MiB /boot (ext4)
+  4  405-1405 MiB swap
+  5  1405 MiB+   / (ext4)
+
+Examples:
+  genformathdemo /dev/sda
+  genformathdemo /dev/vda
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+DISK="$1"
+[ -b "$DISK" ] || die "'$DISK' is not a block device"
+
+confirm "WARNING: ALL DATA ON $DISK WILL BE ERASED. Continue?"
+
+parted -s "$DISK" mklabel gpt
+parted "$DISK" mkpart primary fat32   1MiB    5MiB
+parted "$DISK" mkpart primary fat32   5MiB  205MiB
+parted "$DISK" mkpart primary ext4  205MiB  405MiB
+parted "$DISK" mkpart primary linux-swap 405MiB 1405MiB
+parted "$DISK" mkpart primary ext4 1405MiB  100%
+parted "$DISK" set 1 bios_grub on
+
+mkfs.ext4 -F "${DISK}3"
+mkswap "${DISK}4"
+swapon "${DISK}4"
+mkfs.ext4 -F "${DISK}5"
+
+echo "→ Done: partitions on $DISK"
+parted "$DISK" print

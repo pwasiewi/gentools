@@ -1,0 +1,49 @@
+#!/bin/bash
+set -euo pipefail
+# buildgpu - compile GPU programs: OpenCL (gcc/g++) and CUDA (nvcc)
+help() {
+  cat << 'EOF'
+Compile GPU programs
+Usage: buildgpu <type> <file>
+
+Types:
+  cl     .c file with OpenCL       → gcc -lOpenCL
+  cu     CUDA .cu file             → nvcc
+  cpp    .cpp file with OpenCL+OpenCV+OpenGL → g++ + pkg-config
+
+Examples:
+  buildgpu cl kernel.c
+  buildgpu cu program.cu
+  buildgpu cpp vision.cpp
+EOF
+}
+
+( [ $# -lt 2 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+TYPE="$1"; FILE="$2"
+[ ! -f "$FILE" ] && { echo "Error: file '$FILE' not found"; exit 1; }
+
+case "$TYPE" in
+  cl)
+    OUT=$(basename "$FILE" .c)
+    gcc "$FILE" -lOpenCL -o "$OUT"
+    echo "→ $OUT"
+    ;;
+  cu)
+    OUT=$(basename "$FILE" .cu)
+    nvcc -o "$OUT" "$FILE"
+    echo "→ $OUT"
+    ;;
+  cpp)
+    OUT=$(basename "$FILE" .cpp)
+    OPENCV_LIBS=$(pkg-config --libs opencv4 2>/dev/null || pkg-config --libs opencv 2>/dev/null || true)
+    [[ -n "$OPENCV_LIBS" ]] || { echo "Error: opencv not found (tried opencv4 and opencv)" >&2; exit 1; }
+    g++ -o "$OUT" "$FILE" -lOpenCL $OPENCV_LIBS \
+      -lGL -lglut -lGLU -lboost_program_options
+    echo "→ $OUT"
+    ;;
+  *)
+    echo "Error: unknown type '$TYPE' (available: cl, cu, cpp)"
+    help; exit 1
+    ;;
+esac

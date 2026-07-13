@@ -1,0 +1,192 @@
+#!/bin/bash
+help() {
+  cat << EOF
+Edit Portage configuration
+Usage:
+  ve <section> [value]
+
+Without value: opens vim with section files
+With value:    validates and appends to the section file
+
+Sections and required formats:
+  conf      /etc/portage/make.conf
+              VARIABLE=value   e.g. MAKEOPTS="-j8"
+  use       /etc/portage/package.use/moje.use
+              [operator]cat/pkg[-ver] flag [-flag]
+  kw        /etc/portage/package.accept_keywords/moje.keywords
+              [operator]cat/pkg[-ver] [** | ~arch]
+  mask      /etc/portage/package.mask/moje.mask
+              [operator]cat/pkg[-ver]
+  env       /etc/portage/package.env/moje.env
+              [operator]cat/pkg[-ver] file.conf
+  provided  /etc/portage/profile/package.provided
+              =cat/pkg-version   (= and version required!)
+
+Examples:
+  ve kw "=dev-libs/foo-1.2.3 **"
+  ve kw "dev-libs/foo **"
+  ve use "=dev-libs/foo-1.2 bar -baz"
+  ve mask "=dev-libs/foo-1.2"
+  ve provided "=dev-libs/foo-1.2.3"
+  ve conf 'MAKEOPTS="-j32"'
+  ve kw                           → opens vim moje.keywords
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+# ── validators ───────────────────────────────────────────────────────────────
+
+_strip_op() {
+  local v="$1"
+  v="${v#>=}"; v="${v#<=}"; v="${v#=}"; v="${v#~}"; v="${v#>}"; v="${v#<}"
+  echo "$v"
+}
+
+_valid_atom() {
+  local bare
+  bare=$(_strip_op "${1%% *}")
+  # without version: cat/pkg
+  [[ "$bare" =~ ^[a-z][a-z0-9_-]+/[a-zA-Z0-9_+][a-zA-Z0-9_+.-]*$ ]] && return 0
+  # with version: cat/pkg-1.2.3... (version starts with digit after hyphen)
+  [[ "$bare" =~ ^[a-z][a-z0-9_-]+/[a-zA-Z0-9_+][a-zA-Z0-9_+.-]+-[0-9][a-zA-Z0-9._-]*$ ]] && return 0
+  return 1
+}
+
+_err_atom() {
+  echo "Error: invalid Portage atom: '$1'"
+  echo "  Format: [operator]category/package[-version]"
+  echo "  Operator: = ~ > < >= <="
+  echo "  Examples: dev-libs/foo  =dev-libs/foo-1.2.3  >=dev-libs/foo-1.0"
+}
+
+validate_kw() {
+  local atom="${1%% *}"
+  local kw="${1#* }"; [ "$kw" = "$1" ] && kw=""
+  if ! _valid_atom "$atom"; then
+    _err_atom "$atom"
+    echo "  For keywords: [operator]cat/pkg[-ver] [** | ~amd64]"
+    return 1
+  fi
+  if [ -n "$kw" ] && ! [[ "$kw" =~ ^(\*\*|~?[a-z0-9_-]+)$ ]]; then
+    echo "Error: invalid keyword '$kw'"
+    echo "  Expected: ** or ~amd64 or amd64 etc."
+    return 1
+  fi
+}
+
+validate_use() {
+  local atom="${1%% *}"
+  local flags="${1#* }"; [ "$flags" = "$1" ] && flags=""
+  if ! _valid_atom "$atom"; then
+    _err_atom "$atom"
+    echo "  For use: [operator]cat/pkg[-ver] flag [-flag ...]"
+    return 1
+  fi
+  if [ -z "$flags" ]; then
+    echo "Error: no USE flags after atom"
+    echo "  Example: ve use \"=dev-libs/foo-1.2 bar -baz\""
+    return 1
+  fi
+}
+
+validate_mask() {
+  local atom="${1%% *}"
+  if ! _valid_atom "$atom"; then
+    _err_atom "$atom"
+    echo "  For mask: [operator]cat/pkg[-ver]"
+    return 1
+  fi
+}
+
+validate_env() {
+  local atom="${1%% *}"
+  local conf="${1#* }"; [ "$conf" = "$1" ] && conf=""
+  if ! _valid_atom "$atom"; then
+    _err_atom "$atom"
+    echo "  For env: [operator]cat/pkg[-ver] file.conf"
+    return 1
+  fi
+  if [ -z "$conf" ]; then
+    echo "Error: no .conf filename after atom"
+    echo "  Example: ve env \"=dev-libs/foo-1.2 no-lto.conf\""
+    return 1
+  fi
+}
+
+validate_provided() {
+  if ! [[ "$1" =~ ^=[a-z][a-z0-9_-]+/[a-zA-Z0-9_+][a-zA-Z0-9_+.-]+-[0-9][a-zA-Z0-9._-]*$ ]]; then
+    echo "Error: package.provided requires exactly: =category/package-version"
+    echo "  Operator = and version are mandatory"
+    echo "  Examples: =dev-libs/foo-1.2.3  =dev-libs/foo-1.2.3-r1"
+    return 1
+  fi
+}
+
+validate_conf() {
+  if ! [[ "$1" =~ ^[A-Za-z_][A-Za-z0-9_]*\+?=.* ]]; then
+    echo "Error: invalid make.conf entry"
+    echo "  Format: VARIABLE=value or VARIABLE+=\"value\""
+    echo "  Examples: MAKEOPTS=\"-j32\"   USE=\"\${USE} foo\""
+    return 1
+  fi
+}
+
+# ── dispatch ──────────────────────────────────────────────────────────────────
+
+SECTION=$1
+VALUE=${2:-}
+
+case $SECTION in
+  kw)
+    if [ -n "$VALUE" ]; then
+      validate_kw "$VALUE" || exit 1
+      echo "$VALUE" >> /etc/portage/package.accept_keywords/moje.keywords
+    else
+      vim /etc/portage/package.accept_keywords/moje.keywords \
+          /etc/portage/package.accept_keywords/systemowe.keywords
+    fi ;;
+  use)
+    if [ -n "$VALUE" ]; then
+      validate_use "$VALUE" || exit 1
+      echo "$VALUE" >> /etc/portage/package.use/moje.use
+    else
+      vim /etc/portage/package.use/moje.use \
+          /etc/portage/package.use/systemowe.use
+    fi ;;
+  mask)
+    if [ -n "$VALUE" ]; then
+      validate_mask "$VALUE" || exit 1
+      echo "$VALUE" >> /etc/portage/package.mask/moje.mask
+    else
+      vim /etc/portage/package.mask/moje.mask \
+          /etc/portage/package.mask/systemowe.mask
+    fi ;;
+  env)
+    if [ -n "$VALUE" ]; then
+      validate_env "$VALUE" || exit 1
+      echo "$VALUE" >> /etc/portage/package.env/moje.env
+    else
+      vim /etc/portage/package.env/moje.env \
+          /etc/portage/package.env/systemowe.env
+    fi ;;
+  provided)
+    if [ -n "$VALUE" ]; then
+      validate_provided "$VALUE" || exit 1
+      echo "$VALUE" >> /etc/portage/profile/package.provided
+    else
+      vim /etc/portage/profile/package.provided
+    fi ;;
+  conf)
+    if [ -n "$VALUE" ]; then
+      validate_conf "$VALUE" || exit 1
+      echo "$VALUE" >> /etc/portage/make.conf
+    else
+      vim /etc/portage/make.conf \
+          /etc/portage/make.conf.lto \
+          /etc/portage/make.conf.lto.defines
+    fi ;;
+  *)
+    echo "Error: unknown section '$SECTION'"
+    help; exit 1 ;;
+esac

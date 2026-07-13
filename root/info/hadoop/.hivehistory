@@ -1,0 +1,74 @@
+show tables;
+drop table kv_input;
+create table kv_input(k string, v string)
+        row format delimited
+        fields terminated by '\t'
+  stored as textfile
+;
+drop table kv_condensed;
+create table kv_condensed(k string, v string)
+        stored as sequencefile
+;
+load data local inpath '/hadoop/examples/kv/kv_input.txt' overwrite into table kv_input;
+add file /hadoop/examples/kv/identity.pl;
+add file /hadoop/examples/kv/condense.pl;
+from (
+  from kv_input
+  MAP k, v
+  USING '/hadoop/examples/kv/identity.pl'
+  as k, v
+ cluster by k) map_output
+insert overwrite table kv_condensed
+reduce k, v
+  using '/hadoop/examples/kv/condense.pl'
+;
+drop table kv_input;
+create table kv_input(k string, v string)
+        row format delimited
+        fields terminated by '\t'
+  stored as textfile
+;
+drop table kv_condensed;
+create table kv_condensed(k string, v string)
+        stored as sequencefile
+;
+load data local inpath '/hadoop/examples/kv/kv_input.txt' overwrite into table kv_input;
+add file /hadoop/examples/kv/identity.pl;
+add file /hadoop/examples/kv/condense.pl;
+from (
+  from kv_input
+  MAP k, v
+  USING '/hadoop/examples/kv/identity.pl'
+  as k, v
+ cluster by k) map_output
+insert overwrite table kv_condensed
+reduce k, v
+  using '/hadoop/examples/kv/condense.pl'
+;
+from (
+  from kv_input
+  MAP k, v
+  USING '/hadoop/examples/kv/identity.pl'
+  as k, v
+ cluster by k) map_output
+insert overwrite table kv_condensed
+reduce k, v
+  using '/hadoop/examples/kv/condense.pl'
+;
+from (
+  from kv_input
+  MAP k, v
+  USING '/hadoop/examples/kv/identity.pl'
+  as k, v
+ cluster by k) map_output
+insert overwrite table kv_condensed
+reduce k, v
+  using '/hadoop/examples/kv/condense.pl'
+;
+ls -l /hadoop/hive-0.8-r2/build/dist/lib/hive-builtins-0.8.1.jar
+select * from kv_input;
+select * from kv_condensed;
+show tables;
+drop kv_input;
+drop table kv_input;
+drop table kv_condensed;

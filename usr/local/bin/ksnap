@@ -1,0 +1,412 @@
+#!/bin/env python3
+# ksnap — save/restore Konsole session (tabs + working directories)
+#
+# Usage:
+#   ksnap          Restore snapshot (default = -l)
+#   ksnap -s       Save snapshot of all Konsole windows
+#   ksnap -l       Restore snapshot
+#   ksnap -h       Help
+#
+# When restoring (-l / no options):
+#   - tabs from the first window in the snapshot go to the current Konsole
+#   - additional windows from the snapshot open as new Konsole instances
+#   - the tab that launched ksnap closes after completion
+#
+# Requires: pip install dbus-python
+# Konsole documentation: https://docs.kde.org/stable5/en/konsole/konsole/command-line-options.html
+
+import argparse
+import datetime
+import dbus
+import json
+import os
+import subprocess
+import tempfile
+import time
+from xml.etree import ElementTree
+
+
+VERBOSE = False
+
+
+def DEBUG(prefix, *args):
+    if VERBOSE:
+        print(
+            ('\033[1m' + prefix + '\033[m ' if prefix else '')
+            + ' '.join(str(x) for x in args)
+        )
+
+
+def xdg_config_dir():
+    return os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config')
+
+
+def config_filename():
+    return os.path.join(xdg_config_dir(), 'konsole_snapshot')
+
+
+def get_bus():
+    return dbus.SessionBus()
+
+
+def get_cwd_by_pid(pid):
+    return os.readlink('/proc/{}/cwd'.format(pid))
+
+
+############################################################
+# Detecting the launching Konsole
+
+
+def find_current_session_from_env():
+    """Returns (service, window_id, session_id) based on Konsole environment variables.
+
+    Konsole sets KONSOLE_DBUS_SERVICE, KONSOLE_DBUS_WINDOW and KONSOLE_DBUS_SESSION
+    for each shell launched inside — works on both X11 and Wayland.
+    """
+    service = os.environ.get('KONSOLE_DBUS_SERVICE')
+    window_path = os.environ.get('KONSOLE_DBUS_WINDOW')
+    session_path = os.environ.get('KONSOLE_DBUS_SESSION')
+    if not service or not window_path:
+        return None, None, None
+    window_id = window_path.rsplit('/', 1)[-1]
+    session_id = session_path.rsplit('/', 1)[-1] if session_path else None
+    DEBUG('Env vars', service, window_id, session_id)
+    return service, window_id, session_id
+
+
+def get_ancestor_konsole_pid():
+    """Walks up the process tree and returns the PID of the konsole process (X11 fallback)."""
+    pid = os.getpid()
+    while pid > 1:
+        try:
+            with open('/proc/{}/comm'.format(pid)) as f:
+                comm = f.read().strip()
+            if comm == 'konsole':
+                return pid
+            with open('/proc/{}/status'.format(pid)) as f:
+                for line in f:
+                    if line.startswith('PPid:'):
+                        pid = int(line.split()[1])
+                        break
+                else:
+                    return None
+        except (FileNotFoundError, PermissionError):
+            return None
+    return None
+
+
+def find_current_session_by_pid(bus, konsole_pid):
+    """Fallback: searches for session by shell PID (works only on X11)."""
+    service = 'org.kde.konsole-{}'.format(konsole_pid)
+    shell_pid = None
+    try:
+        with open('/proc/{}/status'.format(os.getpid())) as f:
+            for line in f:
+                if line.startswith('PPid:'):
+                    shell_pid = str(int(line.split()[1]))
+                    break
+    except FileNotFoundError:
+        return None, None, None
+
+    try:
+        windows = sorted(list_children(bus, service, '/Windows'))
+        for window in windows:
+            winproxy = bus.get_object(service, '/Windows/' + window)
+            sessions = [
+                str(s)
+                for s in winproxy.sessionList(dbus_interface='org.kde.konsole.Window')
+            ]
+            for session in sessions:
+                sesproxy = bus.get_object(service, '/Sessions/' + session)
+                sesinterface = dbus.Interface(sesproxy, 'org.kde.konsole.Session')
+                if str(sesinterface.processId()) == shell_pid:
+                    return service, window, session
+    except dbus.exceptions.DBusException:
+        pass
+    return None, None, None
+
+
+############################################################
+# Save functions
+
+
+def list_children(bus, service, path):
+    proxy = bus.get_object(service, path)
+    xml = proxy.Introspect(dbus_interface='org.freedesktop.DBus.Introspectable')
+    root = ElementTree.fromstring(xml)
+    for child in root:
+        if child.tag == 'node':
+            name = child.attrib['name']
+            if name:
+                yield name
+
+
+def get_konsoles_snapshot():
+    bus = get_bus()
+    services = sorted(
+        str(s)
+        for s in bus.list_names()
+        if str(s).startswith('org.kde.konsole-')
+    )
+    DEBUG('dbus services', services)
+
+    saved_windows = []
+
+    for service in services:
+        service_id = service.replace('org.kde.konsole-', '')
+        windows = sorted(list_children(bus, service, '/Windows'))
+        for window in windows:
+            winproxy = bus.get_object(service, '/Windows/' + window)
+            sessions = [
+                str(s)
+                for s in winproxy.sessionList(dbus_interface='org.kde.konsole.Window')
+            ]
+            saved_tabs = []
+            for session in sessions:
+                sesproxy = bus.get_object(service, '/Sessions/' + session)
+                sesinterface = dbus.Interface(sesproxy, 'org.kde.konsole.Session')
+                profile = str(sesinterface.profile())
+                pid = str(sesinterface.processId())
+                cwd = get_cwd_by_pid(pid)
+                DEBUG('', '\t'.join([service_id, window, session, profile, pid, cwd]))
+                saved_tabs.append({'profile': profile, 'workdir': cwd})
+
+            saved_windows.append({
+                'workdir': get_cwd_by_pid(service_id),
+                'tabs': saved_tabs,
+            })
+
+    DEBUG('Final snapshot', json.dumps(saved_windows, indent='  ', sort_keys=True))
+    return saved_windows
+
+
+def save_snapshot_to_config(snapshot, filename):
+    DEBUG('Config file', filename)
+    with open(filename, 'w') as f:
+        json.dump({
+            'version': 1,
+            'datetime': datetime.datetime.now().isoformat(timespec='seconds'),
+            'windows_and_tabs': snapshot,
+        }, f, indent='\t', sort_keys=True)
+    print('Saved: {} ({} windows)'.format(filename, len(snapshot)))
+
+
+############################################################
+# Restore functions
+
+
+def load_snapshot(filename):
+    DEBUG('Config file', filename)
+    try:
+        with open(filename, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return None
+
+
+def validate_tabsfromfile_field(tab, snapshot_name, field_name):
+    value = tab.get(snapshot_name, None)
+    if value:
+        if ';;' in value:
+            raise ValueError('The string ";;" cannot be present inside {}'.format(snapshot_name))
+        if '\n' in value:
+            raise ValueError('There should be no newlines inside {}'.format(snapshot_name))
+        return '{}: {}'.format(field_name, value)
+    return None
+
+
+def build_tabsfromfile(tabs):
+    lines = []
+    for tab in tabs:
+        fields = [
+            validate_tabsfromfile_field(tab, 'profile', 'profile'),
+            validate_tabsfromfile_field(tab, 'workdir', 'workdir'),
+        ]
+        fields = [x for x in fields if x]
+        if fields:
+            lines.append(' ;; '.join(fields))
+    return '\n'.join(lines)
+
+
+def add_tabs_to_window(bus, service, window_id, tabs):
+    """Adds tabs to an existing Konsole window via DBus.
+
+    newSession(profile: str, directory: str) — signature 'ss' in Konsole >= 21.x
+    """
+    winproxy = bus.get_object(service, '/Windows/' + window_id)
+    for tab in tabs:
+        cwd = tab.get('workdir', os.path.expanduser('~'))
+        profile = tab.get('profile', '')
+        if not os.path.isdir(cwd):
+            cwd = os.path.expanduser('~')
+        try:
+            winproxy.newSession(
+                profile or '',
+                cwd,
+                dbus_interface='org.kde.konsole.Window',
+            )
+            print('  + tab: {} [{}]'.format(cwd, profile or 'default'))
+        except Exception as e:
+            print('  ! tab error {}: {}'.format(cwd, e))
+
+
+def open_new_konsole_windows(bus, windows):
+    """Opens new Konsole windows for the list of windows from the snapshot."""
+    if not windows:
+        return
+
+    tmpfiles = []
+    pids = []
+
+    try:
+        for window in windows:
+            cwd = window.get('workdir', '.')
+            s = build_tabsfromfile(window.get('tabs', []))
+            DEBUG('tabs-from-file', '\n' + s)
+            with tempfile.NamedTemporaryFile('w', delete=False) as f:
+                tmpfiles.append(f)
+                f.write(s)
+
+            cmdline = [
+                'konsole',
+                '--workdir', cwd,
+                '--tabs-from-file', f.name,
+                '-e', '/bin/true',
+            ]
+            DEBUG('Launching', cmdline)
+            p = subprocess.Popen(cmdline, cwd=cwd)
+            pids.append(p.pid)
+
+        if pids:
+            time.sleep(0.5)
+            for _ in range(10000):
+                try:
+                    proxies = [
+                        bus.get_object('org.kde.konsole-{}'.format(pid), '/Windows/1')
+                        for pid in pids
+                    ]
+                    sessions = [
+                        wp.sessionList(dbus_interface='org.kde.konsole.Window')
+                        for wp in proxies
+                    ]
+                    if all(len(x) > 0 for x in sessions):
+                        break
+                except dbus.exceptions.DBusException:
+                    time.sleep(0.5)
+    finally:
+        for f in tmpfiles:
+            DEBUG('Removing temporary file', f.name)
+            os.remove(f.name)
+
+
+def launch_konsoles(saved_snapshot):
+    if saved_snapshot is None:
+        print('No snapshot found — save one first: ksnap -s')
+        return
+
+    assert saved_snapshot['version'] == 1
+    windows = list(saved_snapshot['windows_and_tabs'])
+    if not windows:
+        print('Snapshot is empty.')
+        return
+
+    bus = get_bus()
+
+    close_session_id = None
+    close_service = None
+
+    # Prefer Konsole environment variables (work on X11 and Wayland)
+    service, window_id, session_id = find_current_session_from_env()
+    DEBUG('Env session', service, window_id, session_id)
+
+    if not window_id:
+        konsole_pid = get_ancestor_konsole_pid()
+        DEBUG('Ancestor Konsole PID (fallback)', konsole_pid)
+        if konsole_pid:
+            service, window_id, session_id = find_current_session_by_pid(bus, konsole_pid)
+            DEBUG('PID session (fallback)', service, window_id, session_id)
+
+    if window_id:
+        # All tabs from all saved windows → current Konsole
+        for window in windows:
+            add_tabs_to_window(bus, service, window_id, window.get('tabs', []))
+        windows = []  # nic do otwierania jako nowe okna
+        close_service = service
+        close_session_id = session_id
+    else:
+        print('Current Konsole window not found — opening new windows.')
+
+    # Fallback: current Konsole not found → open new windows
+    open_new_konsole_windows(bus, windows)
+
+    # Close the launching tab: send `exit` to the shell
+    if close_session_id and close_service:
+        time.sleep(0.2)
+        try:
+            sesproxy = bus.get_object(close_service, '/Sessions/' + close_session_id)
+            dbus.Interface(sesproxy, 'org.kde.konsole.Session').sendText('exit\n')
+            DEBUG('Sent exit to session', close_session_id)
+        except dbus.exceptions.DBusException as e:
+            DEBUG('Cannot close session', e)
+
+
+############################################################
+# Main
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description='Save or restore a Konsole session (tabs + directories).',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        epilog=(
+            'Without options: restore snapshot to the current Konsole.\n'
+            'Tabs from the first snapshot window go to the current Konsole,\n'
+            'remaining windows open as new instances.\n'
+            'The ksnap tab closes automatically after completion.'
+        ),
+    )
+    parser.add_argument(
+        '-f', '--file',
+        action='store',
+        default=config_filename(),
+        help='Snapshot file',
+    )
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Debug output',
+    )
+    parser.add_argument(
+        '-s', '--save',
+        action='store_true',
+        help='Save snapshot of all Konsole windows',
+    )
+    parser.add_argument(
+        '-l', '--load',
+        action='store_true',
+        help='Restore snapshot (default when no options given)',
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_arguments()
+
+    if args.verbose:
+        global VERBOSE
+        VERBOSE = True
+
+    DEBUG('Arguments', args)
+
+    # Default action (no -s or -l): restore
+    if not args.save and not args.load:
+        args.load = True
+
+    if args.save:
+        save_snapshot_to_config(get_konsoles_snapshot(), args.file)
+    elif args.load:
+        launch_konsoles(load_snapshot(args.file))
+
+
+if __name__ == '__main__':
+    main()

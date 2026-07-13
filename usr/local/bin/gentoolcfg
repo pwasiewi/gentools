@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+curl -fsSL https://github.com/pwasiewi/gentools/archive/master.tar.gz | tar xz -C "$TMP"
+tar Jcf /config.txz -C "$TMP/gentools-master" .

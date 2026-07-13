@@ -1,0 +1,171 @@
+#!/bin/bash
+help() {
+  cat << EOF
+Video conversion - supports modern camera and phone formats
+Usage: vidconv [options] <file|files...>
+
+Supported input:
+  .mov .mp4 .mts .m2ts .mkv .avi .wmv .3gp .webm .flv .ts .vob .mpg .hevc .dav
+
+Options:
+  -f <format>   Output format: mp4 (default), mkv, webm, avi
+  -c <codec>    Video codec:
+                  h265    H.265/HEVC - best quality-to-size ratio (default)
+                  h264    H.264 - maximum compatibility
+                  av1     AV1 - newest, best for streaming (slower)
+                  vp9     VP9 - webm/YouTube
+                  copy    Copy stream without re-encoding
+  -q <crf>      CRF quality (0=best, 51=worst)
+                  h265: default 28, h264: default 23, av1/vp9: default 33
+  -a <audio>    Audio codec: aac (default), opus, mp3, flac, copy
+  -p <preset>   Encoder preset: ultrafast fast medium slow veryslow (default: medium)
+  -o <dir>      Output directory (default: current)
+  -hw           NVIDIA NVENC hardware acceleration (h264_nvenc / hevc_nvenc)
+  -s <scale>    Scale: 1080, 720, 480 (e.g. -s 1080 → 1920x1080 max)
+  -2            Batch convert all video files in the current directory
+
+Examples:
+  vidconv movie.mov                         → movie.mp4 (h265, crf28, aac)
+  vidconv -c h264 -q 20 movie.mts          → movie.mp4 (h264, high quality)
+  vidconv -c h265 -p slow -q 24 movie.mp4  → better h265, slower encoding
+  vidconv -hw -c h264 movie.mov            → NVIDIA NVENC (GPU)
+  vidconv -f mkv -a flac movie.mts         → MKV with FLAC audio
+  vidconv -c copy -f mp4 movie.mov         → remux only, no re-encoding
+  vidconv -s 1080 *.mp4                    → batch scale to 1080p
+  vidconv -2 -c h265                       → batch all videos in directory
+  vidconv -c av1 -f webm movie.mp4         → AV1/WebM for streaming
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+FORMAT="mp4"
+CODEC="h265"
+CRF=""
+AUDIO="aac"
+PRESET="medium"
+OUTDIR="."
+HW=0
+SCALE=""
+BATCH=0
+FILES=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -f) FORMAT=$2;  shift 2 ;;
+    -c) CODEC=$2;   shift 2 ;;
+    -q) CRF=$2;     shift 2 ;;
+    -a) AUDIO=$2;   shift 2 ;;
+    -p) PRESET=$2;  shift 2 ;;
+    -o) OUTDIR=$2;  shift 2 ;;
+    -s) SCALE=$2;   shift 2 ;;
+    -hw) HW=1;      shift ;;
+    -2)  BATCH=1;   shift ;;
+    -*) echo "Error: unknown option '$1'"; help; exit 1 ;;
+    *)  FILES+=("$1"); shift ;;
+  esac
+done
+
+# default CRF based on codec
+if [ -z "$CRF" ]; then
+  case "$CODEC" in
+    h265) CRF=28 ;;
+    h264) CRF=23 ;;
+    av1|vp9) CRF=33 ;;
+    copy) CRF="" ;;
+  esac
+fi
+
+# batch - collect all videos from directory
+if [ "$BATCH" -eq 1 ] && [ ${#FILES[@]} -eq 0 ]; then
+  shopt -s nullglob nocaseglob
+  FILES=(*.mov *.mp4 *.mts *.m2ts *.mkv *.avi *.wmv *.3gp *.webm *.flv *.ts *.vob *.mpg *.hevc *.dav)
+  shopt -u nullglob nocaseglob
+fi
+
+[ ${#FILES[@]} -eq 0 ] && { echo "Error: no files to convert"; help; exit 1; }
+
+[ -d "$OUTDIR" ] || mkdir -p "$OUTDIR"
+
+# select video encoder
+vcodec_arg() {
+  if [ "$HW" -eq 1 ]; then
+    case "$CODEC" in
+      h265) echo "hevc_nvenc -preset p4 -rc vbr -cq ${CRF}" ;;
+      h264) echo "h264_nvenc -preset p4 -rc vbr -cq ${CRF}" ;;
+      copy) echo "copy" ;;
+      *)    echo "Error: NVENC does not support codec $CODEC"; exit 1 ;;
+    esac
+  else
+    case "$CODEC" in
+      h265) echo "libx265 -crf ${CRF} -preset ${PRESET} -tag:v hvc1" ;;
+      h264) echo "libx264 -crf ${CRF} -preset ${PRESET}" ;;
+      av1)  echo "libsvtav1 -crf ${CRF} -preset 6" ;;
+      vp9)  echo "libvpx-vp9 -crf ${CRF} -b:v 0 -deadline good -cpu-used 2" ;;
+      copy) echo "copy" ;;
+      *)    echo "Error: unknown codec '$CODEC'"; exit 1 ;;
+    esac
+  fi
+}
+
+# audio encoder
+acodec_arg() {
+  case "$AUDIO" in
+    aac)  echo "aac -b:a 192k" ;;
+    opus) echo "libopus -b:a 128k" ;;
+    mp3)  echo "libmp3lame -q:a 2" ;;
+    flac) echo "flac" ;;
+    copy) echo "copy" ;;
+    *)    echo "Error: unknown audio codec '$AUDIO'"; exit 1 ;;
+  esac
+}
+
+# scale filter
+scale_filter() {
+  case "$SCALE" in
+    1080) echo "-vf scale='min(1920,iw)':min'(1080,ih)':force_original_aspect_ratio=decrease" ;;
+    720)  echo "-vf scale='min(1280,iw)':min'(720,ih)':force_original_aspect_ratio=decrease" ;;
+    480)  echo "-vf scale='min(854,iw)':min'(480,ih)':force_original_aspect_ratio=decrease" ;;
+    "")   echo "" ;;
+    *)    echo "-vf scale=-2:${SCALE}" ;;
+  esac
+}
+
+VCODEC=$(vcodec_arg)
+ACODEC=$(acodec_arg)
+SCALE_F=$(scale_filter)
+
+total=${#FILES[@]}
+n=0
+errors=0
+
+for src in "${FILES[@]}"; do
+  [ -f "$src" ] || { echo "Skipped (file missing): $src"; continue; }
+  n=$((n+1))
+  base=$(basename "$src")
+  name="${base%.*}"
+  dst="${OUTDIR}/${name}.${FORMAT}"
+
+  echo "[$n/$total] $src → $dst"
+  echo "  codec: $CODEC | audio: $AUDIO | preset: ${PRESET} | format: $FORMAT"
+
+  # shellcheck disable=SC2086
+  if ffmpeg -hide_banner -loglevel warning -stats \
+      -i "$src" \
+      -c:v $VCODEC \
+      -c:a $ACODEC \
+      $SCALE_F \
+      -movflags +faststart \
+      "$dst"; then
+    SIZE_IN=$(du -sh "$src" 2>/dev/null | cut -f1)
+    SIZE_OUT=$(du -sh "$dst" 2>/dev/null | cut -f1)
+    echo "  OK: $SIZE_IN → $SIZE_OUT"
+  else
+    echo "  ERROR: conversion failed for $src"
+    errors=$((errors+1))
+  fi
+  echo ""
+done
+
+echo "Done: $((total-errors))/$total files converted."
+[ "$errors" -gt 0 ] && exit 1 || exit 0

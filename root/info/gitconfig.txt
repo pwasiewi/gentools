@@ -1,0 +1,59 @@
+# Git — konfiguracja i często używane komendy
+
+## Konfiguracja globalna
+git config --global user.name "Piotr Wasiewicz"
+git config --global user.email "pwasiewi@gmail.com"
+git config --global core.editor vim
+git config --global commit.gpgsign true
+git config --global alias.cs "commit -S -a"
+git config --global alias.logs "log --show-signature"
+git config --global alias.shows "show --show-signature"
+git config --global pull.rebase false
+
+## Aliasy użyteczne
+git config --global alias.lg "log --oneline --graph --decorate --all"
+git config --global alias.st "status -s"
+git config --global alias.co "checkout"
+git config --global alias.br "branch -v"
+
+## Gałęzie
+git checkout -b new_branch          # utwórz gałąź z bieżącej
+git branch -v                       # lista gałęzi
+git branch -d config-heap           # usuń lokalną gałąź
+git branch -D config-heap           # usuń z wymuszeniem
+git push --delete origin config-heap  # usuń zdalną gałąź
+git checkout --track -b gh-pages origin/gh-pages
+
+## Zdalne repozytoria
+git remote add origin git@github.com:pwasiewi/<repo>.git
+git remote add isogithub git@github.com:pwasiewi/iso.git
+git remote set-url origin git@github.com:<Username>/<Project>.git
+git push -u origin main
+
+## Podstawowe operacje
+git init
+git add -p                          # interaktywne dodawanie fragmentów
+git diff --staged
+git log --stat
+git log --show-signature --pretty=format:"%H %ae %n %G?  %GS %GK"
+git verify-commit --raw $COMMIT_ID
+git show --show-signature
+
+## SSH do GitHub — test
+ssh -vT git@github.com
+
+## Podpisywanie GPG
+git config --global user.signingKey $KEYID
+GIT_TRACE=1 git cs                  # debug podpisywania
+
+## Stash
+git stash
+git stash pop
+git stash list
+
+## Czyszczenie
+git clean -fdx                      # usuń nieśledzone pliki i katalogi
+git gc --aggressive                 # kompresja repozytorium
+
+## Keybase
+git clone keybase://private/pwasiewi/encrypted

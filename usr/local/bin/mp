@@ -1,0 +1,270 @@
+#!/bin/bash
+# mp - mplayer with subtitle support, VDPAU and subtitle downloading
+help() {
+  cat << EOF
+Video player (mplayer) with subtitles and download option
+Usage: mp [options] <file|URL>
+
+Playback options:
+  -f, --fs          Fullscreen
+  -hw, --vdpau      VDPAU acceleration (NVIDIA) - hardware decoding
+  -gl               OpenGL video output instead of Xv
+  -di               Deinterlacing (yadif) + denoising (hqdn3d)
+  -t <n>            Decoding threads (default: 4)
+  -ss <time>        Start at position (e.g. -ss 01:23:45 or -ss 5400)
+  -loop <n>         Loop n times (0=infinite)
+  -vol <n>          Volume 0-200 (default: 100)
+  -ao <out>         Audio output: pulse alsa jack (default: pulse)
+  -cache <MB>       Cache size in MB (default: 64, network: 256)
+
+Subtitle options:
+  -s <file>         Subtitle file (.srt .ass .sub)
+  -enc <encoding>   Subtitle encoding: utf-8 cp1250 iso-8859-2 (default: utf-8)
+  -lang <codes>     Preferred subtitle languages, e.g. pl,en (default: pl,en)
+  -alang <codes>    Preferred audio language (default: pl,en)
+  -scale <n>        Subtitle font size 1-10 (default: 4)
+  -nosub            Disable subtitles
+
+Subtitle downloading:
+  -d                Download subtitles before playing (requires tool below)
+  -dl <lang>        Download subtitles for language (default: pl)
+  --setup-sub       Show installation instructions for subtitle tools
+
+Subtitle tools (in priority order):
+  subdl             pip install subdl          (recommended, simple)
+  subliminal        pip install subliminal      (more sources)
+  OpenSubtitles API API key in ~/.config/mp/config as OSDB_KEY=...
+
+Examples:
+  mp movie.mkv
+  mp -f -hw movie.mkv                       → fullscreen + VDPAU
+  mp -f -s subs.srt -enc cp1250 movie.avi   → subtitles with CP1250 encoding
+  mp -d movie.mkv                           → download PL subtitles, then play
+  mp -d -dl en movie.mkv                    → download English subtitles
+  mp -ss 00:45:00 -f movie.mkv              → start at 45 minutes
+  mp -f -hw -di series.mkv                  → VDPAU + deinterlacing
+  mp https://...                            → stream (with cache)
+EOF
+}
+
+setup_sub_info() {
+  cat << EOF
+Installation of subtitle downloading tools:
+
+1. subdl (recommended):
+   pip install subdl
+   No configuration needed, uses subdl.com
+
+2. subliminal (more sources):
+   pip install subliminal
+   Supports: OpenSubtitles, Podnapisi, TVsubtitles
+
+3. OpenSubtitles API v2 (curl, requires key):
+   - Register at opensubtitles.com/en/consumers
+   - Create file ~/.config/mp/config with:
+       OSDB_KEY=your_api_key
+       OSDB_USER=login        # optional (20 downloads/day instead of 5)
+       OSDB_PASS=password     # optional
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+[ "$1" = "--setup-sub" ] && setup_sub_info && exit 0
+
+# ── config ────────────────────────────────────────────────────────────────────
+CFG="$HOME/.config/mp/config"
+OSDB_KEY=""
+OSDB_USER=""
+OSDB_PASS=""
+[ -f "$CFG" ] && source "$CFG"
+
+# ── default options ───────────────────────────────────────────────────────────
+FS=0
+VDPAU=0
+GL=0
+DEINT=0
+THREADS=4
+SUB_FILE=""
+SUB_ENC="utf-8"
+SUB_LANG="pl,en"
+AUD_LANG="pl,en"
+SUB_SCALE=4
+NO_SUB=0
+DOWNLOAD=0
+DL_LANG="pl"
+START=""
+LOOP=""
+VOL=100
+AO="pulse"
+CACHE=64
+EXTRA=()
+FILE=""
+
+# ── argument parsing ──────────────────────────────────────────────────────────
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -f|--fs)      FS=1;        shift ;;
+    -hw|--vdpau)  VDPAU=1;     shift ;;
+    -gl)          GL=1;        shift ;;
+    -di)          DEINT=1;     shift ;;
+    -t)           THREADS=$2;  shift 2 ;;
+    -s)           SUB_FILE=$2; shift 2 ;;
+    -enc)         SUB_ENC=$2;  shift 2 ;;
+    -lang)        SUB_LANG=$2; shift 2 ;;
+    -alang)       AUD_LANG=$2; shift 2 ;;
+    -scale)       SUB_SCALE=$2; shift 2 ;;
+    -nosub)       NO_SUB=1;    shift ;;
+    -d)           DOWNLOAD=1;  shift ;;
+    -dl)          DOWNLOAD=1; DL_LANG=$2; shift 2 ;;
+    -ss)          START=$2;    shift 2 ;;
+    -loop)        LOOP=$2;     shift 2 ;;
+    -vol)         VOL=$2;      shift 2 ;;
+    -ao)          AO=$2;       shift 2 ;;
+    -cache)       CACHE=$2;    shift 2 ;;
+    -*)           EXTRA+=("$1"); shift ;;
+    *)            FILE="$1";   shift ;;
+  esac
+done
+
+[ -z "$FILE" ] && { echo "Error: no file or URL provided"; help; exit 1; }
+
+# ── auto-detect if it's a URL (network = larger cache) ───────────────────────
+IS_URL=0
+[[ "$FILE" =~ ^https?://|^rtsp://|^rtmp://|^ftp:// ]] && { IS_URL=1; CACHE=256; }
+
+# ── auto-detect subtitles if not provided ────────────────────────────────────
+if [ -z "$SUB_FILE" ] && [ "$NO_SUB" -eq 0 ] && [ "$IS_URL" -eq 0 ]; then
+  base="${FILE%.*}"
+  for ext in srt ass sub ssa; do
+    for lang in "" ".pl" ".en" ".PL" ".EN"; do
+      candidate="${base}${lang}.${ext}"
+      [ -f "$candidate" ] && { SUB_FILE="$candidate"; echo "→ Found subtitles: $SUB_FILE"; break 2; }
+    done
+  done
+fi
+
+# ── subtitle downloading ──────────────────────────────────────────────────────
+download_subs() {
+  local file="$1" lang="$2"
+  echo "→ Downloading subtitles [$lang] for: $file"
+
+  # 1. subdl
+  if command -v subdl &>/dev/null; then
+    subdl --lang "$lang" --output "$(dirname "$file")" "$file" && return 0
+  fi
+
+  # 2. subliminal
+  if command -v subliminal &>/dev/null; then
+    subliminal download -l "${lang%,*}" "$file" && return 0
+  fi
+
+  # 3. OpenSubtitles API v2 (curl + jq)
+  if command -v jq &>/dev/null && [ -n "$OSDB_KEY" ]; then
+    echo "  Using OpenSubtitles API v2..."
+    local fname
+    fname=$(basename "$file")
+    fname="${fname%.*}"
+
+    # Optional login (more downloads/day)
+    local AUTH_HDR=""
+    if [ -n "$OSDB_USER" ] && [ -n "$OSDB_PASS" ]; then
+      local token
+      token=$(curl -s -X POST "https://api.opensubtitles.com/api/v1/login" \
+        -H "Api-Key: $OSDB_KEY" -H "Content-Type: application/json" \
+        -d "{\"username\":\"$OSDB_USER\",\"password\":\"$OSDB_PASS\"}" \
+        | jq -r '.token // empty')
+      [ -n "$token" ] && AUTH_HDR="Authorization: Bearer $token"
+    fi
+
+    # Search for subtitles
+    local resp file_id link
+    resp=$(curl -s "https://api.opensubtitles.com/api/v1/subtitles?query=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$fname")&languages=${lang%%,*}" \
+      -H "Api-Key: $OSDB_KEY" \
+      ${AUTH_HDR:+-H "$AUTH_HDR"})
+    file_id=$(echo "$resp" | jq -r '.data[0].attributes.files[0].file_id // empty')
+
+    if [ -n "$file_id" ]; then
+      link=$(curl -s -X POST "https://api.opensubtitles.com/api/v1/download" \
+        -H "Api-Key: $OSDB_KEY" -H "Content-Type: application/json" \
+        ${AUTH_HDR:+-H "$AUTH_HDR"} \
+        -d "{\"file_id\":$file_id}" | jq -r '.link // empty')
+      if [ -n "$link" ]; then
+        local out="${file%.*}.${lang%%,*}.srt"
+        wget -q "$link" -O "$out" && echo "  Downloaded: $out" && SUB_FILE="$out" && return 0
+      fi
+    fi
+    echo "  No subtitles found on OpenSubtitles."
+    return 1
+  fi
+
+  echo "No subtitle download tool available. Run: mp --setup-sub"
+  return 1
+}
+
+if [ "$DOWNLOAD" -eq 1 ] && [ "$IS_URL" -eq 0 ]; then
+  download_subs "$FILE" "$DL_LANG"
+  # after downloading, refresh auto-detect
+  if [ -z "$SUB_FILE" ]; then
+    base="${FILE%.*}"
+    for ext in srt ass sub; do
+      for lang in ".pl" ".en" ""; do
+        candidate="${base}${lang}.${ext}"
+        [ -f "$candidate" ] && { SUB_FILE="$candidate"; break 2; }
+      done
+    done
+  fi
+fi
+
+# ── build mplayer options ─────────────────────────────────────────────────────
+OPTS=()
+
+# video output
+if [ "$VDPAU" -eq 1 ]; then
+  OPTS+=(-vo vdpau)
+  OPTS+=(-vc ffh264vdpau,ffmpeg12vdpau,ffwmv3vdpau,ffvc1vdpau,ffhevcvdpau,)
+elif [ "$GL" -eq 1 ]; then
+  OPTS+=(-vo gl_nosw:yuv=2:force-pbo -dr)
+else
+  OPTS+=(-vo xv)
+fi
+
+# video filters
+VF=()
+[ "$DEINT" -eq 1 ] && VF+=(yadif=3) VF+=(hqdn3d=3:2.8:1:3)
+[ ${#VF[@]} -gt 0 ] && OPTS+=(-vf "$(IFS=,; echo "${VF[*]}")")
+
+# fullscreen
+[ "$FS" -eq 1 ] && OPTS+=(-fs)
+
+# audio
+OPTS+=(-ao "$AO")
+OPTS+=(-vol "$VOL")
+OPTS+=(-alang "${AUD_LANG//,/:}")
+
+# threads and cache
+OPTS+=(-lavdopts "threads=${THREADS}")
+OPTS+=(-cache $((CACHE * 1024)) -cache-min 5)
+
+# start position
+[ -n "$START" ] && OPTS+=(-ss "$START")
+
+# loop
+[ -n "$LOOP" ] && OPTS+=(-loop "$LOOP")
+
+# napisy
+if [ "$NO_SUB" -eq 1 ]; then
+  OPTS+=(-nosub)
+else
+  OPTS+=(-subcp "$SUB_ENC")
+  OPTS+=(-subfont-text-scale "$SUB_SCALE")
+  OPTS+=(-slang "${SUB_LANG//,/:}")
+  OPTS+=(-ass -ass-font-scale 1.0)
+  [ -n "$SUB_FILE" ] && OPTS+=(-sub "$SUB_FILE")
+fi
+
+# additional passed options
+OPTS+=("${EXTRA[@]}")
+
+# ── launch mplayer ───────────────────────────────────────────────────────────
+echo "→ mplayer ${OPTS[*]} $FILE"
+exec mplayer "${OPTS[@]}" "$FILE"

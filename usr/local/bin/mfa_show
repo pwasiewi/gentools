@@ -1,0 +1,12 @@
+#!/bin/bash
+set -eo pipefail
+
+if [[ -z "${AWS_ACCESS_KEY_ID:-}" ]]; then
+    echo "No AWS credentials in environment. Run: source mfa" >&2
+    exit 1
+fi
+
+echo "Access key id:   $AWS_ACCESS_KEY_ID"
+echo "Secret key:      $AWS_SECRET_ACCESS_KEY"
+echo "Session token:   $AWS_SESSION_TOKEN"
+echo "Default profile: ${AWS_DEFAULT_PROFILE:-}"

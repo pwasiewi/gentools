@@ -1,0 +1,24 @@
+LG G6
+https://forum.xda-developers.com/general/general/tool-nexus-tools-2-8-featured-xda-t3258661
+bash <(curl -s https://raw.githubusercontent.com/corbindavenport/nexus-tools/master/install.sh)
+#bash <(curl -s https://raw.githubusercontent.com/corbindavenport/nexus-tools/master/uninstall.sh)
+
+https://forum.xda-developers.com/lg-g6/how-to/official-lg-g6-bootloader-unlock-t3614719
+#show IMEI
+adb shell service call iphonesubinfo 1 | awk -F "'" '{print $2}' | sed '1 d' | tr -d '.' | awk '{print}' ORS=
+adb reboot bootloader
+fastboot oem device-id
+fastboot flash unlock unlock.bin
+fastboot reboot
+adb reboot bootloader
+fastboot flash recovery twrp.img
+fastboot reboot
+adb reboot recovery
+
+https://forum.xda-developers.com/apps/magisk/official-magisk-v7-universal-systemless-t3473445
+https://forum.xda-developers.com/lg-g6/development/rom-pixel-experience-t3892301
+https://forum.xda-developers.com/lg-g6/development/rom-havocos-v2-1-t3893668
+
+
+https://forum.xda-developers.com/lg-g6/development/rom-lg-h870-eu-30b-rom-t4007979
+

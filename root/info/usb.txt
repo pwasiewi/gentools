@@ -1,0 +1,98 @@
+## Windows USB (UEFI/NTFS)
+woeusb --target-filesystem NTFS --device /path/to/Win11.iso /dev/sdx
+# alternatywnie: ventoy (obsługuje wiele ISO na jednej pamięci)
+# https://www.ventoy.net/en/index.html
+
+## Linux USB z EXTLINUX (ext2/3/4, btrfs — alternatywa dla FAT/SYSLINUX)
+# https://wiki.syslinux.org/wiki/index.php?title=EXTLINUX
+
+EXTLINUX is easier to use than GRUB.
+
+Why use the EXT2 filesystem? It is recommended for flash drives as it is a non-journaled filesystem so the write operations are reduced compared to other journaled filesystems.
+
+See http://en.wikipedia.org/wiki/Ext2 for more info.
+
+First operation : partitioning our drive (as root)
+
+This will list the installed physical disk drives in your system :
+# fdisk -l
+
+On my particular setup, my USB drive is identified as /dev/sde.
+
+Adapt to your own case.
+
+WARNING! The following will ERASE your USB drive! Be careful not to partition/format the wrong disk drive!
+
+We create an EXT2 partition (whole disk), and mark it as bootable.
+
+sudo parted /dev/sde
+mklabel msdos
+quit
+
+# fdisk /dev/sde
+then enter the following input :
+
+o<ENTER>
+n<ENTER>
+p<ENTER>
+1<ENTER>
+<first cylinder, ENTER>
+<last cylinder, ENTER>
+t<ENTER>
+83<ENTER>  <-- partition type : Linux
+a<ENTER>
+1<ENTER>
+w<ENTER>
+
+Partitioning done, next we have to create the filesystem on the drive, on the
+/dev/sde1 partition we just created :
+
+# mkfs.ext2 /dev/sde1 -L <label>
+
+<label> is the volume name.
+
+TIP: change a disk label
+# tune2fs -L <newlabel> /dev/sde1
+
+Download the latest SYSLINUX/EXTLINUX package (at the time of this writing it was 4.03)
+
+# wget http://www.kernel.org/pub/linux/utils/boot/syslinux/syslinux-4.03.tar.bz2
+# tar xvjf syslinux*.tar.bz2
+# cd syslinux*
+
+Install the MBR on the drive
+# cd mbr
+# cat mbr.bin >/dev/sde
+# dd if=/usr/share/syslinux/mbr.bin of=/dev/sde
+
+Second part, the installation of EXTLINUX bootloader on the drive
+First we need to mount the drive (as root)
+# mkdir /mnt/usb
+# mount /dev/sde1 /mnt/usb
+
+then EXTLINUX
+# cd ../extlinux
+# extlinux --install /mnt/usb
+
+But we need to create an extlinux.conf file which will contain our bootloader instructions :
+
+# nano /mnt/usb/extlinux.conf
+
+DEFAULT linux
+LABEL linux
+SAY Now booting the kernel from SYSLINUX...
+KERNEL bzImage
+#  APPEND ro root=/dev/sde1 initrd=initrd.img
+
+(The APPEND line is commented out in this example.)
+
+But we still need a Linux kernel file (named bzImage above) to copy to this drive!
+
+Why not using your Buildroot-generated kernel? 🙂
+
+See my other howto here.
+
+All the necessary files have been copied to our USB drive, we can unmount it now.
+# cd && umount /mnt/usb
+
+Now you can plug your drive and boot your new system!

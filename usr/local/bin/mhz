@@ -1,0 +1,10 @@
+#!/bin/bash
+# mhz - current CPU core frequencies
+grep 'cpu MHz' /proc/cpuinfo | awk -F': ' '{printf "core %3d: %7.1f MHz\n", NR-1, $2}' | column -t
+echo ""
+echo "Min/Max/Avg:"
+grep 'cpu MHz' /proc/cpuinfo | awk -F': ' '
+  BEGIN { min=999999; max=0; sum=0; n=0 }
+  { v=$2; if(v<min) min=v; if(v>max) max=v; sum+=v; n++ }
+  END { printf "  min: %.0f MHz  max: %.0f MHz  avg: %.0f MHz\n", min, max, sum/n }
+'

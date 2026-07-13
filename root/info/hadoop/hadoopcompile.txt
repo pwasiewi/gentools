@@ -1,0 +1,32 @@
+svn co http://svn.apache.org/repos/asf/hadoop/common/branches/branch-0.20-append
+mv branch-0.20-append hadoop
+cd hadoop
+wget http://ftp.tpnet.pl/vol/d1/apache//forrest/apache-forrest-0.8.tar.gz
+tar zxvf apache-forrest-0.8.tar.gz
+ant -Djava5.home=/opt/sun-jdk-1.6.0.22 -Dforrest.home=/hadoop/apache-forrest-0.8 jar examples tools-jar jar-test ant-tasks package-librecordio
+
+#przekopiowaæ cp -a .ssh .bash* conf  z /hadoop na livecdusb z oceanica
+
+svn co http://svn.apache.org/repos/asf/hive/trunk hive
+ant -Dhadoop.version='0.20.0' package
+
+git clone git://github.com/cloudera/sqoop.git
+ant jar -Dhadoop.dist=apache
+Tworzymy plik build.properties:
+zookeeper.home=/hadoop/apache-zookeeper
+hbase.home=/hadoop/hbase
+#svn co http://svn.apache.org/repos/asf/hbase/trunk hbase-core-trunk
+#svn co http://svn.apache.org/repos/asf/hbase/branches/0.89.20100621
+cd /hadoop/sqoop/build/hbase-0.89.20100621+17
+mvn install -DskipTests
+chmod 755 bin/hbase bin/*.sh
+bin/start-hbase.sh
+bin/hbase shell
+
+cd /hadoop/sqoop/build/zookeeper-3.3.1+7
+ant package
+
+export ZOOKEEPER_HOME=/hadoop/apache-zookeeper
+bin/stop-metastore.sh -p sqoopidlock
+bin/start-metastore.sh -p sqoopidlock -l logs
+

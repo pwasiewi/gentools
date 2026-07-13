@@ -1,0 +1,713 @@
+#!/bin/bash
+# Piotr Wasiewicz 2005-2025
+# Gentoo Linux LiveUSB/LiveCD generation and chroot management.
+# Fragments taken from Gentoo official and unofficial scripts.
+# Distributed under the GNU Public License version 2
+
+# ---------------------------------------------------------------------------
+# PROFILE DIRECTORY LAYOUT
+# ---------------------------------------------------------------------------
+# /etc/liveusb/
+#   profiles/
+#     global/                   -- shared across all profiles
+#       settings                -- defines DIST, CCACHEDIR and other globals
+#       isolinux.bin            -- legacy BIOS boot (isolinux/syslinux)
+#       isolinux.cfg            -- legacy BIOS boot config
+#       extlinux.conf           -- USB syslinux extlinux config
+#       gentoo.lss              -- syslinux splash
+#       boot.msg                -- syslinux boot message
+#       help.msg                -- F2 help screen
+#       help1.msg               -- F3 help screen (mount/grub instructions)
+#     <profile>/                -- e.g. profiles/g/
+#       settings                -- DEVCHROOT, CD_STAGEFILE, CD_STAGETARBALL,
+#                                  RAMDISK (0=persistent chroot, 1=ramdisk),
+#                                  BINHOST_MOUNT (1=bind-mount host binpkg caches,
+#                                  only for profiles matching host arch/USE)
+#       make.conf               -- deployed verbatim into chroot /etc/portage/
+#       motd                    -- deployed into chroot /etc/motd
+#       .bash_history           -- deployed into chroot /root/.bash_history
+#       stage1-packages         -- (legacy, kept for reference) initial pkgs
+#       stage2-packages         -- (legacy, kept for reference) extra pkgs
+#
+# RAMDISK=0  persistent chroot on $DEVCHROOT device, portage/distfiles bind-mounted
+# RAMDISK=1  tmpfs-based liveusb, no persistent mounts
+# ---------------------------------------------------------------------------
+
+usage() {
+    cat <<EOF
+v: Gentoo Linux LiveUSB generation
+Syntax: v <profile> <command> ...
+
+Commands:
+  e      enter chroot (mounts /dev, /proc, /sys etc. from host)
+  eb     enter already-mounted chroot from second console (no mount)
+  u      umount /dev, /proc, /sys etc. from chroot
+  k      build kernel via genkernel for live USB
+  s      compress system into livecd.squashfs
+  a      run: cleanall + s (squashfs) + i (iso layout)
+  i      populate ISO directory layout (isolinux files)
+  c      burn ISO to DVD
+  f      download and extract Gentoo stage3
+  p      open profile config dir in mc
+  r      open chroot dir in mc
+  cfg    fetch gentools repository config
+  0      run stage 0 only (portage dir setup + make.conf deploy)
+  1      run stage 0 + 1 (locale, profile, base packages)
+  2-8    run install stage N inside chroot
+  0host  run stage 0 directly on host (no chroot)
+  1host  run stage 1 directly on host
+  2host-8host  run stage N directly on host
+  cross0 remove and rebuild armv7a toolchain from scratch
+  cross1 rebuild armv7a toolchain
+  arm1-arm5  ARM cross-build stages
+  fmt    configure qemu binfmt for cross-compilation
+  -h|--help  show this help
+
+Piotr Wasiewicz 2005-2025
+Distributed under the GNU Public License version 2
+EOF
+}
+
+die() {
+    [ -n "$1" ] && echo "<${0}> ERROR: $1" || echo "<${0}> QUITTING."
+    exit 1
+}
+
+# ---------------------------------------------------------------------------
+# ARGUMENT PARSING AND CONFIG LOADING
+# ---------------------------------------------------------------------------
+
+PROG=${0}
+CD_PROFILE=${1}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && usage && exit 1
+
+[ "$(whoami)" != "root" ] && die "Zaloguj sie na roota"
+
+[ -z "$LIVECONF" ] && echo "CHROOT: konfigi na /etc/liveusb" && export LIVECONF=/etc/liveusb
+
+[ -z "$1" ] && die "Please specify a profile, e.g.: v g e"
+[ ! -d "${LIVECONF}/profiles/$CD_PROFILE" ] && die "Cannot find profile directory: ${LIVECONF}/profiles/$CD_PROFILE"
+
+[ ! -e "${LIVECONF}/profiles/global/settings" ] && die "Cannot find global settings: ${LIVECONF}/profiles/global/settings"
+[ ! -e "${LIVECONF}/profiles/${CD_PROFILE}/settings" ] && die "Cannot find profile settings for: ${CD_PROFILE}"
+
+source "${LIVECONF}/profiles/global/settings"   || die "Failed to source global settings"
+source "${LIVECONF}/profiles/${CD_PROFILE}/settings" || die "Failed to source profile settings"
+
+# Validate required variables from settings files
+for _var in DIST; do
+    [ -z "${!_var}" ] && die "Required variable $_var not set in global settings"
+done
+# CCACHEDIR defaults to /var/cache/ccache (set after DIST-derived paths below)
+# and is bind-mounted into the chroot by mount_all; blank it in settings to skip
+for _var in RAMDISK; do
+    [ -z "${!_var}" ] && die "Required variable $_var not set in profile ${CD_PROFILE}/settings"
+done
+# DEVCHROOT is optional (not needed for ramdisk profiles)
+[ "$RAMDISK" = "0" ] && [ -z "$DEVCHROOT" ] && die "DEVCHROOT must be set in profile settings when RAMDISK=0"
+
+CDLOC=$DIST/iso
+[ ! -e "$CDLOC" ] && mkdir -pv "$CDLOC"
+
+PROFILE=${CDLOC}/${CD_PROFILE}
+PROFILETMP=${PROFILE}/tmp
+[ ! -e "$PROFILETMP" ] && mkdir -pv "$PROFILETMP/kernel"
+CHROOT=${PROFILE}/chroot
+[ ! -e "$CHROOT" ] && mkdir -pv "$CHROOT"
+ISO=${PROFILE}/iso
+[ ! -e "$ISO" ] && mkdir -pv "$ISO"
+CLOOP_FILE=${ISO}/livecd.squashfs
+CD_DISTDIR=$DIST/distfiles
+CD_PORTDIR=$DIST/.portage
+[ ! -e "$CD_PORTDIR" ] && mkdir -pv "$CD_PORTDIR"
+CD_LAYMDIR=$DIST/.repos
+[ ! -e "$CD_LAYMDIR" ] && mkdir -pv "$CD_LAYMDIR"
+# CCACHEDIR: persistent compiler cache shared host<->chroot, bind-mounted in
+# mount_all alongside distfiles/.portage/.repos so nvcc/host objects cached on
+# the host survive into chroot builds and vice versa. Defaults to the host's
+# portage-owned cache (/var/cache/ccache). Override in global/settings, or set
+# CCACHEDIR= (empty) there to disable the mount.
+CCACHEDIR="${CCACHEDIR-/var/cache/ccache}"
+
+HOST=0
+
+# ---------------------------------------------------------------------------
+# ARM PARAMETERS
+# ---------------------------------------------------------------------------
+KERNEL_ARM=raspberrypi-kernel_1.20161020-1
+CROSS_COMPILE=armv7a-hardfloat-linux-gnueabi-
+
+# ---------------------------------------------------------------------------
+# CHROOT MOUNT / UMOUNT
+# ---------------------------------------------------------------------------
+
+mount_all() {
+    mountpoint -q /var/tmp/portage || die "/var/tmp/portage not mounted on host"
+    [ ! -e "$CHROOT/home" ] && [ -n "$DEVCHROOT" ] && mount "$DEVCHROOT" "$CHROOT"
+    [ ! -e "$CHROOT$DIST/distfiles" ] && mkdir -pv "$CHROOT$DIST/distfiles"
+    [ ! -e "$CHROOT$DIST/portage" ] && mkdir -pv "$CHROOT$DIST/portage"
+    [ ! -e "$DIST/portage/$CD_PROFILE" ] && mkdir -pv "$DIST/portage/$CD_PROFILE"
+    [ ! -e "$CHROOT/tmp/livecd" ] && mkdir -pv "$CHROOT/tmp/livecd"
+    local x
+
+    if [ "$RAMDISK" = "0" ]; then
+        mount -o bind "$DIST/portage/$CD_PROFILE" "$CHROOT$DIST/portage" || chroot_die
+        for x in $DIST/distfiles; do
+            [ ! -e "${x}" ] && mkdir -pv "${x}"
+            [ ! -e "${CHROOT}${x}" ] && mkdir -pv "${CHROOT}${x}"
+            mount -o bind "${x}" "${CHROOT}${x}" || chroot_die
+        done
+    fi
+
+    for x in $DIST/.portage $DIST/.src64bit $DIST/.repos /home/tmp/.packages; do
+        [ ! -e "${x}" ] && mkdir -pv "${x}"
+        [ ! -e "${CHROOT}${x}" ] && mkdir -pv "${CHROOT}${x}"
+        mount -o bind "${x}" "${CHROOT}${x}" || chroot_die
+    done
+
+    # Shared host<->chroot compiler cache (default /var/cache/ccache; blank to skip)
+    if [ -n "$CCACHEDIR" ]; then
+        [ ! -e "${CCACHEDIR}" ] && mkdir -pv "${CCACHEDIR}"
+        [ ! -e "${CHROOT}${CCACHEDIR}" ] && mkdir -pv "${CHROOT}${CCACHEDIR}"
+        mount -o bind "${CCACHEDIR}" "${CHROOT}${CCACHEDIR}" || chroot_die
+    fi
+
+    # BINHOST_MOUNT=1 in profile settings enables sharing host binary package
+    # caches with the chroot. Only for profiles matching host arch/USE (e.g. g, a).
+    # Do NOT set for cross-compilation profiles (arm etc.).
+    if [ "${BINHOST_MOUNT:-0}" = "1" ]; then
+        for x in /var/cache/binhost/gentoobinhost /var/cache/binpkgs; do
+            [ ! -e "${x}" ] && mkdir -pv "${x}"
+            [ ! -e "${CHROOT}${x}" ] && mkdir -pv "${CHROOT}${x}"
+            mount -o bind "${x}" "${CHROOT}${x}" || chroot_die
+        done
+    fi
+
+    for x in /proc; do
+        [ ! -e "${CHROOT}${x}" ] && mkdir -pv "${CHROOT}${x}"
+        mount --types proc "${x}" "${CHROOT}${x}" || chroot_die
+    done
+
+    for x in /sys /dev; do
+        [ ! -e "${CHROOT}${x}" ] && mkdir -pv "${CHROOT}${x}"
+        mount --rbind "${x}" "${CHROOT}${x}" || chroot_die
+        mount --make-rslave "${CHROOT}${x}" || chroot_die
+    done
+
+    mount -o bind "$PROFILETMP" "$CHROOT/tmp/livecd" || chroot_die
+    chmod 1777 "$CHROOT/dev/shm"
+}
+
+umount_all() {
+    umount "$CHROOT$DIST/portage" "$CHROOT/tmp/livecd" 2>/dev/null || true
+    local x
+    for x in /dev /sys /proc; do
+        umount -R "${CHROOT}${x}" 2>/dev/null || true
+    done
+    for x in $DIST/.packages $DIST/.repos $DIST/.src64bit \
+              $DIST/distfiles $DIST/.portage /home/tmp/.packages; do
+        umount "${CHROOT}${x}" 2>/dev/null || true
+    done
+    [ -n "$CCACHEDIR" ] && umount "${CHROOT}${CCACHEDIR}" 2>/dev/null || true
+    if [ "${BINHOST_MOUNT:-0}" = "1" ]; then
+        umount "${CHROOT}/var/cache/binhost/gentoobinhost" 2>/dev/null || true
+        umount "${CHROOT}/var/cache/binpkgs" 2>/dev/null || true
+    fi
+}
+
+chroot_die() {
+    umount_all
+    [ -n "$1" ] && echo "chroot_generate: error: $1" || echo "chroot_generate: aborting."
+    exit 1
+}
+
+trap "chroot_die" SIGINT SIGQUIT
+
+# ---------------------------------------------------------------------------
+# CORE HELPER: run a heredoc script inside chroot (or directly on host)
+# ---------------------------------------------------------------------------
+# Usage:
+#   chroot_script <script_name> << 'EOF'
+#   ...script body...
+#   EOF
+#
+# The heredoc is read from stdin and written to $PROFILETMP/<script_name>,
+# made executable, then run either in chroot or directly (HOST=1).
+
+chroot_script() {
+    local name="$1"
+    local dest="$PROFILETMP/$name"
+    cat > "$dest"
+    chmod +x "$dest"
+    if [ "$HOST" = "1" ]; then
+        "$dest"
+    else
+        mount_all
+        chroot "$CHROOT" "/tmp/livecd/$name"
+        umount_all
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# INSTALL STAGES
+# ---------------------------------------------------------------------------
+
+0etap() {
+    # Deploy make.conf from profile directory into chroot, then configure
+    # portage directory layout and helper scripts (vie, vix, viu, etc.)
+    local profile_makeconf="${LIVECONF}/profiles/${CD_PROFILE}/make.conf"
+    [ ! -e "$profile_makeconf" ] && die "Missing profile make.conf: $profile_makeconf"
+
+    chroot_script 0etap << EOF
+cd / && tar Jxf config.txz
+for i in keywords use mask env; do
+    [ -f /etc/portage/package.\$i ] && mv /etc/portage/package.\$i /etc/portage/package.\$i.backup
+    [ ! -e /etc/portage/package.\$i ] && mkdir /etc/portage/package.\$i
+    [ -f /etc/portage/package.\$i.backup ] && mv /etc/portage/package.\$i.backup /etc/portage/package.\$i/systemowe.\$i
+    [ ! -e /etc/portage/package.\$i/moje.\$i ] && touch /etc/portage/package.\$i/moje.\$i
+    [ ! -e /etc/portage/package.\$i/systemowe.\$i ] && touch /etc/portage/package.\$i/systemowe.\$i
+done
+[ ! -e /etc/portage/env ]     && mkdir /etc/portage/env
+[ ! -e /etc/portage/profile ] && mkdir /etc/portage/profile
+[ ! -e /etc/portage/profile/package.provided ] && touch /etc/portage/profile/package.provided
+[ ! -e /usr/local/portage ] && mkdir -p /usr/local/portage/metadata/
+echo "masters = gentoo" > /usr/local/portage/metadata/layout.conf
+
+# Helper scripts: vie/vix/viu/vis/vic etc.
+echo "vim /etc/portage/package.env/moje.env /etc/portage/package.env/systemowe.env"         > /usr/local/bin/vie
+echo "echo \"\\\$1\" >> /etc/portage/package.keywords/moje.keywords"                         > /usr/local/bin/vex
+echo "vim /etc/portage/package.keywords/moje.keywords /etc/portage/package.keywords/systemowe.keywords" > /usr/local/bin/vix
+echo "echo \"\\\$1\" >> /etc/portage/package.use/moje.use"                                   > /usr/local/bin/veu
+echo "vim /etc/portage/package.use/moje.use /etc/portage/package.use/systemowe.use"          > /usr/local/bin/viu
+echo "echo \"\\\$1\" >> /etc/portage/package.mask/moje.mask"                                 > /usr/local/bin/ves
+echo "vim /etc/portage/package.mask/moje.mask /etc/portage/package.mask/systemowe.mask"      > /usr/local/bin/vis
+echo "echo \"\\\$1\" >> /etc/portage/profile/package.provided"                               > /usr/local/bin/vep
+echo "vim /etc/portage/profile/package.provided"                                              > /usr/local/bin/vip
+echo "echo \"\\\$1\" >> /etc/portage/make.conf"                                               > /usr/local/bin/vec
+echo "vim /etc/portage/make.conf"                                                             > /usr/local/bin/vic
+chmod 755 /usr/local/bin/v*
+EOF
+
+    # Deploy make.conf from profile (outside the chroot_script so it's clean)
+    cp "$profile_makeconf" "${CHROOT}/etc/portage/make.conf" \
+        || die "Failed to deploy make.conf from $profile_makeconf"
+
+    if [ "$RAMDISK" = "0" ]; then
+        # On persistent chroot: symlink portage tree and src to bind-mounted locations
+        chroot_script 0etap-links << 'EOF'
+echo "nie na LIVEDVD, gdyz ramdisk jest maly i ulotny"
+[ -e /usr/portage ]  && rm -rf /usr/portage
+[ ! -e /usr/portage ] && cd /usr && ln -sfn ../var/tmp/.portage portage
+[ -d /usr/src ]      && rm -rf /usr/src
+[ ! -e /usr/src ]    && cd /usr && ln -sfn ../var/tmp/.src64bit src
+[ -e /var/db/repos ] && rm -rf /var/db/repos
+[ ! -e /var/db/repos ] && cd /var/db && ln -sfn ../../var/tmp/.repos repos
+EOF
+    else
+        chroot_script 0etap-sync << 'EOF'
+emerge-webrsync
+[ -d /usr/portage/distfiles ] && rmdir /usr/portage/distfiles
+[ ! -d /var/tmp/distfiles ] && mkdir /var/tmp/distfiles
+ln -sfn /var/tmp/distfiles /usr/portage/distfiles
+EOF
+    fi
+}
+
+1etap() {
+    chroot_script 1etap << 'EOF'
+# Set locale, profile, timezone — takes ~30 min for base compilation
+echo en_US.UTF-8 UTF-8 > /etc/locale.gen
+echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
+locale-gen
+eselect profile set 28  # plasma systemd merged-usr 17.1
+env-update
+. /etc/profile
+ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+ln -sf /proc/self/mounts /etc/mtab
+
+e g u vim
+e g u eix
+e g u gentoolkit genkernel portage euses
+
+vex sys-kernel/gentoo-sources
+
+e g u genlop net-misc/dhcpcd grub
+e g u gpm app-misc/mc ntpsec
+e g u app-eselect/eselect-repository
+sed -i 's/^\\/dev\\//\\#\\/dev\\//g' /etc/fstab
+# auto-select highest kernel number
+eselect kernel set $(eselect kernel list | grep linux | wc -l)
+sed -i 's/^OLDCONFIG="yes"/OLDCONFIG="no"/' /etc/genkernel.conf
+EOF
+}
+
+2etap() {
+    chroot_script 2etap << 'EOF'
+# Utility and portage tools — takes ~8 min
+# https://wiki.gentoo.org/wiki/Recommended_applications
+vex app-portage/diffmask
+veu "dev-libs/libgcrypt static-libs"
+veu "dev-libs/libgpg-error static-libs"
+veu "dev-libs/lzo static-libs"
+veu "sys-apps/util-linux caps"
+
+e u g rlwrap most dvtm pass pfl pybugz elogv eclean-kernel diffmask flaggie portpeek \
+    smart-live-rebuild ufed net-misc/curl pydf ncdu acpi acpitool htop atop lsof iotop \
+    iftop squashfs-tools sudo suspend p7zip sg3_utils testdisk logrotate gentoolkit \
+    f2fs-tools btrfs-progs
+EOF
+}
+
+3etap() {
+    chroot_script 3etap << 'EOF'
+# World upgrade and preserved-rebuild — takes ~8 min
+e w
+emerge @preserved-rebuild
+EOF
+}
+
+4etap() {
+    chroot_script 4etap << 'EOF'
+# X11 utilities, fonts, networking tools — takes ~14 min
+vex net-analyzer/xprobe
+veu "dev-libs/libnl utils"
+e g u setxkbmap xdpyinfo xrandr xkill xterm alsamixergui gparted \
+    media-fonts/liberation-fonts freetype pavucontrol feh lm-sensors xsensors \
+    lft nload yersinia vnstat xprobe wavemon geoipupdate qpdfview scite \
+    iptraf-ng libreswan openvpn
+veu "sys-boot/grub mount"
+e g u os-prober
+EOF
+}
+
+5etap() {
+    chroot_script 5etap << 'EOF'
+# KDE Plasma desktop — takes ~32 min
+eselect repository enable kde
+emaint sync --repo kde
+eselect repository enable steam-overlay
+emaint sync --repo steam-overlay
+eix-update
+e g u networkmanager
+e g u plasma-meta
+e g u konsole kde-apps/dolphin kate
+EOF
+}
+
+6etap() {
+    chroot_script 6etap << 'EOF'
+# Minetest game engine
+vex games-engines/minetest
+e g u games-engines/minetest
+EOF
+}
+
+7etap() {
+    chroot_script 7etap << 'EOF'
+# Containers, browsers, multimedia — takes ~30 min
+e g u x11-drivers/xf86-video-qxl
+e g u app-containers/docker lxc gimp vlc mplayer google-chrome firefox-bin opera
+EOF
+}
+
+8etap() {
+    chroot_script 8etap << 'EOF'
+# Create guest user and configure groups
+useradd -m -g users guest
+echo 'exec startplasma-x11' > /home/guest/.xinitrc
+chown -R guest:users /home/guest/
+usermod -aG docker guest
+usermod -aG wheel  guest
+usermod -aG audio  guest
+usermod -aG video  guest
+echo "Wykonaj: passwd guest"
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# FETCH / CONFIG
+# ---------------------------------------------------------------------------
+
+fetch() {
+    echo "Przeladowuje stage3 $CD_STAGEFILE"
+    cd "$CDLOC"
+    [ ! -e "$CD_STAGEFILE" ] && wget -c "$CD_STAGETARBALL"
+    umount_all
+    [ ! -e "$CHROOT/home" ] && [ -n "$DEVCHROOT" ] && mount "$DEVCHROOT" "$CHROOT"
+    [ ! -e "$CDLOC/$CD_STAGEFILE" ] && chroot_die "$CD_STAGEFILE nie znaleziony, najpierw wykonaj: v <profil> f"
+    echo ">>> Rozpakowuje Gentoo stage3..."
+    echo tar xJpf "$CDLOC/$CD_STAGEFILE" -C "$CHROOT"
+    [ ! -e "$CHROOT/home" ] && tar xJpf "$CDLOC/$CD_STAGEFILE" -C "$CHROOT" || die "stage tarball extraction error"
+    cp /etc/resolv.conf "${CHROOT}/etc"
+    wget https://raw.githubusercontent.com/pwasiewi/gentools/master/usr/local/bin/gentoolcfg
+    chmod 755 ./gentoolcfg
+    ./gentoolcfg
+    cp2konfig /config.txz "$CD_PROFILE"
+}
+
+config() {
+    wget -c https://github.com/pwasiewi/gentools/archive/master.zip -O /master.zip
+    cd /
+    [ -e gentools-master ] && rm -rf gentools-master
+    [ -e master.zip ] && unzip -qq master.zip \
+        && cd gentools-master \
+        && tar Jcf config.txz * \
+        && mv config.txz / \
+        && cd / \
+        && rm -rf gentools-master master.zip
+}
+
+# ---------------------------------------------------------------------------
+# KERNEL BUILD
+# ---------------------------------------------------------------------------
+
+build_kernel() {
+    chroot_script genkernel-build << EOF
+sed -i 's/CDROOT="0"/CDROOT="1"/g' /usr/share/genkernel/defaults/initrd.defaults
+time MAKEOPTS="-j16 -l32" genkernel --makeopts=-j8 \
+    --kernel-config=/usr/src/linux/.config --luks --lvm --no-clean all
+sed -i 's/CDROOT="1"/CDROOT="0"/g' /usr/share/genkernel/defaults/initrd.defaults
+EOF
+
+    mv "${CHROOT}/boot/initr"*"-genkernel"* "${PROFILE}/initrd"
+    [ ! -e "$PROFILE/tmp/kernel" ] && mkdir -p "$PROFILE/tmp/kernel"
+    mv "${CHROOT}/boot/kernel-genkernel"* "${PROFILE}/tmp/kernel/bzImage"
+
+    install_isolinux
+}
+
+# ---------------------------------------------------------------------------
+# SQUASHFS: pre-compression chroot reorganisation + mksquashfs
+# ---------------------------------------------------------------------------
+
+chroot_moveandlink() {
+    # Relocate volatile/large dirs to /usr so they survive across squashfs mounts.
+    cp "${LIVECONF}/profiles/${CD_PROFILE}/.bash_history" "${CHROOT}/root" || die
+    chroot_script moveandlink << 'EOF'
+env-update
+source /etc/profile
+cd /var
+[ ! -e /usr/cache ] && mkdir /usr/cache
+[ -d cache/genkernel ] && mv cache/genkernel /usr/cache && ln -sfn ../../usr/cache/genkernel cache/genkernel
+[ -d cache/edb ]       && mv cache/edb       /usr/cache && ln -sfn ../../usr/cache/edb       cache/edb
+[ -d db ]              && mv db /usr          && ln -sfn ../usr/db db
+cd /usr/share
+[ -d X11 ] && mv X11 /var && ln -sfn ../../var/X11 X11
+cd /etc
+[ -d gconf ] && mv gconf /usr && ln -sfn ../usr/gconf gconf
+cd /var/lib
+[ -d texmf ] && mv texmf /usr && ln -sfn ../../usr/texmf texmf
+chown -R hadoop:hadoop /hadoop/
+chown -R guest:users   /home/guest/
+EOF
+}
+
+squashfs_pack() {
+    [ ! -e "$CHROOT/../iso" ] && mkdir "$CHROOT/../iso"
+    echo "/usr/bin/mksquashfs ${CHROOT}/ ${CLOOP_FILE} -comp xz -noappend -always-use-fragments -mem 5G -b 1048576 -Xdict-size 100% -no-xattrs"
+    #echo "/usr/bin/mksquashfs ${CHROOT}/ ${CLOOP_FILE} -comp zstd -Xcompression-level 22  -noappend -b 1048576 -no-xattrs -mem-percent 60"
+    if [ "$RAMDISK" = "0" ]; then
+        time /usr/bin/mksquashfs "${CHROOT}"/ "${CLOOP_FILE}" \
+            -comp xz -noappend -always-use-fragments -mem 5G -b 1048576 -Xdict-size 100% -no-xattrs || chroot_die
+	    #-comp zstd -Xcompression-level 22  -noappend -b 1048576 -no-xattrs -mem-percent 60 || chroot_die
+    else
+        time /usr/bin/mksquashfs "${CHROOT}"/ "${CLOOP_FILE}" \
+            -comp xz -noappend -always-use-fragments -no-xattrs || chroot_die
+	    #-comp zstd -Xcompression-level 22  -noappend -b 1048576 -no-xattrs -mem-percent 60 || chroot_die
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# ISO / ISOLINUX LAYOUT  (legacy BIOS boot for USB pendrive)
+# ---------------------------------------------------------------------------
+
+install_isolinux() {
+    # Populate ISO directory with syslinux/isolinux files for legacy BIOS boot.
+    # extlinux.conf is used by syslinux on the USB; isolinux.cfg is for CD/ISO.
+    install -d "${ISO}"           || die
+    install -d "${ISO}/isolinux"  || die
+    cp "${LIVECONF}/profiles/global/isolinux.bin"         "${ISO}/isolinux" || die
+    cp "${LIVECONF}/profiles/global/isolinux.cfg"         "${ISO}/isolinux" || die
+    cp "${LIVECONF}/profiles/global/extlinux.conf"        "${ISO}/isolinux" || die
+    cp "${LIVECONF}/profiles/global/"*.lss                "${ISO}/isolinux" || die
+    cp "${LIVECONF}/profiles/global/"*.msg                "${ISO}/isolinux" || die
+    cp "${PROFILE}/initrd"                                "${ISO}/isolinux/initrd" || die
+    cp "${PROFILETMP}/kernel/bzImage"                     "${ISO}/isolinux/gentoo" || die
+    touch "${ISO}/livecd" || die
+}
+
+iso_create() {
+    install_isolinux
+}
+
+cleanall() {
+    rm -rf "$CHROOT/var/log/portage"/*
+    rm -f  "$CHROOT/var/log"/*
+    rm -rf "$CHROOT/var/cache/revdep-rebuild"/*
+    rm -rf "$CHROOT/var/tmp/genkernel"/*
+    rm -rf "$CHROOT/usr/share/doc/groff"*
+    rm -rf "$CHROOT/usr/share/doc/freetds"*
+    rm -rf "$CHROOT/usr/share/doc/docbook-xsl-stylesheets"*
+
+    # Remove all locales except Polish and English
+    find "$CHROOT/usr/share/locale" -mindepth 1 -maxdepth 1 -type d \
+        ! -name 'en' ! -name 'en_US' ! -name 'en_GB' \
+        ! -name 'pl' ! -name 'pl_PL' \
+        -exec rm -rf {} +
+}
+
+make_isocd() {
+    growisofs -Z /dev/sr0="${PROFILE}/livecd.iso"
+}
+
+chroot_e() {
+    umount_all
+    mount_all
+    TERM=xterm chroot "$CHROOT" /bin/bash -l -c "cd /root && exec /bin/bash"
+    umount_all
+}
+
+chroot_bis() {
+    TERM=xterm chroot "$CHROOT" /bin/bash -l -c "cd /root && exec /bin/bash"
+}
+
+chroot_mc() {
+    cd "${PROFILE}"
+    [ -e /usr/bin/mc ] && mc || vim settings
+}
+
+profile_mc() {
+    cd "${LIVECONF}/profiles/${CD_PROFILE}"
+    [ -e /usr/bin/mc ] && mc || vim settings
+}
+
+binfmt() {
+    binfmt-run
+}
+
+# ---------------------------------------------------------------------------
+# ARM / CROSS-COMPILATION
+# ---------------------------------------------------------------------------
+
+cross() {
+    echo "USE=\"static-libs\" crossdev -S --target armv7a-hardfloat-linux-gnueabi -oO /usr/portage"
+    time USE="static-libs" crossdev -S --target armv7a-hardfloat-linux-gnueabi -oO /usr/portage
+}
+
+crossfirst() {
+    crossdev -C armv7a-hardfloat-linux-gnueabi -f
+    cross
+    [ -e /usr/armv7a-hardfloat-linux-gnueabi.orig ] && rm -rf /usr/armv7a-hardfloat-linux-gnueabi.orig
+    cp -a /usr/armv7a-hardfloat-linux-gnueabi /usr/armv7a-hardfloat-linux-gnueabi.orig
+}
+
+1arm() {
+    umount_all
+    cp /etc/resolv.conf "${CHROOT}/etc"
+    gentoolcfg
+    cp /config.txz "${CHROOT}"
+    cd "${CHROOT}"
+    tar Jxf config.txz
+    sed -i 's/^\/dev\//\#\/dev\//g' etc/fstab
+    quickpkg qemu --include-config y
+    ROOT=${CHROOT} emerge --usepkgonly --oneshot --nodeps qemu
+    gcc -static /usr/local/share/src/qemu-wrapper.c -Ofast -s -o "${CHROOT}/usr/local/bin/qemu-wrapper"
+}
+
+2arm() {
+    chroot_script vcportdir << 'EOF'
+eselect profile set 48  # arm/17.0/armv7a/desktop/plasma/systemd/merged-usr
+emerge-webrsync
+vcportarm
+ln -sfn /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+ln -sf /proc/self/mounts /etc/mtab
+echo en_US.UTF-8 UTF-8 >> /etc/locale.gen
+echo pl_PL.UTF-8 UTF-8 >> /etc/locale.gen
+locale-gen
+EOF
+}
+
+3arm() {
+    chroot_script vcportdir << EOF
+USE="-X -sound" e vim
+e u eix
+USE="-sdl" e u genlop net-misc/dhcpcd grub
+e u gpm app-misc/mc ntpsec
+e u app-eselect/eselect-repository
+EOF
+}
+
+4arm() {
+    chroot_script vcportdir << 'EOF'
+e w
+emerge @preserved-rebuild
+EOF
+}
+
+5arm() {
+    chroot_script vcportdir << EOF
+cd /usr/src
+[ ! -e linux-${KERNEL_ARM}.tar.gz ] && wget -O linux-${KERNEL_ARM}.tar.gz \
+    https://github.com/raspberrypi/linux/archive/${KERNEL_ARM}.tar.gz
+[ ! -d linux-${KERNEL_ARM} ] && tar xzf linux-${KERNEL_ARM}.tar.gz -C /usr/src
+ln -sfn linux-${KERNEL_ARM} linux
+cd linux
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# COMMAND DISPATCH
+# ---------------------------------------------------------------------------
+
+case "$2" in
+    f)      fetch           ;;
+    k)      build_kernel    ;;
+    a)
+        cleanall
+        chroot_moveandlink
+        squashfs_pack
+        iso_create
+        ;;
+    s)
+        chroot_moveandlink
+        squashfs_pack
+        ;;
+    i)      iso_create      ;;
+    c)      make_isocd      ;;
+    e)      chroot_e        ;;
+    fmt)    binfmt          ;;
+    r)      chroot_mc       ;;
+    p)      profile_mc      ;;
+    eb)     chroot_bis      ;;
+    u)      umount_all      ;;
+    cfg)    config          ;;
+    cross1) cross           ;;
+    cross0) crossfirst      ;;
+    arm1)   1arm            ;;
+    arm2)   2arm            ;;
+    arm3)   3arm            ;;
+    arm4)   4arm            ;;
+    arm5)   5arm            ;;
+    0)      0etap           ;;
+    01)     1etap           ;;
+    1)      0etap; 1etap    ;;
+    2)      2etap           ;;
+    3)      3etap           ;;
+    4)      4etap           ;;
+    5)      5etap           ;;
+    6)      6etap           ;;
+    7)      7etap           ;;
+    8)      8etap           ;;
+    0host)  HOST=1; 0etap   ;;
+    1host)  HOST=1; 1etap   ;;
+    2host)  HOST=1; 2etap   ;;
+    3host)  HOST=1; 3etap   ;;
+    4host)  HOST=1; 4etap   ;;
+    5host)  HOST=1; 5etap   ;;
+    6host)  HOST=1; 6etap   ;;
+    7host)  HOST=1; 7etap   ;;
+    8host)  HOST=1; 8etap   ;;
+    *)      usage; exit 1   ;;
+esac
+exit 0

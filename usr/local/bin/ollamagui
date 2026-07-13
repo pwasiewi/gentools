@@ -1,0 +1,628 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONTAINER_NAME="${CONTAINER_NAME:-open-webui}"
+IMAGE="${IMAGE:-ghcr.io/open-webui/open-webui:main}"
+HOST_PORT="${HOST_PORT:-3000}"
+CONTAINER_PORT="${CONTAINER_PORT:-8080}"
+VOLUME_NAME="${VOLUME_NAME:-open-webui}"
+
+SEARXNG_CONTAINER_NAME="${SEARXNG_CONTAINER_NAME:-searxng}"
+SEARXNG_IMAGE="${SEARXNG_IMAGE:-docker.io/searxng/searxng:latest}"
+SEARXNG_HOST_PORT="${SEARXNG_HOST_PORT:-8081}"
+SEARXNG_CONTAINER_PORT="${SEARXNG_CONTAINER_PORT:-8080}"
+SEARXNG_VOLUME_NAME="${SEARXNG_VOLUME_NAME:-searxng}"
+
+DOCKER_NETWORK="${DOCKER_NETWORK:-ollama-net}"
+OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+
+BACKUP_DIR="${BACKUP_DIR:-$HOME/docker-volume-backups}"
+BACKUP_FILE="${BACKUP_FILE:-$BACKUP_DIR/open-webui.tar.gz}"
+SEARXNG_BACKUP_FILE="${SEARXNG_BACKUP_FILE:-$BACKUP_DIR/searxng.tar.gz}"
+
+WEB_SEARCH_ENABLED="${WEB_SEARCH_ENABLED:-true}"
+WEB_SEARCH_ENGINE="${WEB_SEARCH_ENGINE:-searxng}"
+WEB_SEARCH_RESULT_COUNT="${WEB_SEARCH_RESULT_COUNT:-5}"
+WEB_SEARCH_CONCURRENT_REQUESTS="${WEB_SEARCH_CONCURRENT_REQUESTS:-5}"
+SEARXNG_QUERY_URL="${SEARXNG_QUERY_URL:-http://searxng:8080/search?q=<query>&format=json}"
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTION]
+
+Open WebUI/Ollama/SearXNG Docker helper.
+
+Normal daily workflow:
+  $(basename "$0") --start
+  $(basename "$0") --stop
+
+Update workflow:
+  $(basename "$0") --pull
+  $(basename "$0") --recreate
+
+Disaster recovery workflow:
+  $(basename "$0") --backup
+  $(basename "$0") --destroy --yes
+  $(basename "$0") --restore
+  $(basename "$0") --start
+
+Web search / SearXNG workflow:
+  $(basename "$0") --start-searxng
+  $(basename "$0") --start
+
+Open WebUI is started with web search environment variables:
+  ENABLE_WEB_SEARCH=true
+  WEB_SEARCH_ENGINE=searxng
+  SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>&format=json
+
+If Open WebUI already has persistent settings in its DB, verify manually:
+  Admin Panel -> Settings -> Web Search
+
+Options:
+  --start             Normal daily start. Reuses existing Open WebUI container and preserves history/state.
+  --stop              Normal daily stop of Open WebUI. Preserves history/state.
+  --restart           Restart existing Open WebUI container.
+  --status            Show Open WebUI, SearXNG, network, volume and Ollama connectivity status.
+  --logs              Follow Open WebUI logs.
+  --pull              Pull/update Open WebUI image only.
+  --recreate          Recreate Open WebUI container while preserving Docker volume/history/settings.
+                      Typical after image update or config/env changes.
+  --update            Pull latest image and recreate Open WebUI container (volume preserved).
+  --repair            Remove container + image, re-pull, recreate Open WebUI (fixes RWLayer corruption).
+  --backup            Backup Open WebUI Docker volume/history/settings to: $BACKUP_FILE
+  --restore           Restore Open WebUI Docker volume/history/settings from: $BACKUP_FILE
+
+  --network           Create Docker network if missing: $DOCKER_NETWORK
+
+  --start-searxng     Start existing SearXNG container or create it if missing.
+  --stop-searxng      Stop SearXNG container.
+  --restart-searxng   Restart SearXNG container.
+  --logs-searxng      Follow SearXNG logs.
+  --pull-searxng      Pull/update SearXNG image only.
+  --recreate-searxng  Recreate SearXNG container while preserving its Docker volume.
+  --update-searxng    Pull latest image and recreate SearXNG container (volume preserved).
+  --repair-searxng    Remove container + image, re-pull, recreate SearXNG (fixes RWLayer corruption).
+  --backup-searxng    Backup SearXNG Docker volume to: $SEARXNG_BACKUP_FILE
+  --restore-searxng   Restore SearXNG Docker volume from: $SEARXNG_BACKUP_FILE
+
+  --start-all         Create network and start SearXNG + Open WebUI.
+  --stop-all          Stop Open WebUI + SearXNG.
+  --restart-all       Restart Open WebUI + SearXNG.
+  --backup-all        Backup Open WebUI + SearXNG volumes.
+  --restore-all       Restore Open WebUI + SearXNG volumes.
+
+  --fix-routing       Remove conflicting kernel routes to ollama-net subnet (e.g. after VPN disconnect).
+                      Safe: only removes routes for ollama-net subnet pointing at wrong bridge interfaces.
+
+  --prune             Remove exited containers and dangling Docker objects only.
+  --destroy           Stop Docker/containerd and wipe /var/lib/docker/* + /var/lib/containerd/*
+                      Full Docker reset. Removes images, containers and volumes.
+  --yes               Required with --destroy.
+  -h, --help          Show this help.
+
+Environment overrides:
+  CONTAINER_NAME=$CONTAINER_NAME
+  IMAGE=$IMAGE
+  HOST_PORT=$HOST_PORT
+  VOLUME_NAME=$VOLUME_NAME
+  OLLAMA_BASE_URL=$OLLAMA_BASE_URL
+
+  SEARXNG_CONTAINER_NAME=$SEARXNG_CONTAINER_NAME
+  SEARXNG_IMAGE=$SEARXNG_IMAGE
+  SEARXNG_HOST_PORT=$SEARXNG_HOST_PORT
+  SEARXNG_VOLUME_NAME=$SEARXNG_VOLUME_NAME
+
+  WEB_SEARCH_ENABLED=$WEB_SEARCH_ENABLED
+  WEB_SEARCH_ENGINE=$WEB_SEARCH_ENGINE
+  WEB_SEARCH_RESULT_COUNT=$WEB_SEARCH_RESULT_COUNT
+  WEB_SEARCH_CONCURRENT_REQUESTS=$WEB_SEARCH_CONCURRENT_REQUESTS
+  SEARXNG_QUERY_URL=$SEARXNG_QUERY_URL
+
+  DOCKER_NETWORK=$DOCKER_NETWORK
+  BACKUP_DIR=$BACKUP_DIR
+  BACKUP_FILE=$BACKUP_FILE
+  SEARXNG_BACKUP_FILE=$SEARXNG_BACKUP_FILE
+
+  ollama pull qwen3-coder:30b
+  ollama pull gpt-oss:20b
+  ollama pull deepseek-r1:14b
+  ollama pull qwen3-coder-next
+
+EOF
+}
+
+require_cmd() {
+    command -v "$1" >/dev/null 2>&1 || {
+        echo "Missing command: $1" >&2
+        exit 1
+    }
+}
+
+container_exists() {
+    docker container inspect "$1" >/dev/null 2>&1
+}
+
+container_running() {
+    [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)" == "true" ]]
+}
+
+volume_exists() {
+    docker volume inspect "$1" >/dev/null 2>&1
+}
+
+network_exists() {
+    docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1
+}
+
+ensure_network() {
+    if network_exists; then
+        echo "Network exists: $DOCKER_NETWORK"
+    else
+        docker network create "$DOCKER_NETWORK"
+    fi
+}
+
+create_open_webui_container() {
+    ensure_network >/dev/null
+
+    docker run -d \
+        --name "$CONTAINER_NAME" \
+        --network "$DOCKER_NETWORK" \
+        -p "$HOST_PORT:$CONTAINER_PORT" \
+        -e "OLLAMA_BASE_URL=$OLLAMA_BASE_URL" \
+        -e "ENABLE_WEB_SEARCH=$WEB_SEARCH_ENABLED" \
+        -e "WEB_SEARCH_ENGINE=$WEB_SEARCH_ENGINE" \
+        -e "WEB_SEARCH_RESULT_COUNT=$WEB_SEARCH_RESULT_COUNT" \
+        -e "WEB_SEARCH_CONCURRENT_REQUESTS=$WEB_SEARCH_CONCURRENT_REQUESTS" \
+        -e "SEARXNG_QUERY_URL=$SEARXNG_QUERY_URL" \
+        -e "ENABLE_RAG_WEB_SEARCH=$WEB_SEARCH_ENABLED" \
+        -e "RAG_WEB_SEARCH_ENGINE=$WEB_SEARCH_ENGINE" \
+        -e "RAG_WEB_SEARCH_RESULT_COUNT=$WEB_SEARCH_RESULT_COUNT" \
+        -e "RAG_WEB_SEARCH_CONCURRENT_REQUESTS=$WEB_SEARCH_CONCURRENT_REQUESTS" \
+        --add-host=host.docker.internal:host-gateway \
+        -v "$VOLUME_NAME:/app/backend/data" \
+        "$IMAGE"
+}
+
+write_searxng_settings() {
+    local secret
+
+    if ! container_exists "$SEARXNG_CONTAINER_NAME"; then
+        return 0
+    fi
+
+    if command -v openssl >/dev/null 2>&1; then
+        secret="$(openssl rand -hex 32)"
+    else
+        secret="$(date +%s%N | sha256sum | awk '{print $1}')"
+    fi
+
+    docker exec -i "$SEARXNG_CONTAINER_NAME" sh -c 'cat > /etc/searxng/settings.yml' <<EOF
+use_default_settings: true
+
+server:
+  secret_key: "$secret"
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: false
+  public_instance: false
+  image_proxy: true
+
+search:
+  formats:
+    - html
+    - json
+EOF
+}
+
+create_searxng_container() {
+    ensure_network >/dev/null
+
+    docker run -d \
+        --name "$SEARXNG_CONTAINER_NAME" \
+        --network "$DOCKER_NETWORK" \
+        -p "$SEARXNG_HOST_PORT:$SEARXNG_CONTAINER_PORT" \
+        -v "$SEARXNG_VOLUME_NAME:/etc/searxng" \
+        -e "BASE_URL=http://localhost:$SEARXNG_HOST_PORT/" \
+        "$SEARXNG_IMAGE"
+}
+
+start_open_webui() {
+    if container_exists "$CONTAINER_NAME"; then
+        docker start "$CONTAINER_NAME"
+    else
+        docker volume create "$VOLUME_NAME" >/dev/null
+        create_open_webui_container
+    fi
+}
+
+stop_open_webui() {
+    if container_exists "$CONTAINER_NAME"; then
+        docker stop "$CONTAINER_NAME"
+    else
+        echo "Container not found: $CONTAINER_NAME"
+    fi
+}
+
+restart_open_webui() {
+    if container_exists "$CONTAINER_NAME"; then
+        docker restart "$CONTAINER_NAME"
+    else
+        start_open_webui
+    fi
+}
+
+recreate_open_webui() {
+    if container_exists "$CONTAINER_NAME"; then
+        docker rm -f "$CONTAINER_NAME"
+    fi
+    docker volume create "$VOLUME_NAME" >/dev/null
+    create_open_webui_container
+}
+
+start_searxng() {
+    if container_exists "$SEARXNG_CONTAINER_NAME"; then
+        docker start "$SEARXNG_CONTAINER_NAME"
+    else
+        docker volume create "$SEARXNG_VOLUME_NAME" >/dev/null
+        create_searxng_container
+    fi
+
+    write_searxng_settings
+    docker restart "$SEARXNG_CONTAINER_NAME" >/dev/null
+}
+
+stop_searxng() {
+    if container_exists "$SEARXNG_CONTAINER_NAME"; then
+        docker stop "$SEARXNG_CONTAINER_NAME"
+    else
+        echo "Container not found: $SEARXNG_CONTAINER_NAME"
+    fi
+}
+
+restart_searxng() {
+    if container_exists "$SEARXNG_CONTAINER_NAME"; then
+        docker restart "$SEARXNG_CONTAINER_NAME"
+    else
+        start_searxng
+    fi
+}
+
+recreate_searxng() {
+    if container_exists "$SEARXNG_CONTAINER_NAME"; then
+        docker rm -f "$SEARXNG_CONTAINER_NAME"
+    fi
+    docker volume create "$SEARXNG_VOLUME_NAME" >/dev/null
+    create_searxng_container
+    write_searxng_settings
+    docker restart "$SEARXNG_CONTAINER_NAME" >/dev/null
+}
+
+update_open_webui() {
+    # Pull latest image, remove container, recreate — volume/history preserved
+    docker pull "$IMAGE"
+    if container_exists "$CONTAINER_NAME"; then
+        docker rm -f "$CONTAINER_NAME"
+    fi
+    docker volume create "$VOLUME_NAME" >/dev/null
+    create_open_webui_container
+    echo "Open WebUI updated and started."
+}
+
+repair_open_webui() {
+    # Remove container and image, re-pull, recreate — fixes corrupted RWLayer
+    if container_exists "$CONTAINER_NAME"; then
+        docker rm -f "$CONTAINER_NAME"
+    fi
+    docker rmi -f "$IMAGE" 2>/dev/null || true
+    docker pull "$IMAGE"
+    docker volume create "$VOLUME_NAME" >/dev/null
+    create_open_webui_container
+    echo "Open WebUI repaired and started."
+}
+
+update_searxng() {
+    # Pull latest image, remove container, recreate — volume preserved
+    docker pull "$SEARXNG_IMAGE"
+    if container_exists "$SEARXNG_CONTAINER_NAME"; then
+        docker rm -f "$SEARXNG_CONTAINER_NAME"
+    fi
+    docker volume create "$SEARXNG_VOLUME_NAME" >/dev/null
+    create_searxng_container
+    write_searxng_settings
+    docker restart "$SEARXNG_CONTAINER_NAME" >/dev/null
+    echo "SearXNG updated and started."
+}
+
+repair_searxng() {
+    # Remove container and image, re-pull, recreate — fixes corrupted RWLayer
+    if container_exists "$SEARXNG_CONTAINER_NAME"; then
+        docker rm -f "$SEARXNG_CONTAINER_NAME"
+    fi
+    docker rmi -f "$SEARXNG_IMAGE" 2>/dev/null || true
+    docker pull "$SEARXNG_IMAGE"
+    docker volume create "$SEARXNG_VOLUME_NAME" >/dev/null
+    create_searxng_container
+    write_searxng_settings
+    docker restart "$SEARXNG_CONTAINER_NAME" >/dev/null
+    echo "SearXNG repaired and started."
+}
+
+backup_volume() {
+    local volume="$1"
+    local backup_file="$2"
+
+    mkdir -p "$(dirname "$backup_file")"
+    docker volume create "$volume" >/dev/null
+
+    docker run --rm \
+        -v "$volume:/source:ro" \
+        -v "$(dirname "$backup_file"):/backup" \
+        alpine \
+        tar czf "/backup/$(basename "$backup_file")" -C /source .
+
+    echo "Backup written: $backup_file"
+}
+
+restore_volume() {
+    local volume="$1"
+    local backup_file="$2"
+    local container="$3"
+
+    [[ -f "$backup_file" ]] || {
+        echo "Backup file not found: $backup_file" >&2
+        exit 1
+    }
+
+    if container_running "$container"; then
+        docker stop "$container"
+    fi
+
+    docker volume create "$volume" >/dev/null
+
+    docker run --rm \
+        -v "$volume:/target" \
+        -v "$(dirname "$backup_file"):/backup:ro" \
+        alpine \
+        sh -c "find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} + && cd /target && tar xzf /backup/$(basename "$backup_file")"
+
+    echo "Volume restored: $volume"
+}
+
+restore_all() {
+    # Stop both containers, restore both volumes, recreate and start both
+    echo "Stopping containers..."
+    if container_running "$CONTAINER_NAME"; then docker stop "$CONTAINER_NAME"; fi
+    if container_running "$SEARXNG_CONTAINER_NAME"; then docker stop "$SEARXNG_CONTAINER_NAME"; fi
+
+    echo "Removing containers (volumes are preserved)..."
+    if container_exists "$CONTAINER_NAME"; then docker rm -f "$CONTAINER_NAME"; fi
+    if container_exists "$SEARXNG_CONTAINER_NAME"; then docker rm -f "$SEARXNG_CONTAINER_NAME"; fi
+
+    restore_volume "$VOLUME_NAME" "$BACKUP_FILE" "$CONTAINER_NAME"
+    restore_volume "$SEARXNG_VOLUME_NAME" "$SEARXNG_BACKUP_FILE" "$SEARXNG_CONTAINER_NAME"
+
+    echo "Fixing routing..."
+    fix_routing
+
+    echo "Starting all..."
+    ensure_network >/dev/null
+    start_searxng
+    start_open_webui
+    echo "Restore complete. Both containers started."
+}
+
+fix_routing() {
+    # Detect and remove conflicting routes to ollama-net subnet from other bridges.
+    # Symptom: after VPN disconnect or Docker restart, kernel routes traffic for
+    # ollama-net subnet (172.18.0.0/16) through a different bridge (e.g. default
+    # Docker bridge), making containers unreachable despite correct iptables/DNAT.
+
+    local net_bridge
+    net_bridge=$(docker network inspect "$DOCKER_NETWORK" \
+        --format '{{index .Options "com.docker.network.bridge.name"}}' 2>/dev/null)
+
+    # Fall back to matching by network ID suffix if bridge name is not set explicitly
+    if [[ -z "$net_bridge" ]]; then
+        local net_id
+        net_id=$(docker network inspect "$DOCKER_NETWORK" --format '{{.Id}}' 2>/dev/null | cut -c1-12)
+        net_bridge="br-${net_id}"
+    fi
+
+    if [[ -z "$net_bridge" ]]; then
+        echo "Could not determine bridge interface for network: $DOCKER_NETWORK" >&2
+        exit 1
+    fi
+
+    echo "ollama-net bridge: $net_bridge"
+
+    # Get subnet of ollama-net
+    local subnet
+    subnet=$(docker network inspect "$DOCKER_NETWORK" \
+        --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null)
+
+    if [[ -z "$subnet" ]]; then
+        echo "Could not determine subnet for network: $DOCKER_NETWORK" >&2
+        exit 1
+    fi
+
+    echo "ollama-net subnet: $subnet"
+
+    # Find conflicting routes: same subnet but different interface
+    local fixed=0
+    while IFS= read -r iface; do
+        if [[ "$iface" != "$net_bridge" ]]; then
+            echo "Removing conflicting route: $subnet dev $iface"
+            sudo ip route del "$subnet" dev "$iface" 2>/dev/null && ((fixed++)) || true
+        fi
+    done < <(ip route show "$subnet" | awk '{print $3}')
+
+    if [[ $fixed -eq 0 ]]; then
+        echo "No conflicting routes found."
+    else
+        echo "Removed $fixed conflicting route(s)."
+    fi
+
+    # Verify
+    local via
+    via=$(ip route get "$(echo "$subnet" | sed 's|/.*||' | awk -F. '{print $1"."$2".0.2"}')" \
+        2>/dev/null | awk '{print $3}' | head -1)
+    echo "Routing check: traffic to ollama-net now via: ${via:-unknown}"
+
+    curl -s -o /dev/null -w "Open WebUI HTTP status: %{http_code}\n" \
+        "http://127.0.0.1:${HOST_PORT}" || true
+}
+
+show_container_status() {
+    local name="$1"
+    docker ps -a --filter "name=^/${name}$" --format '  {{.Names}}  {{.Status}}  {{.Ports}}' || true
+}
+
+show_volume_status() {
+    local volume="$1"
+    if volume_exists "$volume"; then
+        docker volume inspect "$volume" --format '  {{.Name}} -> {{.Mountpoint}}'
+    else
+        echo "  missing: $volume"
+    fi
+}
+
+show_status() {
+    echo "Network:"
+    if network_exists; then
+        docker network inspect "$DOCKER_NETWORK" --format '  {{.Name}}  {{.Driver}}'
+    else
+        echo "  missing: $DOCKER_NETWORK"
+    fi
+
+    echo
+    echo "Open WebUI container:"
+    show_container_status "$CONTAINER_NAME"
+
+    echo
+    echo "SearXNG container:"
+    show_container_status "$SEARXNG_CONTAINER_NAME"
+
+    echo
+    echo "Volumes:"
+    show_volume_status "$VOLUME_NAME"
+    show_volume_status "$SEARXNG_VOLUME_NAME"
+
+    echo
+    echo "Images:"
+    docker images "$IMAGE" --format '  {{.Repository}}:{{.Tag}}  {{.ID}}  {{.Size}}' || true
+    docker images "$SEARXNG_IMAGE" --format '  {{.Repository}}:{{.Tag}}  {{.ID}}  {{.Size}}' || true
+
+    echo
+    echo "Ollama from Open WebUI container:"
+    if container_running "$CONTAINER_NAME"; then
+        docker exec "$CONTAINER_NAME" sh -c "curl -fsS '${OLLAMA_BASE_URL%/}/api/tags' >/dev/null" \
+            && echo "  ok: $OLLAMA_BASE_URL" \
+            || echo "  failed: $OLLAMA_BASE_URL"
+    else
+        echo "  skipped: $CONTAINER_NAME is not running"
+    fi
+
+    echo
+    echo "SearXNG from host:"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsS "http://127.0.0.1:$SEARXNG_HOST_PORT/" >/dev/null \
+            && echo "  ok: http://127.0.0.1:$SEARXNG_HOST_PORT/" \
+            || echo "  failed: http://127.0.0.1:$SEARXNG_HOST_PORT/"
+    else
+        echo "  curl missing"
+    fi
+
+    echo
+    echo "Open WebUI SearXNG URL:"
+    echo "  $SEARXNG_QUERY_URL"
+}
+
+pull_open_webui() {
+    docker pull "$IMAGE"
+}
+
+pull_searxng() {
+    docker pull "$SEARXNG_IMAGE"
+}
+
+prune_safe() {
+    docker container prune -f
+    docker image prune -f
+    docker volume prune -f
+    docker builder prune -f
+}
+
+destroy_storage() {
+    local yes="${1:-}"
+    [[ "$yes" == "--yes" ]] || {
+        echo "Refusing destructive wipe without --yes." >&2
+        echo "This removes Docker/containerd storage under /var/lib/docker/* and /var/lib/containerd/*." >&2
+        exit 1
+    }
+
+    echo "Stopping docker/containerd..."
+    sudo systemctl stop docker containerd \
+        || { echo "Failed to stop docker/containerd — aborting wipe" >&2; exit 1; }
+
+    echo "Wiping Docker/containerd storage contents..."
+    sudo rm -rf /var/lib/docker/*
+    sudo rm -rf /var/lib/containerd/*
+
+    echo "Starting containerd/docker..."
+    sudo systemctl start containerd docker
+
+    echo "Done. Images, containers and volumes were removed."
+}
+
+main() {
+    require_cmd docker
+
+    local action="${1:-}"
+    local extra="${2:-}"
+
+    case "$action" in
+        --start) start_open_webui ;;
+        --stop) stop_open_webui ;;
+        --restart) restart_open_webui ;;
+        --status) show_status ;;
+        --logs) docker logs -f "$CONTAINER_NAME" ;;
+        --pull) pull_open_webui ;;
+        --recreate) recreate_open_webui ;;
+        --update) update_open_webui ;;
+        --repair) repair_open_webui ;;
+        --backup) backup_volume "$VOLUME_NAME" "$BACKUP_FILE" ;;
+        --restore) restore_volume "$VOLUME_NAME" "$BACKUP_FILE" "$CONTAINER_NAME" ;;
+
+        --network) ensure_network ;;
+
+        --start-searxng) start_searxng ;;
+        --stop-searxng) stop_searxng ;;
+        --restart-searxng) restart_searxng ;;
+        --logs-searxng) docker logs -f "$SEARXNG_CONTAINER_NAME" ;;
+        --pull-searxng) pull_searxng ;;
+        --recreate-searxng) recreate_searxng ;;
+        --update-searxng) update_searxng ;;
+        --repair-searxng) repair_searxng ;;
+        --backup-searxng) backup_volume "$SEARXNG_VOLUME_NAME" "$SEARXNG_BACKUP_FILE" ;;
+        --restore-searxng) restore_volume "$SEARXNG_VOLUME_NAME" "$SEARXNG_BACKUP_FILE" "$SEARXNG_CONTAINER_NAME" ;;
+
+        --start-all) fix_routing; ensure_network >/dev/null; start_searxng; start_open_webui ;;
+        --stop-all) stop_open_webui; stop_searxng ;;
+        --restart-all) restart_searxng; restart_open_webui ;;
+        --backup-all) backup_volume "$VOLUME_NAME" "$BACKUP_FILE"; backup_volume "$SEARXNG_VOLUME_NAME" "$SEARXNG_BACKUP_FILE" ;;
+        --restore-all) restore_all ;;
+
+        --fix-routing) fix_routing ;;
+        --prune) prune_safe ;;
+        --destroy) destroy_storage "$extra" ;;
+        -h|--help|"") usage ;;
+        *)
+            echo "Unknown option: $action" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"

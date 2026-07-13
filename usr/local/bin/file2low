@@ -1,0 +1,36 @@
+#!/bin/bash
+set -euo pipefail
+help() {
+  cat << EOF
+Change filename letter case in the current directory
+Usage: file2low [-u]
+
+Options:
+  (none)  Convert all letters to lowercase
+  -u      Convert all letters to uppercase
+
+Examples:
+  file2low         → "File ABC.TXT" → "file abc.txt"
+  file2low -u      → "File abc.txt" → "FILE ABC.TXT"
+EOF
+}
+
+[ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] && help && exit 0
+
+UPPER=0
+[ "${1:-}" = "-u" ] && UPPER=1
+
+shopt -s nullglob
+for src in *; do
+  if [ "$UPPER" -eq 1 ]; then
+    dst="${src^^}"
+  else
+    dst="${src,,}"
+  fi
+  [ "$src" = "$dst" ] && continue
+  if [ -e "$dst" ]; then
+    echo "Skipped: '$src' → '$dst' (target already exists)"
+    continue
+  fi
+  mv -- "$src" "$dst"
+done

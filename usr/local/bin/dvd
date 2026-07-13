@@ -1,0 +1,32 @@
+#!/bin/bash
+help() {
+  cat << EOF
+DVD burning
+Usage: dvd [-d] <file_or_directory>
+
+Options:
+  (none)  Create ISO from directory and burn to /dev/sr0 (xorriso + growisofs)
+  -d      Burn an ISO file or image directly (growisofs)
+
+Examples:
+  dvd /path/to/directory      → creates ISO in /mnt/db4/image123456, burns
+  dvd -d image.iso            → burns image directly to /dev/sr0
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+
+DIRECT=0
+if [ "$1" = "-d" ]; then
+  DIRECT=1
+  shift
+  [ $# -eq 0 ] && { echo "Error: provide ISO file or image"; help; exit 1; }
+fi
+
+if [ "$DIRECT" -eq 1 ]; then
+  growisofs -Z /dev/sr0="$1"
+else
+  ISO=/mnt/db4/image123456
+  xorriso -as mkisofs -iso-level 3 -r -J -joliet-long -rock -input-charset utf-8 "$1" -o "$ISO"
+  growisofs -Z /dev/sr0="$ISO"
+fi

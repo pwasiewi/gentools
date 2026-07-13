@@ -1,0 +1,4 @@
+#!/bin/bash
+# genmac - generates deterministic MAC address from hostname + date
+# Prefix 020027 = locally administered, unicast (VirtualBox range)
+echo /etc/hostname "$(date)" | md5sum | sed 's/^\(..\)\(..\)\(..\)\(..\)\(..\).*$/020027\3\4\5/'

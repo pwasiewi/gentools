@@ -1,0 +1,167 @@
+#!/bin/bash
+# Piotr Wasiewicz 2005-2025
+# Emerge wrapper shorthand for common Portage operations.
+# Distributed under the GNU Public License version 2
+
+usage() {
+    cat <<EOF
+$0 [h:Help] [u:Update] [U:UpdateNewDeps] [q:Quiet] [a:Ask|p:Print]
+   [b:Binary] [x:RescueBinary] [t:Tree] [f:Fetch] [n:noDeps] [c:Remove]
+   [w:World|s:System|e:reCompile] [m:Sync|r:CleanAll|d:Config|k:Kernel]
+
+Examples:
+  e a w        -> emerge -vaNDu @world
+  e U w        -> emerge -vuND @world  (explicit -uND, no ask)
+  e m          -> emaint -A sync && eix-update
+  e a s        -> emerge -vaNDu @system
+  e a libreoffice nodejs  -> emerge -va libreoffice nodejs
+  e x a sys-fs/lvm2       -> FEATURES="-sandbox -usersandbox -network-sandbox -pid-sandbox -mount-sandbox" emerge -vaK --binpkg-respect-use=n --nodeps sys-fs/lvm2
+  e k          -> genkernel all (with luks/lvm)
+  e r          -> emerge --depclean -a #&& eclean-pkg && eclean-dist
+  e d          -> dispatch-conf
+EOF
+}
+
+[ "$#" -eq 0 ] && usage && dispatch-conf && exit 1
+[ "$1" = "h" ] || [ "$1" = "H" ] && usage && exit 0
+
+RECOMP=""
+NODEPS=""
+REMOVE=""
+UPDATE=""
+VERBOSE="-v"
+ASK=""
+TREE=""
+FETCH=""
+BINARY=""
+RESCUE_FEATURES=""
+# NOTE: --keep-going is already set in EMERGE_DEFAULT_OPTS in make.conf;
+# flag 'g' remains available as an explicit per-invocation override if needed.
+KEEP_GOING=""
+LINE=""
+
+run_emerge() {
+    if [ -n "$RESCUE_FEATURES" ]; then
+        FEATURES="$RESCUE_FEATURES" emerge "$@"
+    else
+        emerge "$@"
+    fi
+}
+
+print_emerge() {
+    if [ -n "$RESCUE_FEATURES" ]; then
+        echo FEATURES="$RESCUE_FEATURES" emerge "$@"
+    else
+        echo emerge "$@"
+    fi
+}
+
+while [ "$1" ]; do
+    CMD=$1
+    shift
+    case $CMD in
+        m|M)
+            echo "emaint -A sync && eix-update"
+            emaint -A sync && eix-update
+            exit $?
+            ;;
+        c|C)
+            REMOVE="-C"
+            ;;
+        b|B)
+            BINARY="-k"
+            ;;
+        x|X)
+            # Emergency binpkg install path for broken runtime libraries.
+            # Ignores binpkg USE mismatch, requires an available binpkg, skips deps,
+            # and disables Portage sandboxes that may call mount/cryptsetup.
+            BINARY="-K --binpkg-respect-use=n"
+            NODEPS="--nodeps"
+            RESCUE_FEATURES="-sandbox -usersandbox -network-sandbox -pid-sandbox -mount-sandbox"
+            ;;
+        d|D)
+            echo dispatch-conf
+            dispatch-conf
+            exit $?
+            ;;
+        e|E)
+            RECOMP="-e"
+            ;;
+        n|N)
+            NODEPS="--nodeps"
+            ;;
+        u)
+            UPDATE="-u"
+            ;;
+        U)
+            # Full deep update with new deps (equivalent to -uND, no ask).
+            # Use this when you want the same effect as 'e a w' but without
+            # the interactive prompt, e.g. in scripts.
+            UPDATE="-uND"
+            ;;
+        q|Q)
+            VERBOSE="-1"
+            ;;
+        a|A)
+            ASK="-a"
+            ;;
+        p|P)
+            ASK="-p"
+            ;;
+        t|T)
+            TREE="-t"
+            ;;
+        f|F)
+            FETCH="-f"
+            ;;
+        g|G)
+            KEEP_GOING="--keep-going"
+            ;;
+        w|W)
+            if [ "$RECOMP" = "-e" ]; then
+                echo emerge $VERBOSE $ASK -e @world
+                time emerge $VERBOSE $ASK -e @world
+            else
+                print_emerge -uND $VERBOSE $ASK $BINARY $KEEP_GOING $TREE $FETCH $NODEPS @world
+                time run_emerge -uND $VERBOSE $ASK $BINARY $KEEP_GOING $TREE $FETCH $NODEPS @world
+            fi
+            exit $?
+            ;;
+        s|S)
+            if [ "$RECOMP" = "-e" ]; then
+                echo emerge $VERBOSE $ASK -e @system
+                time emerge $VERBOSE $ASK -e @system
+            else
+                print_emerge -uND $VERBOSE $ASK $BINARY $KEEP_GOING $TREE $FETCH $NODEPS @system
+                time run_emerge -uND $VERBOSE $ASK $BINARY $KEEP_GOING $TREE $FETCH $NODEPS @system
+            fi
+            exit $?
+            ;;
+        k|K)
+            echo "MAKEOPTS=\"-j16 -l32\" genkernel --makeopts=-j16 --kernel-config=/usr/src/linux/.config --luks --lvm --no-clean all"
+            cd /usr/src/linux && make oldconfig
+            time MAKEOPTS="-j16 -l32" genkernel --makeopts=-j16 \
+                --kernel-config=/usr/src/linux/.config --luks --lvm --no-clean all
+            exit $?
+            ;;
+        r)
+            # NOTE: eclean-kernel -a intentionally omitted — regenerating the
+            # full Gentoo system including gcc means the kernel rebuild cycle
+            # is manual. Revisit if automated kernel cleanup becomes desirable.
+            echo "emerge -a --depclean #&& eclean-pkg -d && eclean-dist -d"
+            time emerge -a --depclean #&& eclean-pkg -d && eclean-dist -d
+            exit $?
+            ;;
+        *)
+            LINE="$LINE $CMD"
+            ;;
+    esac
+done
+
+if [ "$REMOVE" = "-C" ]; then
+    echo emerge $REMOVE $LINE
+    time emerge $REMOVE $LINE
+else
+    print_emerge $UPDATE $VERBOSE $ASK $BINARY $KEEP_GOING $TREE $FETCH $NODEPS $LINE
+    time run_emerge $UPDATE $VERBOSE $ASK $BINARY $KEEP_GOING $TREE $FETCH $NODEPS $LINE
+fi

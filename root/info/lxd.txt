@@ -1,0 +1,123 @@
+https://www.cyberciti.biz/faq/how-to-add-network-bridge-with-nmcli-networkmanager-on-linux/
+sudo nmcli con add ifname br0 type bridge con-name br0
+sudo nmcli con add type bridge-slave ifname eno1 master br0
+nmcli connection show
+
+sudo nmcli con down "Wired connection 1"
+sudo nmcli con up br0
+nmcli con show
+
+https://blog.simos.info/how-to-make-your-lxd-containers-get-ip-addresses-from-your-lan-using-a-bridge/
+https://www.ubuntupit.com/how-to-configure-and-use-network-bridge-in-ubuntu-linux/ 
+https://thenewstack.io/how-to-create-a-bridged-network-for-lxd-containers/
+
+lxc profile delete bridgeprofile
+lxc profile list
+lxc profile create bridgeprofile
+cat <<EOF | lxc profile edit bridgeprofile
+description: Bridged networking LXD profile
+devices:
+  eth0:
+    name: eth0
+    nictype: bridged
+    parent: br0
+    type: nic
+EOF
+
+lxc profile show bridgeprofile
+lxc profile list
+lxc profile show bridgeprofile
+lxc image list images:
+lxc launch -p default -p bridgeprofile ubuntu:focal ubuntufocal
+## lxc config set ubuntufocal security.privileged true #restart container
+lxc list
+lxc profile assign ubuntulunar default,bridgeprofile
+lxc exec ubuntulunar -- systemctl restart networking.service
+lxc list
+lxc exec ubuntufocal /bin/bash
+lxc exec ubuntulunar /bin/bash
+
+## https://blog.simos.info/running-x11-software-in-lxd-containers/
+lxc profile create x11
+cat lxd.x11.profile | lxc profile edit x11
+lxc profile assign ubuntufocal default,bridgeprofile,x11
+lxc exec ubuntufocal -- sudo --user guest --login
+
+## https://docs.yoctoproject.org/brief-yoctoprojectqs/index.html
+sudo apt-get install sed wget cvs subversion git coreutils      unzip texi2html texinfo libsdl1.2-dev docbook-utils gawk   diffstat help2man make gcc build-essential      g++ desktop-file-utils chrpath libgl1-mesa-dev libglu1-mesa-dev      mercurial autoconf automake groff python-pysqlite2
+sudo apt install gawk wget git diffstat unzip texinfo gcc build-essential chrpath socat cpio python3 python3-pip python3-pexpect xz-utils debianutils iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev python3-subunit mesa-common-dev zstd liblz4-tool file locales libacl1
+
+ln -sfn /usr/bin/python2 /usr/bin/python
+useradd -s /bin/bash -d /home/guest/ -m -G sudo guest
+## usermod -aG sudo guest
+### git clone --single-branch -b daisy git://git.yoctoproject.org/poky.git
+git clone git://git.yoctoproject.org/poky
+cd poky
+git checkout -t origin/nanbield -b my-nanbield
+source oe-init-build-env
+bitbake core-image-sato
+runqemu qemux86-64
+
+## https://medium.com/nerd-for-tech/build-your-own-linux-image-for-the-raspberry-pi-f61adb799652
+## https://kickstartembedded.com/2021/12/22/yocto-part-4-building-a-basic-image-for-raspberry-pi/
+## https://wiki.yoctoproject.org/wiki/Releases
+## https://git.yoctoproject.org/meta-raspberrypi
+## https://git.openembedded.org/meta-openembedded
+git clone git://git.yoctoproject.org/poky -b dunfell
+git clone git://git.yoctoproject.org/meta-raspberrypi -b dunfell
+git clone https://git.openembedded.org/meta-openembedded -b dunfell
+source oe-init-build-env
+bitbake-layers add-layer ./meta-openembedded
+bitbake-layers add-layer ./meta-raspberrypi
+bitbake-layers add-layer ./meta-openembedded/meta-oe
+bitbake-layers add-layer ./meta-openembedded/meta-python
+bitbake-layers add-layer ./meta-openembedded/meta-networking
+bitbake-layers add-layer ./meta-openembedded/meta-multimedia
+bitbake-layers show-layers
+ls ./meta-raspberrypi/conf/machine
+bitbake core-image-base
+runqemu qemuarm
+
+
+## LXC Classic (lxc-start/lxc-stop) — konfiguracja /var/lib/lxc/<name>/config
+emerge -av vzdump vzstats vzctl vzquota ploop libvirt
+
+ip addr add 192.168.10.100/24 dev vethCOB3OK
+iptables -t nat -A POSTROUTING -o enp0s31f6 -j MASQUERADE
+nft add rule nat postrouting oif enp0s31f6 masquerade
+
+lxc-start -n ubuntu-amd -o out.log
+lxc-stop -n ubuntu-amd
+
+# Przykładowa konfiguracja sieciowa
+# /var/lib/lxc/ubuntu-amd/config
+# lxc.net.0.type = veth
+# lxc.net.0.flags = up
+# lxc.net.0.name = br0
+# lxc.net.0.ipv4.address = 192.168.10.101/24
+# lxc.net.0.ipv4.gateway = 192.168.10.100
+
+# Tabela migracji kluczy konfiguracyjnych LXC >= 2.1
+# Stara nazwa                          | Nowa nazwa
+# lxc.aa_profile                       | lxc.apparmor.profile
+# lxc.console                          | lxc.console.path
+# lxc.id_map                           | lxc.idmap
+# lxc.init_cmd                         | lxc.init.cmd
+# lxc.limit                            | lxc.prlimit
+# lxc.logfile                          | lxc.log.file
+# lxc.mount                            | lxc.mount.fstab
+# lxc.network                          | lxc.net
+# lxc.network.                         | lxc.net.[i].
+# lxc.network.ipv4                     | lxc.net.[i].ipv4.address
+# lxc.pts                              | lxc.pty.max
+# lxc.rootfs                           | lxc.rootfs.path
+# lxc.seccomp                          | lxc.seccomp.profile
+# lxc.tty                              | lxc.tty.max
+# lxc.utsname                          | lxc.uts.name
+
+# Wymagane opcje kernela dla LXC
+# CONFIG_CGROUP_FREEZER, CONFIG_CGROUP_DEVICE, CONFIG_CGROUP_CPUACCT
+# CONFIG_CGROUP_SCHED, CONFIG_CPUSETS, CONFIG_MEMCG
+# CONFIG_NAMESPACES (UTS, IPC, User, Pid, Network)
+# CONFIG_VETH, CONFIG_BRIDGE, CONFIG_MACVLAN
+

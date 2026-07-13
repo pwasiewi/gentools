@@ -1,0 +1,4 @@
+#!/bin/bash
+# nv - NVIDIA GPU status (memory, temperature, load, power)
+nvidia-smi --query-gpu=memory.used,memory.total,temperature.gpu,utilization.gpu,power.draw \
+  --format=csv,noheader | column -t -s ','

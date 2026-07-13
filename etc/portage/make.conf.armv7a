@@ -1,0 +1,19 @@
+CBUILD=x86_64-pc-linux-gnu
+HOSTCC=x86_64-pc-linux-gnu-gcc
+CHOST=armv7a-hardfloat-linux-gnueabi
+ARCH=arm
+ROOT=/usr/${CHOST}/
+#ACCEPT_KEYWORDS="arm ~arm"
+ACCEPT_KEYWORDS="arm"
+USE="${ARCH} -pam -acl"
+#CFLAGS="-O2 -pipe -march=armv7-a -mcpu=cortex-a7 -mtune=cortex-a7 -mfloat-abi=hard -mfpu=neon-vfpv4 -fomit-frame-pointer"
+CFLAGS="-O2 -pipe -fomit-frame-pointer"
+CXXFLAGS="${CFLAGS}"
+#FEATURES="-collision-protect sandbox buildpkg noman noinfo nodoc"
+# Be sure we dont overwrite pkgs from another repo..
+PKGDIR=/var/tmp/packages_arm
+#PORTAGE_TMPDIR=/var/tmp/portage
+ELIBC="glibc"
+PKG_CONFIG_PATH="${ROOT}usr/lib/pkgconfig/"
+#PKG_CONFIG_PATH="/usr/lib/pkgconfig/"
+#PORTDIR_OVERLAY="/usr/portage/local/"

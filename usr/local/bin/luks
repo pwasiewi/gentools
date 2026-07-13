@@ -1,0 +1,390 @@
+#!/usr/bin/env bash
+# luks - unified LUKS partition management tool
+# Operations: open/close/create/passwd management
+
+set -euo pipefail
+
+MAPPER_PREFIX="sz"
+
+die() { echo "ERROR: $*" >&2; exit 1; }
+
+require_root() {
+    [[ $EUID -eq 0 ]] || die "This operation requires root privileges."
+}
+
+require_dev() {
+    local dev="/dev/$(basename "$1")"
+    blkid -o device "$dev" &>/dev/null || die "Device $dev not found or not recognized by blkid."
+    echo "$dev"
+}
+
+require_mapper() {
+    local mapper="/dev/mapper/${MAPPER_PREFIX}$(basename "$1")"
+    blkid -o device "$mapper" &>/dev/null || die "Mapped device $mapper not found (partition not open?)."
+    echo "$mapper"
+}
+
+mapper_name() { echo "${MAPPER_PREFIX}$(basename "$1")"; }
+
+# ─── HELP ────────────────────────────────────────────────────────────────────
+
+usage() { cat << 'EOF'
+Usage: luks <command> [options] <device> [args...]
+
+Commands:
+  open   <device> <mountpoint>   Open LUKS and mount under /mnt/<mountpoint>
+           [-k <keyfile>]          Use keyfile instead of passphrase prompt
+           [--compress=zlib|zstd]  Mount with btrfs compression
+  close  <device>                Unmount and close LUKS mapping
+
+  create <device>                Format device as LUKS and create filesystem
+           [-k <keyfile>]          Encrypt with keyfile (also adds passphrase optionally)
+           [-t <fstype>]           Filesystem type (default: ext4)
+           [-L <label>]            Filesystem label
+                                   Prints crypttab/fstab lines to stdout after creation
+
+  passwd <device>                Manage LUKS passphrases/keyfiles
+    add    [--key-slot <n>]       Add passphrase (or keyfile with -k <file>)
+    remove [-k <keyfile>]         Remove passphrase or keyfile from a slot
+    change [--key-slot <n>]       Change passphrase in a slot
+    list                          Show slot occupancy (luksDump summary)
+
+  create-key [name]              Generate a keyfile in /etc/luks/<name>.key
+           [-s <bytes>]            Key size in bytes (default: 512)
+           [-d <dir>]              Output directory (default: /etc/luks)
+
+  dump   <device>                Show full cryptsetup luksDump
+
+  -h, --help                     Show this help
+
+Notes:
+  - Device names are passed without /dev/ prefix (e.g. sde3, nvme0n1p2)
+  - Mapper device is always /dev/mapper/sz<device>
+  - Typical workflow: create-key sde3 → create -k /etc/luks/sde3.key sde3
+EOF
+}
+
+# ─── OPEN ────────────────────────────────────────────────────────────────────
+
+cmd_open() {
+    local keyfile="" compress="" dev mnt mapper
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -k)           keyfile="$2"; shift 2 ;;
+            --compress=*) compress="${1#--compress=}"; shift ;;
+            -*) die "Unknown option: $1" ;;
+            *)  break ;;
+        esac
+    done
+    [[ $# -ge 2 ]] || die "Usage: luks open [-k keyfile] [--compress=zlib|zstd] <device> <mountpoint>"
+    [[ -z "$compress" || "$compress" == "zlib" || "$compress" == "zstd" ]] \
+        || die "Unknown compress value: $compress (use zlib or zstd)"
+    require_root
+    dev=$(require_dev "$1")
+    mnt="/mnt/$2"
+    mapper=$(mapper_name "$1")
+
+    echo "Opening $dev → /dev/mapper/$mapper"
+    if [[ -n "$keyfile" ]]; then
+        [[ -f "$keyfile" ]] || die "Keyfile not found: $keyfile"
+        cryptsetup luksOpen --key-file "$keyfile" "$dev" "$mapper"
+    else
+        cryptsetup luksOpen "$dev" "$mapper"
+    fi
+
+    echo "Mounting /dev/mapper/$mapper → $mnt"
+    mkdir -p "$mnt"
+    local mount_opts=()
+    [[ -n "$compress" ]] && mount_opts+=(-o "compress=${compress}")
+    mount "${mount_opts[@]}" "/dev/mapper/$mapper" "$mnt"
+    echo "Done. Mounted at $mnt"
+}
+
+# ─── CLOSE ───────────────────────────────────────────────────────────────────
+
+cmd_close() {
+    [[ $# -ge 1 ]] || die "Usage: luks close <device>"
+    require_root
+    local mapper
+    mapper=$(require_mapper "$1")
+    local mapper_name
+    mapper_name=$(mapper_name "$1")
+
+    echo "Unmounting $mapper"
+    umount "$mapper"
+    echo "Closing /dev/mapper/$mapper_name"
+    cryptsetup close "$mapper_name"
+    echo "Done."
+}
+
+# ─── CREATE ──────────────────────────────────────────────────────────────────
+
+cmd_create() {
+    local keyfile="" fstype="ext4" label="" raw_dev=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -k) keyfile="$2"; shift 2 ;;
+            -t) fstype="$2";  shift 2 ;;
+            -L) label="$2";   shift 2 ;;
+            -*) die "Unknown option: $1" ;;
+            *)  [[ -z "$raw_dev" ]] && raw_dev="$1" || die "Unexpected argument: $1"; shift ;;
+        esac
+    done
+    [[ -n "$raw_dev" ]] || die "Usage: luks create [-k keyfile] [-t fstype] [-L label] <device>"
+    require_root
+
+    local dev
+    dev=$(require_dev "$raw_dev")
+    local mapper
+    mapper=$(mapper_name "$raw_dev")
+
+    # ── double confirmation ───────────────────────────────────────────────────
+    echo ""
+    echo "WARNING: This will DESTROY ALL DATA on $dev"
+    echo "Device info:"
+    blkid "$dev" 2>/dev/null || lsblk "$dev" 2>/dev/null || true
+    echo ""
+    read -r -p "Type YES to confirm you want to create LUKS on $dev: " ans1
+    [[ "$ans1" == "YES" ]] || { echo "Aborted."; exit 0; }
+    read -r -p "Type YES again to confirm data destruction on $dev: " ans2
+    [[ "$ans2" == "YES" ]] || { echo "Aborted."; exit 0; }
+
+    # ── luksFormat ───────────────────────────────────────────────────────────
+    echo ""
+    echo "Formatting $dev as LUKS..."
+    if [[ -n "$keyfile" ]]; then
+        [[ -f "$keyfile" ]] || die "Keyfile not found: $keyfile"
+        cryptsetup luksFormat "$dev" "$keyfile"
+        echo "LUKS formatted with keyfile: $keyfile"
+
+        # Optionally also add a passphrase (slot 1; slot 0 = keyfile)
+        read -r -p "Also add a passphrase to this partition? [y/N] " add_pass
+        if [[ "${add_pass,,}" == "y" ]]; then
+            echo "Adding passphrase (key slot 1)..."
+            cryptsetup luksAddKey --key-file "$keyfile" --key-slot 1 "$dev"
+            echo "Passphrase added to slot 1."
+        fi
+    else
+        cryptsetup luksFormat "$dev"
+        echo "LUKS formatted with passphrase."
+    fi
+
+    # ── open to mkfs ─────────────────────────────────────────────────────────
+    echo "Opening $dev to create filesystem..."
+    if [[ -n "$keyfile" ]]; then
+        cryptsetup luksOpen --key-file "$keyfile" "$dev" "$mapper"
+    else
+        cryptsetup luksOpen "$dev" "$mapper"
+    fi
+
+    echo "Creating $fstype filesystem on /dev/mapper/$mapper..."
+    local mkfs_opts=()
+    [[ -n "$label" ]] && mkfs_opts+=(-L "$label")
+    "mkfs.$fstype" "${mkfs_opts[@]}" "/dev/mapper/$mapper"
+
+    # Capture UUID before closing
+    local luks_uuid fs_uuid mapper_uuid
+    luks_uuid=$(cryptsetup luksUUID "$dev")
+    fs_uuid=$(blkid -s UUID -o value "/dev/mapper/$mapper")
+
+    echo "Closing /dev/mapper/$mapper..."
+    cryptsetup close "$mapper"
+
+    echo ""
+    echo "LUKS UUID : $luks_uuid"
+    echo "FS UUID   : $fs_uuid"
+    echo ""
+
+    # ── crypttab / fstab lines ───────────────────────────────────────────────
+    local crypttab_key_field="none"
+    if [[ -n "$keyfile" ]]; then
+        # crypttab requires an absolute path; resolve it (file already exists at this point)
+        crypttab_key_field=$(realpath "$keyfile")
+    fi
+
+    local crypttab_line="$mapper  UUID=$luks_uuid  $crypttab_key_field  luks"
+
+    # Build fstab variants based on filesystem
+    local fstab_ext4 fstab_btrfs
+    # data=ordered is the safe default; writeback is faster but risks stale data after power loss
+    fstab_ext4="UUID=$fs_uuid  /mnt/<mountpoint>  ext4   noatime,discard,data=ordered  0 2"
+    fstab_btrfs="UUID=$fs_uuid  /mnt/<mountpoint>  btrfs  noatime,ssd,compress=zstd:3,space_cache=v2,discard=async  0 0"
+
+    # Build /etc/conf.d/dmcrypt entry (Gentoo OpenRC)
+    local dmcrypt_key_field="none"
+    [[ -n "$keyfile" ]] && dmcrypt_key_field=$(realpath "$keyfile")
+
+    echo ""
+    echo "══════════════════════════════════════════════════════════════════════════"
+    echo " LUKS UUID : $luks_uuid"
+    echo " FS UUID   : $fs_uuid"
+    echo "══════════════════════════════════════════════════════════════════════════"
+    echo ""
+    echo "── /etc/crypttab (systemd) ───────────────────────────────────────────────"
+    echo "$crypttab_line"
+    echo ""
+    echo "── /etc/conf.d/dmcrypt (Gentoo OpenRC) ───────────────────────────────────"
+    echo "target=${mapper}"
+    echo "source=UUID=\"${luks_uuid}\""
+    echo "key=${dmcrypt_key_field}"
+    echo ""
+    echo "── /etc/fstab ────────────────────────────────────────────────────────────"
+    if [[ "$fstype" == "ext4" ]]; then
+        echo "# ext4 (data=ordered — safe default; use data=writeback for max perf on trusted HW)"
+        echo "$fstab_ext4"
+        echo "#"
+        echo "# ext4 with writeback (faster, stale-data risk on sudden power loss):"
+        echo "# ${fstab_ext4/data=ordered/data=writeback}"
+    elif [[ "$fstype" == "btrfs" ]]; then
+        echo "# btrfs with zstd compression"
+        echo "$fstab_btrfs"
+    else
+        echo "# $fstype — generic entry, adjust options manually"
+        echo "UUID=$fs_uuid  /mnt/<mountpoint>  $fstype  defaults,noauto  0 2"
+    fi
+    echo ""
+    echo "══════════════════════════════════════════════════════════════════════════"
+    echo "Adjust <mountpoint> before adding to /etc/fstab."
+    echo ""
+    echo "Done. Partition $dev is ready."
+}
+
+# ─── PASSWD ──────────────────────────────────────────────────────────────────
+
+cmd_passwd() {
+    [[ $# -ge 2 ]] || die "Usage: luks passwd <device> <add|remove|change|list>"
+    require_root
+    local raw_dev="$1"
+    local subcmd="$2"
+    shift 2
+    local dev
+    dev=$(require_dev "$raw_dev")
+
+    case "$subcmd" in
+        add)
+            local keyfile="" slot_opt=()
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    -k)           keyfile="$2"; shift 2 ;;
+                    --key-slot)   slot_opt=(--key-slot "$2"); shift 2 ;;
+                    *) die "Unknown option: $1" ;;
+                esac
+            done
+            if [[ -n "$keyfile" ]]; then
+                [[ -f "$keyfile" ]] || die "Keyfile not found: $keyfile"
+                echo "Adding keyfile $keyfile to $dev..."
+                cryptsetup luksAddKey "${slot_opt[@]}" "$dev" "$keyfile"
+            else
+                echo "Adding passphrase to $dev..."
+                cryptsetup luksAddKey "${slot_opt[@]}" "$dev"
+            fi
+            echo "Done."
+            ;;
+
+        remove)
+            local keyfile=""
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    -k) keyfile="$2"; shift 2 ;;
+                    *) die "Unknown option: $1" ;;
+                esac
+            done
+            echo "Removing key/passphrase from $dev..."
+            echo "You will be prompted for an EXISTING passphrase/key to authenticate."
+            if [[ -n "$keyfile" ]]; then
+                [[ -f "$keyfile" ]] || die "Keyfile not found: $keyfile"
+                cryptsetup luksRemoveKey "$dev" "$keyfile"
+            else
+                cryptsetup luksRemoveKey "$dev"
+            fi
+            echo "Done."
+            ;;
+
+        change)
+            local slot_opt=()
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --key-slot) slot_opt=(--key-slot "$2"); shift 2 ;;
+                    *) die "Unknown option: $1" ;;
+                esac
+            done
+            echo "Changing passphrase on $dev ${slot_opt[*]+"(slot ${slot_opt[1]})"}..."
+            cryptsetup luksChangeKey "${slot_opt[@]}" "$dev"
+            echo "Done."
+            ;;
+
+        list)
+            echo "Key slot summary for $dev:"
+            echo ""
+            # Print slot lines only from luksDump for a compact view
+            cryptsetup luksDump "$dev" | grep -E "^(Version|Cipher|Key Slot|ENABLED|DISABLED)" || \
+            cryptsetup luksDump "$dev" | grep -iE "(keyslot|slot|state|iter)"
+            echo ""
+            echo "Full dump: luks dump $raw_dev"
+            ;;
+
+        *)
+            die "Unknown passwd subcommand: $subcmd. Use: add, remove, change, list"
+            ;;
+    esac
+}
+
+# ─── CREATE-KEY ──────────────────────────────────────────────────────────────
+
+cmd_create_key() {
+    local size=512 dir="/etc/luks" name=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -s) size="$2"; shift 2 ;;
+            -d) dir="$2";  shift 2 ;;
+            -*) die "Unknown option: $1" ;;
+            *)  name="$1"; shift ;;
+        esac
+    done
+    [[ -n "$name" ]] || die "Usage: luks create-key [-s bytes] [-d dir] <name>"
+    require_root
+
+    # Validate size is a positive integer
+    [[ "$size" =~ ^[1-9][0-9]*$ ]] || die "Key size must be a positive integer (bytes)."
+
+    local keyfile="$dir/$name.key"
+
+    [[ -d "$dir" ]] || { mkdir -p "$dir" && chmod 700 "$dir"; echo "Created directory $dir (700)"; }
+    [[ ! -e "$keyfile" ]] || die "Key already exists: $keyfile — remove it manually first."
+
+    dd if=/dev/urandom of="$keyfile" bs="$size" count=1 status=none
+    chmod 400 "$keyfile"
+
+    echo "Created keyfile : $keyfile"
+    echo "Size            : $size bytes"
+    echo "Permissions     : $(stat -c '%a %U:%G' "$keyfile")"
+    echo ""
+    echo "Next step:"
+    echo "  luks create -k $keyfile <device>"
+    echo "  luks passwd  <device> add -k $keyfile"
+}
+
+# ─── DUMP ────────────────────────────────────────────────────────────────────
+
+cmd_dump() {
+    [[ $# -ge 1 ]] || die "Usage: luks dump <device>"
+    require_root
+    local dev
+    dev=$(require_dev "$1")
+    cryptsetup luksDump "$dev"
+}
+
+# ─── DISPATCH ────────────────────────────────────────────────────────────────
+
+[[ $# -eq 0 ]] && usage && exit 1
+
+case "$1" in
+    open)       shift; cmd_open       "$@" ;;
+    close)      shift; cmd_close      "$@" ;;
+    create)     shift; cmd_create     "$@" ;;
+    create-key) shift; cmd_create_key "$@" ;;
+    passwd)     shift; cmd_passwd     "$@" ;;
+    dump)       shift; cmd_dump       "$@" ;;
+    -h|--help) usage ;;
+    *) die "Unknown command: $1. Use luks --help" ;;
+esac

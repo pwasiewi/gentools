@@ -1,0 +1,44 @@
+#!/bin/bash
+help() {
+  cat << EOF
+Set RGB backlight color (openrgb)
+Usage: orgb <color>
+
+Colors:
+  green   Green
+  blue    Blue
+  red     Red
+  black   Off (black, no backlight)
+
+Examples:
+  orgb green
+  orgb red
+  orgb black
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+
+# Devices without a direct mode (e.g. the RTX 5070 Ti) make openrgb print
+# "Connection attempt failed" and "Error: Mode 'direct' not available for
+# device ...", then it skips them; the devices that do support direct still
+# get the color, so those lines are harmless noise. Filter exactly them while
+# keeping any other output and openrgb's exit status.
+orgb_set() {
+  local out rc
+  out=$(openrgb "$@" 2>&1); rc=$?
+  printf '%s\n' "$out" | grep -viE "Connection attempt failed|not available for device" || true
+  return $rc
+}
+
+case "$1" in
+  green) orgb_set -c 00FF00 -m direct ;;
+  blue)  orgb_set -c 0000FF -m direct ;;
+  red)   orgb_set -c FF0000 -m direct ;;
+  black) orgb_set -c 000000 -m direct ;;
+  *)
+    echo "Error: unknown color '$1'"
+    help
+    exit 1
+    ;;
+esac

@@ -1,0 +1,174 @@
+#!/bin/bash
+set -euo pipefail
+
+die() { echo "Error: $*" >&2; exit 1; }
+
+help() {
+  cat << EOF
+Archiving and decompression (7z/tar, optimized for 5950X 32 threads)
+Usage:
+  8z [mode] <archive> <file/dir...>   Compress → <archive>.tar.7z
+  8z [mode] <file/dir>                Compress; archive name = source name
+  8z -x <archive>                     Decompress
+
+Compression modes:
+  (none)  normal (default): LZMA2 mx6 md256m  ~50 MB/s  balanced (text, code, data)
+  -n      normal: LZMA2 mx6 md256m   ~50 MB/s   balanced (default)
+  -f      fast:   zstd -T32 -6       ~200 MB/s  ideal for video/images/zip
+  -m      max:    LZMA2 mx9 md1024m  RAM-safe threads  ~10x slower, ~10% smaller
+  -u      ultra:  LZMA2 mx9 md1536m  RAM-safe threads  extreme compression
+  -a      auto:   detects content and selects fast/normal/max
+
+Decompression (-x):
+  Supports: .tar.7z  .7z  .tar.zst  .tar.gz  .tar.bz2  .tar.xz  .zip  .rar
+
+Examples:
+  8z linux-7.0.10_p1-zen/         → normal, linux-7.0.10_p1-zen.tar.7z
+  8z linux-7.0.10_p1-zen          → normal, linux-7.0.10_p1-zen.tar.7z
+  8z backup /etc                  → normal, backup.tar.7z
+  8z -a backup /etc               → auto-detect (fast/normal/max)
+  8z -f movies /mnt/video         → fast compression of videos
+  8z -u src /home/pwas/projects   → ultra for source code
+  8z -x backup.tar.7z             → extract
+  8z -x archive.tar.gz            → extract any format
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+THREADS=32
+MODE="normal"
+
+# RAM-safe thread count for LZMA2. Each pair of threads forms one BT4
+# encoder that allocates ~10.5× dict_size (we budget 12× for safety).
+# MemAvailable (not MemTotal) accounts for currently running processes.
+MEM_MB=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo)
+safe_threads() {
+  local dict_mb=$1
+  local t=$(( 2 * (MEM_MB - 6144) / (12 * dict_mb) ))
+  echo $(( t > THREADS ? THREADS : t < 2 ? 2 : t ))
+}
+
+# decompression
+if [ "$1" = "-x" ]; then
+  [ $# -lt 2 ] && { help; die "provide archive to extract"; }
+  ARCH=$2
+  [ -f "$ARCH" ] || die "file '$ARCH' does not exist"
+  echo "Extracting: $ARCH"
+  case "$ARCH" in
+    *.tar.7z|*.t7z) nice 7za x -so "$ARCH" | tar xf - ;;
+    *.7z)           nice 7z x "$ARCH" ;;
+    *.tar.zst)      nice zstd -d -T${THREADS} -c "$ARCH" | tar xf - ;;
+    *.tar.gz|*.tgz) nice tar xzf "$ARCH" ;;
+    *.tar.bz2|*.tbz2) nice tar xjf "$ARCH" ;;
+    *.tar.xz|*.txz) nice tar xJf "$ARCH" ;;
+    *.zip)          nice unzip "$ARCH" ;;
+    *.rar)          nice unrar x "$ARCH" ;;
+    *)              die "unknown format '$ARCH'" ;;
+  esac
+  exit 0
+fi
+
+# compression mode
+case "$1" in
+  -f) MODE="fast";   shift ;;
+  -n) MODE="normal"; shift ;;
+  -m) MODE="max";    shift ;;
+  -u) MODE="ultra";  shift ;;
+  -a) MODE="auto";   shift ;;
+  -*) help; die "unknown option '$1'" ;;
+esac
+
+[ $# -lt 1 ] && { help; die "provide at least one file/directory"; }
+
+# Single-argument form: source name (trailing slash stripped) is reused
+# as the archive base name. Multi-argument form keeps the original semantics:
+# first positional is the archive base name, the rest are sources.
+if [ $# -eq 1 ]; then
+  SRC=${1%/}
+  ARCHIVE=$SRC
+  SOURCES=("$SRC")
+else
+  ARCHIVE=$1
+  shift
+  SOURCES=("$@")
+fi
+
+# auto-detect: classify input by extension, weighted by file size
+# (a built kernel tree has more .c/.h by count, but .o dominate by bytes)
+auto_detect() {
+  local compressed=0 text=0 total=0 count=0 size f
+  for src in "${SOURCES[@]}"; do
+    while IFS= read -r -d '' entry; do
+      size=${entry%% *}
+      f=${entry#* }
+      count=$((count+1))
+      total=$((total+size))
+      case "${f,,}" in
+        *.jpg|*.jpeg|*.png|*.gif|*.webp|*.heic|\
+        *.mp4|*.mkv|*.avi|*.mov|*.mts|*.webm|\
+        *.mp3|*.flac|*.ogg|*.opus|*.aac|\
+        *.gz|*.bz2|*.xz|*.zst|*.7z|*.zip|*.rar|\
+        *.deb|*.rpm|*.apk|*.dmg|*.iso)
+          compressed=$((compressed+size)) ;;
+        *.c|*.h|*.cpp|*.hpp|*.cc|*.rs|*.go|*.py|*.sh|*.pl|*.rb|\
+        *.js|*.ts|*.java|*.php|*.lua|*.txt|*.md|*.rst|*.log|\
+        *.json|*.xml|*.yaml|*.yml|*.toml|*.conf|*.cfg|*.ini|\
+        *.csv|*.tsv|*.html|*.css|*.tex|*.sql|*.patch|*.diff|\
+        */makefile|*/kconfig)
+          text=$((text+size)) ;;
+      esac
+      [ $count -ge 2000 ] && break 2
+    done < <(find "$src" -type f -printf '%s %p\0' 2>/dev/null)
+  done
+  # over 60% of bytes already compressed → fast; over 60% text/source → max
+  # (LZMA2 md1024m pays off on highly redundant text); otherwise normal
+  if [ $total -gt 0 ] && [ $((compressed * 100 / total)) -ge 60 ]; then
+    echo "fast"
+  elif [ $total -gt 0 ] && [ $((text * 100 / total)) -ge 60 ]; then
+    echo "max"
+  else
+    echo "normal"
+  fi
+}
+
+if [ "$MODE" = "auto" ]; then
+  echo -n "Detecting content type... "
+  MODE=$(auto_detect)
+  echo "$MODE"
+fi
+
+# 7z parameters for the selected mode
+case "$MODE" in
+  fast)
+    echo "Mode: fast (zstd -T${THREADS} -6)"
+    OUTFILE="${ARCHIVE}.tar.zst"
+    nice -n 19 tar cf - -v "${SOURCES[@]}" | \
+      zstd -T${THREADS} -6 -o "${OUTFILE}"
+    ;;
+  normal)
+    T=$(safe_threads 256)
+    echo "Mode: normal (LZMA2 mx6 md256m mmt${T}/${THREADS})"
+    OUTFILE="${ARCHIVE}.tar.7z"
+    nice -n 19 tar cf - -v "${SOURCES[@]}" | \
+      7z a -si -t7z -m0=lzma2 -mx=6 -md=256m -mfb=64 -mmt=${T} -ms=64m "${OUTFILE}"
+    ;;
+  max)
+    T=$(safe_threads 1024)
+    echo "Mode: max (LZMA2 mx9 md1024m mfb273 mmt${T}/${THREADS}, RAM: ${MEM_MB}MB)"
+    OUTFILE="${ARCHIVE}.tar.7z"
+    nice -n 19 tar cf - -v "${SOURCES[@]}" | \
+      7z a -si -t7z -m0=lzma2 -mx=9 -md=1024m -mfb=273 -mmt=${T} -ms=256m "${OUTFILE}"
+    ;;
+  ultra)
+    T=$(safe_threads 1536)
+    echo "Mode: ultra (LZMA2 mx9 md1536m mfb273 mmt${T}/${THREADS}, RAM: ${MEM_MB}MB)"
+    OUTFILE="${ARCHIVE}.tar.7z"
+    nice -n 19 tar cf - -v "${SOURCES[@]}" | \
+      7z a -si -t7z -m0=lzma2 -mx=9 -md=1536m -mfb=273 -mmt=${T} -ms=256m "${OUTFILE}"
+    ;;
+esac
+
+SIZE=$(du -sh "${OUTFILE}" 2>/dev/null | cut -f1) || die "output file missing — compression failed"
+echo ""
+echo "Done: ${SIZE}  →  ${OUTFILE}"

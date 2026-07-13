@@ -1,0 +1,119 @@
+#wersja stabilna
+wget http://www.eu.apache.org/dist//hadoop/common/hadoop-1.0.1/hadoop-1.0.1.tar.gz
+tar zxvf hadoop-1.0.1.tar.gz
+mv hadoop-1.0.1 /hadoop-1.0.1
+ln -sfn /hadoop-1.0.1 /hadoop;
+ln -sfn /hadoop /opt/hadoop
+chown -R hadoop:hadoop /hadoop
+su - hadoop
+#killall -9 java;
+rm -rf /tmp/hadoop*;bin/hadoop namenode -format; bin/start-dfs.sh;
+bin/hadoop dfsadmin -safemode leave; bin/start-mapred.sh
+bin/hadoop jar hadoop-examples-1.0.1.jar pi 10 10
+
+cd; svn co http://svn.apache.org/repos/asf/hive/trunk/
+mv trunk hive; cd hive
+#shims/src/common/java/org/apache/hadoop/hive/shims/ShimLoader.java
+export HIVE_HOME=`pwd`
+export PATH=$HIVE_HOME/bin:$PATH
+ant clean package
+cd build/dist
+bin/hive
+
+cd; svn co https://svn.apache.org/repos/asf/hbase/trunk/
+mv trunk/ hbase; cd hbase
+#mvn-3.0 package -DskipTests
+MAVEN_OPTS="-Xmx2g" mvn clean site install assembly:assembly -DskipTests -Prelease
+mv target/hbase-0.95-SNAPSHOT.tar.gz ~
+cd 
+rm -rf hbase
+tar zxvf hbase-0.95-SNAPSHOT.tar.gz
+ln -sfn hbase-0.95-SNAPSHOT hbase
+cd hbase
+bin/start-hbase.sh
+export RUBYOPT=""
+bin/hbase shell
+
+cd; 
+#svn co https://svn.apache.org/repos/asf/incubator/sqoop/trunk/
+git clone https://git-wip-us.apache.org/repos/asf/sqoop.git
+mv trunk sqoop; cd sqoop
+ant package
+cd build
+ln -sfn sqoop-1.4.2-incubating-SNAPSHOT.bin__hadoop-0.23 dist
+cd ~/sqoop/build/dist
+mkdir logs
+bin/start-metastore.sh -p pid -l logs
+
+cd; svn co https://svn.apache.org/repos/asf/zookeeper/trunk/
+mv trunk zookeeper; cd zookeeper
+ant package
+
+cd; 
+svn co https://svn.apache.org/repos/asf/forrest/trunk/
+mv trunk forrest; cd forrest
+cd main; ./build.sh clean; ./build.sh
+export FORREST_HOME=/hadoop/forrest
+
+cd; 
+#svn co https://svn.apache.org/repos/asf/pig/trunk/
+svn co https://svn.apache.org/repos/asf/pig/branches/branch-0.10/
+mv trunk pig; cd pig
+#ant package -Dforrest.home=/hadoop/forrest
+ant -Dhadoopversion=23  package -Dforrest.home=/hadoop/forrest
+
+
+cd ;git clone https://github.com/mongodb/mongo-hadoop
+cd mongo-hadoop;
+./sbt package
+
+#eksperymentalna wersja na bazie release'u
+wget http://www.eu.apache.org/dist//hadoop/common/hadoop-0.23.1/hadoop-0.23.1.tar.gz
+tar zvxf hadoop-0.23.1.tar.gz
+mv hadoop-0.23.1 /
+ln -sfn /hadoop-0.23.1 /hadoop;
+chown -R hadoop:hadoop /hadoop
+su - hadoop
+svn co http://svn.apache.org/repos/asf/hadoop/common/branches/branch-0.23.1/
+mv branch-0.23.1/ /hadoop-0.23.1;  
+mvn-3.0 install package -Pdist -DskipTests
+#killall -9 java;
+rm -rf /tmp/hadoop*; bin/hdfs namenode -format; sbin/start-dfs.sh;
+bin/hdfs dfsadmin -safemode leave;
+sbin/start-yarn.sh
+bin/hadoop jar .m2/repository/org/apache/hadoop/hadoop-mapreduce-examples/0.23.1/hadoop-mapreduce-examples-0.23.1.jar pi 100 10
+
+#svn co https://svn.apache.org/repos/asf/hbase/branches/0.94/
+#svn co https://svn.apache.org/repos/asf/incubator/sqoop/branches/branch-1.4.1/
+
+
+#eksperymentalna wersja
+svn co https://svn.apache.org/repos/asf/hadoop/common/trunk/
+mv trunk hadoop-0.24; cd hadoop-0.24;
+mvn-3.0 clean install package -Pdist -Dtar -DskipTests
+#find . -name "hadoop*tar.gz" -print -exec cp -a {} ~ \;
+cp hadoop-dist/target/hadoop-0.24.0-SNAPSHOT.tar.gz ~
+cd ..; tar zxvf hadoop-0.24.0-SNAPSHOT.tar.gz
+mv hadoop-0.24.0-SNAPSHOT /
+chown -R hadoop:hadoop /hadoop
+#uzupełnij z załączonych konfigów: etc/hadoop/core-site.xml  etc/hadoop/hdfs-site.xml
+#dodaj do etc/hadoop/hadoop-env.sh: export
+#JAVA_HOME=/opt/oracle-jdk-bin-1.7.0.7/ i export HADOOP_CLIENT_OPTS="-Xmx2048m -XX:-UseSplitVerifier $HADOOP_CLIENT_OPTS"
+rm -rf /tmp/hadoop*; bin/hdfs namenode -format; sbin/start-dfs.sh;
+bin/hdfs dfsadmin -safemode leave;
+sbin/start-yarn.sh
+export HADOOP_MAPRED_HOME=/hadoop
+bin/hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-3.0.0-SNAPSHOT.jar pi 30 200
+bin/hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-0.23.4-SNAPSHOT.jar pi 30 200
+
+
+hadoop fs -mkdir /hadoop
+hadoop fs -mkdir /hadoop/hive
+hadoop fs -mkdir /hadoop/hive/lib
+hadoop fs -put /hadoop/hive/lib/hive-builtins-0.10.0-SNAPSHOT.jar /hadoop/hive/lib
+bin/hive -f /hadoop/examples/kv/kv_example.txt
+
+#CASSANDRA
+svn co https://svn.apache.org/repos/asf/cassandra/trunk/
+ant release
+

@@ -1,0 +1,70 @@
+#!/bin/bash
+set -euo pipefail
+help() {
+  cat << EOF
+Recursive directory traversal (pure bash demo without find)
+Usage: findr [pattern] [-e extension | -x command]
+
+Arguments:
+  pattern          Glob pattern to match files (default: *)
+  -e extension     Append extension to matching files (e.g. -e txt)
+  -x command       Execute command on each matching file (e.g. -x "ls -lh")
+
+Examples:
+  findr                  → list all files recursively
+  findr "*.jar"          → list all .jar files
+  findr "p*" -e txt      → append .txt to files matching p*
+  findr "*.log" -x "wc -l"
+EOF
+}
+
+( [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+PATTERN="*"
+ACTION="list"
+EXT=""
+CMD=""
+
+# Parse arguments
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -e) EXT=$2;  ACTION="rename"; shift 2 ;;
+    -x) CMD=$2;  ACTION="exec";   shift 2 ;;
+    -*) echo "Error: unknown option '$1'"; help; exit 1 ;;
+    *)  PATTERN=$1; shift ;;
+  esac
+done
+
+j=0
+
+wyswietl() {
+  local plik
+  for plik in *; do
+    [ -e "$plik" ] || continue
+    if [ -d "$plik" ]; then
+      cd "$plik"
+      wyswietl
+      cd ..
+    else
+      case "$plik" in ($PATTERN)
+        j=$((j+1))
+        case "$ACTION" in
+          list)
+            echo "$j: $plik"
+            ;;
+          rename)
+            mv -- "$plik" "${plik}.${EXT}"
+            echo "$j: $plik → ${plik}.${EXT}"
+            ;;
+          exec)
+            echo "$j: $plik"
+            $CMD "$plik"
+            ;;
+        esac
+      esac
+    fi
+  done
+}
+
+wyswietl
+[ "$j" -eq 0 ] && echo "(no files matching pattern '$PATTERN')"

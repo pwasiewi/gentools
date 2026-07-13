@@ -1,0 +1,3 @@
+#!/bin/bash
+# nativeflags - gcc optimization flags for the current processor (-march=native)
+gcc -### -E - -march=native 2>&1 | sed -r '/cc1/!d;s/(")|(^.* - )|( -mno-[^\ ]+)//g'

@@ -1,0 +1,63 @@
+# Vagrantfile - klaster Ubuntu (3 węzły)
+# Użycie: skopiuj jako Vagrantfile i dostosuj zmienne poniżej
+
+$box    = "42n4/ubuntu"        # lub "ubuntu/jammy64", "ubuntu/noble64"
+$net    = "192.168.0."
+$gw     = "192.168.0.1"
+$bridge = "enp0s31f6"          # VBoxManage list bridgedifs
+$ip01   = "71"
+$ip02   = "72"
+$ip03   = "73"
+$cpus   = 2
+$ram    = 2048                 # MB
+
+servers = [
+  { hostname: "server1", ip: $net+$ip01, mac: "02002751a1bc" },
+  { hostname: "server2", ip: $net+$ip02, mac: "0200272864d1" },
+  { hostname: "server3", ip: $net+$ip03, mac: "020027092383" },
+]
+
+Vagrant.configure("2") do |config|
+  config.vm.box_check_update = false
+
+  servers.each do |machine|
+    config.vm.define machine[:hostname] do |node|
+      node.vm.box      = $box
+      node.vm.hostname = machine[:hostname]
+      node.vm.network "public_network",
+        bridge: $bridge,
+        ip:     machine[:ip],
+        mac:    machine[:mac]
+
+      node.vm.provider "virtualbox" do |vb|
+        vb.name   = machine[:hostname]
+        vb.cpus   = $cpus
+        vb.memory = $ram
+        vb.customize ["modifyvm", :id,
+          "--graphicscontroller", "vmsvga",
+          "--paravirtprovider",   "kvm",
+          "--nic2",               "bridged",
+          "--nictype2",           "82540EM",
+          "--bridgeadapter2",     $bridge,
+          "--cableconnected2",    "on",
+          "--nicpromisc2",        "allow-all",
+          "--rtcuseutc",          "on",
+        ]
+      end
+
+      # Podmień adresy IP w skryptach konfiguracyjnych gościa
+      node.vm.provision "shell", run: "once", inline: <<-SHELL
+        sed -i 's|192.168.2.|#{$net}|g'  /usr/local/bin/va_hosts4ssh 2>/dev/null || true
+        sed -i 's|192.168.2.|#{$net}|g'  /usr/local/bin/va_ceph.conf 2>/dev/null || true
+        sed -i 's|ip01=11|ip01=#{$ip01}|g' /usr/local/bin/va_hosts4ssh 2>/dev/null || true
+        sed -i 's|ip02=12|ip02=#{$ip02}|g' /usr/local/bin/va_hosts4ssh 2>/dev/null || true
+        sed -i 's|ip03=13|ip03=#{$ip03}|g' /usr/local/bin/va_hosts4ssh 2>/dev/null || true
+      SHELL
+    end
+  end
+
+  config.vm.provision "shell", run: "always", inline: <<-SHELL
+    ip route add default via #{$gw} 2>/dev/null || true
+    ip route del default via $(ip route | awk '/default.*enp0s3 /{print $3}') 2>/dev/null || true
+  SHELL
+end

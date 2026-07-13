@@ -1,0 +1,106 @@
+#!/bin/bash
+set -euo pipefail
+
+help() {
+  cat << EOF
+Free RAM in Linux
+Usage: freeram [-a] [-s]
+
+Options:
+  (none)  Basic cache clearing (drop_caches=3 + sync)
+  -a      All methods: cache + swap + compaction + huge pages
+  -s      Force swap-out of processes (aggressive, may slow the system)
+
+Methods (-a mode):
+  1. sync + drop_caches=3      Flushes page cache, dentries, inodes
+  2. compact_memory             Memory compaction (defragmentation)
+  3. swappiness temporarily=100 Aggressive swap-out (only with -s)
+  4. Release huge pages         Returns HugeTLB back to the system
+  5. OOM score hint             Does not kill processes, only reports
+EOF
+}
+
+[ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] && help && exit 0
+
+AGGRESSIVE=0
+SWAP_OUT=0
+for arg in "$@"; do
+  case "$arg" in
+    -a) AGGRESSIVE=1 ;;
+    -s) SWAP_OUT=1; AGGRESSIVE=1 ;;
+  esac
+done
+
+require_root() {
+  [ "$EUID" -eq 0 ] || { echo "Error: root required"; exit 1; }
+}
+
+show_mem() {
+  echo "--- Memory $(date '+%H:%M:%S') ---"
+  free -h
+  echo "Swap: $(swapon --show=NAME,SIZE,USED --noheadings 2>/dev/null | awk '{print $1, "used:", $3}' | tr '\n' ' ')"
+}
+
+require_root
+
+show_mem
+
+echo ""
+echo "==> sync + drop_caches"
+sync
+echo 3 > /proc/sys/vm/drop_caches
+sync
+
+if [ "$AGGRESSIVE" -eq 1 ]; then
+
+  if [ "$SWAP_OUT" -eq 1 ]; then
+    echo "==> swap-out processes (swappiness=100)"
+    ORIG_SWAP=$(cat /proc/sys/vm/swappiness)
+    trap "echo '$ORIG_SWAP' > /proc/sys/vm/swappiness" EXIT INT TERM
+    echo 100 > /proc/sys/vm/swappiness
+    # force migration of anonymous pages to swap
+    for pid in /proc/[0-9]*/status; do
+      dir=$(dirname "$pid")
+      vmrss=$(awk '/VmRSS/{print $2}' "$pid" 2>/dev/null)
+      [ -z "$vmrss" ] || [ "$vmrss" -lt 10240 ] && continue
+      # write to /proc/<pid>/reclaim if kernel >= 5.19
+      echo 1 > "${dir}/reclaim" 2>/dev/null || true
+    done
+    echo "$ORIG_SWAP" > /proc/sys/vm/swappiness
+    trap - EXIT INT TERM
+  fi
+
+  if [ -f /proc/sys/vm/compact_memory ]; then
+    echo "==> compact_memory (memory defragmentation)"
+    echo 1 > /proc/sys/vm/compact_memory
+  fi
+
+  if [ -f /proc/sys/vm/nr_hugepages ]; then
+    HUGE=$(cat /proc/sys/vm/nr_hugepages)
+    if [ "$HUGE" -gt 0 ]; then
+      echo "==> releasing huge pages ($HUGE pages)"
+      echo 0 > /proc/sys/vm/nr_hugepages
+    fi
+  fi
+
+  if [ -f /sys/kernel/mm/transparent_hugepage/enabled ]; then
+    echo "==> drop_caches after compaction"
+    sync
+    echo 3 > /proc/sys/vm/drop_caches
+  fi
+
+  # Release slab allocator (slab cache: dentries, inodes, dma-buf)
+  echo "==> recording slab state before..."
+  SLAB_BEFORE=$(awk '/^MemFree/{print $2}' /proc/meminfo)
+
+  # drop_caches=2 zwalnia slab (dentries + inodes)
+  echo 2 > /proc/sys/vm/drop_caches
+
+  SLAB_AFTER=$(awk '/^MemFree/{print $2}' /proc/meminfo)
+  FREED=$(( (SLAB_AFTER - SLAB_BEFORE) / 1024 ))
+  echo "    Slab freed: ${FREED} MB"
+
+fi
+
+echo ""
+show_mem

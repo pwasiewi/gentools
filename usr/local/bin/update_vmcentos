@@ -1,0 +1,44 @@
+#!/bin/bash
+# update_vmcentos - CentOS 7 VM configuration (Vagrant): ceph, puppet, ntp, VBox Guest
+# Run inside the virtual machine as root
+set -euo pipefail
+
+sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+yum install -y epel-release
+rpm -Uvh http://download.ceph.com/rpm-jewel/el7/noarch/ceph-release-1-1.el7.noarch.rpm
+#https://apt.puppetlabs.com/
+#https://www.digitalocean.com/community/tutorials/how-to-install-puppet-4-in-a-master-agent-setup-on-centos-7
+rpm -Uvh https://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm
+#http://www.itzgeek.com/how-tos/linux/centos-how-tos/setup-chef-12-centos-7-rhel-7.html
+#http://linoxide.com/linux-how-to/chef-workstation-server-node-centos-7/
+yum update -y && yum upgrade -y
+yum install -y vim ansible nmap sg3_utils wget nano bash-completion
+yum install -y ceph-deploy puppetserver puppet
+yum install -y sysbench iperf bonnie++ 
+yum install -y gcc bzip2 make kernel-devel-`uname -r`  net-tools
+yum install -y ntp ntpdate ntp-doc
+ntpdate 0.us.pool.ntp.org
+hwclock --systohc
+systemctl enable ntpd && systemctl start ntpd
+curl ix.io/client > /usr/local/bin/ix
+chmod +x /usr/local/bin/ix
+groupadd admin
+usermod -G admin vagrant
+echo 'Defaults    env_keep += "SSH_AUTH_SOCK"' >> /etc/sudoers
+echo '%admin ALL=NOPASSWD: ALL' >> /etc/sudoers
+sed -i 's/ONBOOT=no/ONBOOT=yes/g' /etc/sysconfig/network-scripts/ifcfg-enp0s3
+echo NM_CONTROLLED=yes >> /etc/sysconfig/network-scripts/ifcfg-enp0s3
+su - vagrant
+#ssh-keygen -t rsa -b 2048 -N '' -f ~/.ssh/id_rsa
+[ ! -d ~/.ssh ] && mkdir ~/.ssh
+wget https://raw.githubusercontent.com/mitchellh/vagrant/master/keys/vagrant.pub -O ~/.ssh/authorized_keys
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/authorized_keys
+chown -R vagrant:vagrant ~/.ssh
+sudo yum clean all
+exit
+#Install VirtualBox drivers
+[ ! -d /mnt/dvd ] && mkdir /mnt/dvd
+mount -t iso9660 -o ro /dev/sr0 /mnt/dvd
+cd /mnt/dvd
+./VBoxLinuxAdditions.run

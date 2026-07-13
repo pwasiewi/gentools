@@ -1,0 +1,51 @@
+#!/bin/bash
+set -euo pipefail
+die() { echo "Error: $*" >&2; exit 1; }
+
+help() {
+  cat << EOF
+Mount/unmount filesystems for chroot
+Usage:
+  chroot-mount    <dir>   Mount proc/sys/dev and enter chroot (default)
+  chroot-mount -m <dir>   Mount only (without entering chroot)
+  chroot-mount -u <dir>   Unmount proc/sys/dev
+
+Examples:
+  chroot-mount /mnt/gentoo
+  chroot-mount -m /mnt/gentoo
+  chroot-mount -u /mnt/gentoo
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+
+MODE="enter"
+if [ "$1" = "-m" ]; then
+  MODE="mount"
+  shift
+elif [ "$1" = "-u" ]; then
+  MODE="umount"
+  shift
+fi
+
+[ $# -eq 0 ] && { help; die "provide chroot directory"; }
+DIR=$1
+
+[ ! -d "$DIR" ] && die "directory '$DIR' does not exist"
+
+case $MODE in
+  mount|enter)
+    mount --types proc /proc "$DIR/proc"
+    mount --rbind /sys "$DIR/sys"
+    mount --make-rslave "$DIR/sys"
+    mount --rbind /dev "$DIR/dev"
+    mount --make-rslave "$DIR/dev"
+    [ "$MODE" = "enter" ] && chroot "$DIR" || true
+    ;;
+  umount)
+    mountpoint -q "$DIR/dev"  && umount -R "$DIR/dev"
+    mountpoint -q "$DIR/sys"  && umount -R "$DIR/sys"
+    mountpoint -q "$DIR/proc" && umount -R "$DIR/proc"
+    echo "Unmounted $DIR"
+    ;;
+esac

@@ -1,0 +1,40 @@
+#!/bin/bash
+# mirror-index-creator - generates HTML index for a directory with files
+help() {
+  cat << 'EOF'
+Generates an HTML file listing directories and files (as links)
+Usage: mirror-index-creator <root_dir> [output_file]
+
+Arguments:
+  root_dir       Directory to index
+  output_file    HTML file (default: site-index.html)
+
+Examples:
+  mirror-index-creator /var/www/files
+  mirror-index-creator /var/www/files /var/www/index.html
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+ROOT="$1"
+OUTPUT="${2:-site-index.html}"
+
+[ ! -d "$ROOT" ] && { echo "Error: '$ROOT' is not a directory"; exit 1; }
+
+{
+  echo "<UL>"
+  while IFS= read -r dirpath; do
+    dir=$(basename "$dirpath")
+    echo "  <LI>$dir</LI>"
+    echo "  <UL>"
+    while IFS= read -r filepath; do
+      file=$(basename "$filepath")
+      echo "    <LI><a href=\"/$dir/$file\">$file</a></LI>"
+    done < <(find "$dirpath" -maxdepth 1 -mindepth 1 -type f | sort)
+    echo "  </UL>"
+  done < <(find "$ROOT" -maxdepth 1 -mindepth 1 -type d | sort)
+  echo "</UL>"
+} > "$OUTPUT"
+
+echo "→ Generated: $OUTPUT"

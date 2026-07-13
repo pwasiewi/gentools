@@ -1,0 +1,8 @@
+for i in qtcore qtscript qtpaths kde-frameworks/kxmlgui qtsvg qtdbus qtbluetooth qtpositioning qtnetwork qtvirtualkeyboard qdbus qtsql qtconcurrent qtmultimedia qtdeclarative qtsensors qtwayland qtx11extras qtxmlpatterns qtquickcontrols2 qtprintsupport qtwidgets qtgui qtquickcontrols qttest qtwebchannel linguist-tools qtgraphicaleffects designer qtopengl qtsvg qtwayland qtprintsupport qtwidgets qtquickcontrols linguist-tools; do emerge  -1 --nodeps $i; done
+for i in qtdeclarative linguist-tools qtquickcontrols2 qttranslations qtxmlpatterns; do emerge  -1 --nodeps $i; done
+e dev-qt/qtgui qtxml dev-qt/designer n
+for i in kde-frameworks/extra-cmake-modules kde-frameworks/kconfig kde-frameworks/kwidgetsaddons kde-frameworks/kcompletion kde-frameworks/ki18n kde-frameworks/kdbusaddons kde-frameworks/kcoreaddons kde-frameworks/kfilemetadata kcrash kservice kdoctools kconfigwidgets kauth kiconthemes kglobalaccel kxmlgui kbookmarks kjobwidgets kio; do e n $i; done
+emerge @kde-frameworks-5-5.112  --nodeps -u
+
+eix -I --only-names -C dev-qt | awk '{print $1":5"}'
+for i in `eix -I --only-names -C dev-qt | awk '{print $1":5"}'`; do e n $i; done

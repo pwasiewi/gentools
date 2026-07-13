@@ -1,0 +1,288 @@
+# KLUCZEPGP
+# https://musigma.blog/2021/05/09/gpg-ssh-ed25519.html
+# https://github.com/drduh/YubiKey-Guide
+# https://support.yubico.com/support/solutions/articles/15000006420-using-your-yubikey-with-openpgp
+
+#separate pins for gpg and piv
+ykman-gui #piv pins, fido2 pin
+ykman fido access change-pin --pin --new-pin
+gpg --batch --generate-key gen-params-ed25519
+export KEYFP=<fingerprint without spaces>
+gpg --quick-add-key $KEYFP ed25519 sign 1y
+gpg --quick-add-key $KEYFP cv25519 encr 1y
+gpg --quick-add-key $KEYFP ed25519 auth 1y
+export KEYID=0x<short form>
+gpg -K
+gpg --armor --export-secret-keys $KEYID > $GNUPGHOME/mastersub.key
+gpg --armor --export-secret-subkeys $KEYID > $GNUPGHOME/sub.key
+gpg --output $GNUPGHOME/revoke.asc --gen-revoke $KEYID
+gpg --armor --export $KEYID | sudo tee ./gpg-$KEYID-$(date +%F)_public.asc
+gpg --keyserver pgp.mit.edu --send-key $KEYID
+gpg --keyserver hkps://keyserver.ubuntu.com:443 --send-key $KEYID
+gpg --keyserver keys.gnupg.net --send-key $KEYID
+ykman openpgp access set-retries 10 10 10
+gpg --edit-key $KEYID
+#trust 5
+git config user.signingkey $KEYID
+
+
+gpg --full-generate-key
+addkey 8 E S Q 4096 0 y y 
+your_name your@email O(key)
+# sec   rsa4096/<YOUR_KEY>
+export KEYID=<YOUR_KEY>
+#add subkeys
+gpg --expert --edit-key $KEYID
+# subkey to sign
+addkey 4 Q 4096 1y y y 
+# subkey to encrypt
+addkey 6 Q 4096 1y y y 
+# subkeuy to authenticate
+addkey 8 S E A Q 1y y y  
+# again uid
+# adduid N C E
+save
+
+
+#edycja yubikey
+gpg --card-status
+gpg --card-edit
+admin help name lang <pl> sex url login passwd
+2 (ustaw pin)
+Q list quit
+
+#yubikey add pgp key
+gpg --edit-key piotrwasiewiczeu@gmail.com
+toggle
+key 1 (choose sign)
+#backup klucza
+keytocard
+key 1 #unset
+key 2
+keytocard (choose encrypt)
+key 2 #unset
+key 3
+keytocard (choose authenticate)
+save
+
+# https://riseup.net/en/security/message-security/openpgp/best-practices
+# https://help.ubuntu.com/community/GnuPrivacyGuardHowto
+# https://www.jabberwocky.com/software/paperkey/
+gpg --list-keys --keyid-format LONG
+gpg --list-secret-keys --keyid-format LONG
+# sec   rsa4096/<YOUR_KEY>
+# or
+# pub   rsa4096/<YOUR_KEY>
+export KEYID=<YOUR_KEY>
+# save backups in the encrypted place
+gpg --armor --export-secret-key  $KEYID > privatekey.key
+gpg --armor --export-secret-keys $KEYID > privatemastersub.key
+gpg --armor --export-secret-subkeys $KEYID > privatesub.key
+gpg --armor --export $KEYID > publicmastersub.key
+# remove your key from local gpg repo
+gpg --delete-secret-key $KEYID
+gpg --delete-key $KEYID
+# recover your private key from the hidden file
+gpg --import privatekey.txt
+# to revoke your key - save it safely
+gpg --output ./revoke$KEYID.asc --gen-revoke $KEYID
+# import revoke file and send key to servers - it will make your key useless
+# wysłanie klucza gpg na public serwer (tylko część publiczna)
+gpg --keyserver keys.gnupg.net --keyserver-options honor-http-proxy --send-key $KEYID
+wget -O ~/.gnupg/sks-keyservers.netCA.pem https://sks-keyservers.net/sks-keyservers.netCA.pem
+wget -O ~/.gnupg/gpg.conf https://gist.githubusercontent.com/42n4/278539c6d2f9c3ed4460fba5d7221f69/raw/1c29f7543b497a2f061182280134830993cf2f6d/gpg.conf
+# with proper gpg
+gpg --send-key $KEYID
+gpg --keyserver pgp.mit.edu --send-key $KEYID
+gpg --keyserver keys.gnupg.net --send-key $KEYID
+gpg --keyserver hkps://keyserver.ubuntu.com:443 --send-key $KEYID
+#search for your key on servers
+gpg --search-keys <YOUR_PGP_EMAIL>
+# gpg --receive-keys $KEYID
+# To create ASCII files, just add the --clearsign option to the beginning of the command. 
+gpg --output encrypted_doc.gpg --encrypt --recipient lmpinto@dei.uc.pt doc_to_encrypt
+gpg --output signed_doc.gpg --sign --recipient lmpinto@dei.uc.pt doc_to_sign
+gpg --output encrypted_doc.gpg --encrypt --sign --recipient lmpinto@dei.uc.pt doc_to_encrypt_and_sign
+gpg --output document --decrypt encrypted_doc.gpg
+# Keyservers:
+keys.gnupg.net
+hkp://subkeys.pgp.net (server pool)
+http://pgp.mit.edu
+hkp://pool.sks-keyservers.net (server pool, also supports secured key requests over TLS: hkps://hkps.pool.sks-keyservers.net)
+hkp://zimmermann.mayfirst.org (also supports secured key requests over TLS)
+http://keyserver.ubuntu.com
+
+#ENTROPY
+#https://www.digitalocean.com/community/tutorials/how-to-setup-additional-entropy-for-cloud-servers-using-haveged
+cat /proc/sys/kernel/random/entropy_avail
+
+#USES OF PGP KEY
+echo "test message string" | gpg --encrypt --armor --recipient $KEYID -o encrypted.txt
+gpg --decrypt --armor encrypted.txt
+
+echo "test message string" | gpg --armor --clearsign > signed.txt
+gpg --verify signed.txt
+
+gpg --list-keys
+git config user.signingKey $KEYID
+git config --global user.signingKey $KEYID
+# write to ~/.gitconfig
+git log --show-signature
+git show --show-signature
+git config --global commit.gpgsign true
+git config --global alias.cs "commit -S -a"
+git config --global alias.logs "log --show-signature"
+git config --global alias.shows "show --show-signature"
+git verify-commit --raw $COMMIT_ID
+# https://github.com/git/git/blob/master/Documentation/pretty-formats.txt#L153-L224
+git log --show-signature --pretty=format:"%H %ae %n %G?  %GS %GK"
+
+# KLUCZE SSH
+mkdir ~/.ssh/github
+ssh-keygen -t rsa -b 4096 -N '' -C<YOUR_EMAIL> -f ~/.ssh/key_rsa
+ssh-keygen -t ed25519 -N '' -C<YOUR_EMAIL> -f ~/.ssh/key_ed25519
+
+# test github ssh
+ssh -vT git@github.com
+git remote set-url origin git@github.com:<Username>/<Project>.git
+# you can git push now
+
+# debug
+GIT_TRACE=1 git cs 
+
+# AES in SSH
+openssl speed aes-128-cbc
+openssl engine -c -tt
+dd if=/dev/zero count=100 bs=1M | ssh -c aes128-cbc localhost "cat >/dev/null"
+
+
+# ONLYKEY
+wget https://raw.githubusercontent.com/trustcrypto/trustcrypto.github.io/master/49-onlykey.rules -O /etc/udev/rules.d/49-onlykey.rules
+
+
+# https://keybase.io/pwasiewi
+keybase id pwasiewi
+keybase logout
+keybase login pwasiewi
+keybase prove pwasiewi
+keybase status
+keybase device
+keybase device list
+keybase passphrase recover
+keybase pgp drop ID
+keybase pgp select
+keybase pgp import
+keybase pgp gen
+# after starting keybase encrypted repo
+git clone keybase://private/pwasiewi/encrypted
+
+
+export GPG_TTY="$(tty)"
+#export SSH_AUTH_SOCK="/run/user/$UID/gnupg/S.gpg-agent.ssh"
+export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
+gpg-connect-agent updatestartuptty /bye
+
+
+# https://wiki.gentoo.org/wiki/Systemd
+# add gpg to systemd
+
+
+# CRYPTSETUP
+cryptsetup luksFormat /dev/sdx3
+cryptsetup open /dev/sdx3 encrypted
+mkfs.btrfs /dev/mapper/encrypted
+#mkfs.ext3 -j -m 1 -O dir_index,filetype,sparse_super /dev/mapper/encrypted
+cryptsetup close /dev/mapper/encrypted
+# podaj nazwę partycji w btrfs zlib i katalog w /mnt np.: unzlib sdx3 ca
+unzlib sdx3 ca 
+# zablokuj zaszyfrowany usb
+lock sdx3 ca 
+cryptsetup luksDelKey /dev/sdx3
+cryptsetup luksAddKey /dev/sdx3
+# secret key of crypt partition; later to remove in the safe place
+dd if=/dev/urandom of=/etc/priv.keyfile bs=4096 count=1
+cryptsetup luksAddKey /dev/sdx3 /etc/priv.keyfile
+
+/sbin/badblocks -c 10240 -s -w -t random -v /dev/
+bonnie++ -f -d /dev/mapper/encrypted -s 4024 -n 0 -u root
+
+# https://wiki.gentoo.org/wiki/Pam_u2f
+emerge sys-auth/pam_u2f sys-auth/pam_mount sys-auth/pam_yubico sys-auth/yubikey-personalization-gui sys-auth/yubico-piv-tool sys-auth/libyubikey app-crypt/yubikey-manager-qt app-crypt/yubikey-manager
+pamu2fcfg -upwas > /etc/u2f_mappings
+pamu2fcfg -n >> /etc/u2f_mappings # add next security keys
+vim /etc/pam.d/system-local-login
+auth      required pam_u2f.so    authfile=/etc/u2f_mappings nouserok
+#auth      sufficient pam_u2f.so  authfile=/etc/u2f_mappings nouserok cue
+
+# http://www.alaux.net/articles/transparent-encrypted-partition-unlocking-locking-at-login-unlogin-in-arch-linux
+# add to /etc/pam.d/system-login pam_mount.so
+auth            include         system-auth
+auth            optional        pam_mount.so
+
+password        optional        pam_mount.so
+password        include         system-auth
+
+session [success=1 default=ignore]  pam_succeed_if.so  service = systemd-user quiet
+session         optional        pam_mount.so
+vim /etc/security/pam_mount.conf.xml
+<logout wait="1000" hup="yes" term="yes" kill="yes" />
+<volume user="priv" fstype="crypt" path="/dev/sdx3" mountpoint="/home/" options="fsck,ssd,rw,noatime,nodiratime,compress=zstd" />
+# do not add fskeypath="/etc/priv.keyfile" fskeycipher="none" fskeysize="256"
+# fskeyhash="none" to use your secret key
+# just add your login passwd to crypt partition
+# add kill agent to
+.bash_logout
+/etc/xdg/plasma-workspace/shutdown/10-agent-shutdown.sh
+
+ykchalresp -2 “challenge”
+
+#bug in kscreenlocker
+chmod u+s /usr/lib64/libexec/kcheckpass
+
+
+# https://github.com/drduh/config/blob/master/ssh_config
+# https://linux.die.net/man/5/ssh_config
+# ssh -v git@bitbucket.org
+# https://confluence.atlassian.com/bitbucketserverkb/ssh-rsa-key-rejected-with-message-no-mutual-signature-algorithm-1026057701.html
+# https://blog.g3rt.nl/upgrade-your-ssh-keys.html
+# https://stribika.github.io/2015/01/04/secure-secure-shell.html
+# https://github.com/stribika/stribika.github.io/blob/master/_posts/2015-01-04-secure-secure-shell.md
+
+cryptsetup --verbose open --test-passphrase /dev/sxx7
+cryptsetup luksChangeKey /dev/sxx7 -S 0
+
+
+killall -9 pcscd
+sudo pcscd --foreground --debug
+vim /usr/share/polkit-1/actions/org.debian.pcsc-lite.policy
+vim /usr/share/polkit-1/rules.d/yubikey.rules
+https://access.redhat.com/blogs/766093/posts/1976313
+https://rolandeckert.com/notes/smartcard
+
+https://wiki.gentoo.org/wiki/Systemd-boot
+
+
+# SSH TUNNEL
+# Generowanie klucza i konfiguracja tunelu lokalnego (np. Ollama port 11434)
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_tunnel -N ""
+ssh-copy-id -i ~/.ssh/id_ed25519_tunnel.pub user@192.168.0.88
+ssh -i ~/.ssh/id_ed25519_tunnel user@192.168.0.88 'echo OK'  # test
+
+# Kopiowanie klucza na serwer jako root
+cat ~/.ssh/id_ed25519_tunnel.pub | ssh user@192.168.0.88 \
+  'sudo mkdir -p /root/.ssh && sudo tee -a /root/.ssh/authorized_keys && \
+   sudo chmod 700 /root/.ssh && sudo chmod 600 /root/.ssh/authorized_keys'
+
+# Na serwerze — dedykowany użytkownik bez shella
+sudo useradd -m -s /bin/false tunnel
+sudo mkdir /home/tunnel/.ssh
+sudo chmod 700 /home/tunnel/.ssh
+# wklej klucz publiczny do /home/tunnel/.ssh/authorized_keys
+sudo chown -R tunnel:tunnel /home/tunnel/.ssh
+
+# Weryfikacja fingerprint
+ssh-keygen -lf ~/.ssh/id_ed25519_tunnel         # laptop
+sudo ssh-keygen -lf /root/.ssh/authorized_keys  # serwer
+
+# Uruchomienie tunelu (np. przekierowanie Ollama)
+ssh -N -T -L 11434:localhost:11434 -i ~/.ssh/id_ed25519_tunnel tunnel@192.168.0.88

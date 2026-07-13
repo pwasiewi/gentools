@@ -1,0 +1,207 @@
+#!/bin/bash
+# build-initrd-uuid-next — builds a minimal initrd that locates a squashfs
+# partition by UUID and bind-mounts writable dirs from tmpfs before switch_root.
+#
+# Usage: build-initrd-uuid-next [--force-rebuild-busybox]
+set -euo pipefail
+
+UUID="bc5b8875-5bb2-47f0-bbb5-d20ed538fdcd"
+SQUASHFS_NAME="livecd.squashfs"
+OUT_INITRD="initrd.uuid.cpio.gz"
+WORKDIR="initrd-root"
+BUSYBOX_VER="1.37.0"
+BUSYBOX_TAR="busybox-${BUSYBOX_VER}.tar.bz2"
+BUSYBOX_URL="https://busybox.net/downloads/${BUSYBOX_TAR}"
+BUSYBOX_DIR="busybox-${BUSYBOX_VER}"
+BUSYBOX_CACHE="busybox-${BUSYBOX_VER}.static"
+
+FORCE_REBUILD=0
+[[ "${1:-}" == "--force-rebuild-busybox" ]] && FORCE_REBUILD=1
+
+# ---------------------------------------------------------------------------
+# BusyBox: compile only when cache is missing or --force-rebuild-busybox passed
+# ---------------------------------------------------------------------------
+if [[ -f "$BUSYBOX_CACHE" && "$FORCE_REBUILD" -eq 0 ]]; then
+    echo "✅ Using cached BusyBox: $BUSYBOX_CACHE (skip with --force-rebuild-busybox)"
+else
+    echo "📥 Downloading BusyBox $BUSYBOX_VER..."
+    rm -rf "$BUSYBOX_DIR"
+    [[ ! -f "$BUSYBOX_TAR" ]] && wget -q "$BUSYBOX_URL"
+    tar -xjf "$BUSYBOX_TAR"
+
+    echo "⚙️  Configuring BusyBox (static, no tc)..."
+    cd "$BUSYBOX_DIR"
+    make distclean
+    make defconfig
+    # Enable static linking — sed targets the canonical defconfig token
+    sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config
+    # Disable tc applet (requires kernel headers not always present)
+    sed -i 's/CONFIG_TC=y/# CONFIG_TC is not set/' .config
+
+    echo "🔨 Compiling BusyBox..."
+    make -j"$(nproc)"
+    cd ..
+
+    cp "$BUSYBOX_DIR/busybox" "$BUSYBOX_CACHE"
+    echo "💾 Cached binary: $BUSYBOX_CACHE"
+fi
+
+# ---------------------------------------------------------------------------
+# Build initrd filesystem tree
+# ---------------------------------------------------------------------------
+echo "📦 Building initrd filesystem tree..."
+rm -rf "$WORKDIR"
+mkdir -p "$WORKDIR"/{bin,sbin,etc,proc,sys,dev,mnt/cdrom,mnt/root,mnt/overlaytmp}
+
+cp "$BUSYBOX_CACHE" "$WORKDIR/bin/busybox"
+chmod +x "$WORKDIR/bin/busybox"
+
+echo "🔗 Creating BusyBox symlinks..."
+cd "$WORKDIR/bin"
+for applet in \
+    sh mount umount mkdir ls cp mv rm blkid echo cat sleep dmesg \
+    switch_root uname vi more ps kill df free grep head tail which pwd \
+    true false test stat cut sed awk ping traceroute clear whoami hostname \
+    readlink basename dirname yes reset wc uptime reboot poweroff \
+    mknod findfs \
+; do
+    ln -sf busybox "$applet"
+done
+cd - > /dev/null
+
+# ---------------------------------------------------------------------------
+# Generate /init — embedded shell script executed by kernel after unpacking
+# ---------------------------------------------------------------------------
+echo "🧾 Generating /init script..."
+
+# Variables expanded at build time: UUID, SQUASHFS_NAME
+# Variables escaped (\$) are evaluated at boot time inside the initrd shell
+cat > "$WORKDIR/init" <<EOF
+#!/bin/sh
+# initrd /init — mounts UUID-identified partition and switch_roots into squashfs
+
+mount -t proc     none /proc
+mount -t sysfs    none /sys
+mount -t devtmpfs none /dev 2>/dev/null || mount -t devtmpfs devtmpfs /dev
+
+# Ensure /dev/console exists before any redirects
+[ ! -e /dev/console ] && mknod /dev/console c 5 1
+
+exec >/dev/console 2>&1 </dev/console
+
+echo "[initrd] Devices in /dev:"
+ls /dev
+echo "[initrd] blkid snapshot:"
+blkid || true
+
+LIVE_UUID="$UUID"
+LIVE_MNT="/mnt/cdrom"
+ROOT_MNT="/mnt/root"
+SQUASHFS_NAME="$SQUASHFS_NAME"
+TMP_WORK="/mnt/overlaytmp"
+
+mkdir -p "\$LIVE_MNT" "\$ROOT_MNT" "\$TMP_WORK"
+mount -t tmpfs -o size=2048M tmpfs "\$TMP_WORK"
+
+echo ">>> Searching for device UUID=\$LIVE_UUID"
+sleep 2
+
+DEV_PATH=""
+i=0
+while [ \$i -lt 40 ]; do
+    DEV_PATH=\$(blkid | grep "\$LIVE_UUID" | cut -d: -f1)
+    if [ -n "\$DEV_PATH" ]; then
+        echo ">>> Found device: \$DEV_PATH"
+        break
+    fi
+    echo ">>> Waiting for USB (UUID=\$LIVE_UUID) — attempt \$i/40..."
+    sleep 1
+    i=\$((i + 1))
+done
+
+if [ -z "\$DEV_PATH" ]; then
+    echo "!!! Partition not found for UUID=\$LIVE_UUID"
+    echo "--- blkid ---"
+    blkid || true
+    echo "--- /dev ---"
+    ls /dev
+    exec sh
+fi
+
+echo ">>> Mounting \$DEV_PATH -> \$LIVE_MNT"
+mount -o ro "\$DEV_PATH" "\$LIVE_MNT"
+
+if [ ! -f "\$LIVE_MNT/\$SQUASHFS_NAME" ]; then
+    echo "!!! \$SQUASHFS_NAME not found in \$LIVE_MNT"
+    exec sh
+fi
+
+echo ">>> Creating loop devices (required for squashfs mount)..."
+for n in 0 1 2 3 4 5 6 7; do
+    [ -e /dev/loop\$n ] || mknod /dev/loop\$n b 7 \$n
+done
+
+echo ">>> Mounting squashfs -> \$ROOT_MNT"
+# no_xattr is a mksquashfs build flag, not a mount option — mount ignores xattr errors
+mount -t squashfs -o loop,ro "\$LIVE_MNT/\$SQUASHFS_NAME" "\$ROOT_MNT"
+
+if ! grep -q "\$ROOT_MNT" /proc/mounts 2>/dev/null; then
+    echo "!!! squashfs not mounted at \$ROOT_MNT"
+    exec sh
+fi
+
+echo ">>> Copying directories to RAM: home var mnt etc tmp root"
+for dir in home var mnt etc tmp root; do
+    mkdir -p "\$TMP_WORK/\$dir"
+    if [ -d "\$ROOT_MNT/\$dir" ]; then
+        cp -a "\$ROOT_MNT/\$dir/." "\$TMP_WORK/\$dir/"
+        echo "    copied /$dir (\$(ls \$TMP_WORK/\$dir | wc -l) entries)"
+    else
+        echo "    \$dir does not exist in squashfs — empty directory in RAM"
+    fi
+done
+
+# Preserve /mnt/cdrom inside tmpfs so it remains accessible after switch_root.
+# The bind mount of /mnt would otherwise cover the already-mounted cdrom.
+echo ">>> Preserving /mnt/cdrom in RAM before bind mounting /mnt..."
+mkdir -p "\$TMP_WORK/mnt/cdrom"
+mount -o bind "\$LIVE_MNT" "\$TMP_WORK/mnt/cdrom"
+
+for dir in home var mnt etc tmp root; do
+    mount -o bind "\$TMP_WORK/\$dir" "\$ROOT_MNT/\$dir"
+    if ! grep -q "\$ROOT_MNT/\$dir" /proc/mounts 2>/dev/null; then
+        echo "!!! bind mount \$dir failed"
+        exec sh
+    fi
+done
+
+# Re-bind /mnt/cdrom inside ROOT_MNT so it survives switch_root.
+# switch_root moves ROOT_MNT to / but drops all mounts outside it.
+# Mounting directly into ROOT_MNT/mnt/cdrom ensures the partition
+# remains accessible after switch_root as /mnt/cdrom.
+echo ">>> Mounting /mnt/cdrom inside ROOT_MNT (survives switch_root)..."
+mkdir -p "\$ROOT_MNT/mnt/cdrom"
+mount -o bind "\$LIVE_MNT" "\$ROOT_MNT/mnt/cdrom"
+if ! grep -q "\$ROOT_MNT/mnt/cdrom" /proc/mounts 2>/dev/null; then
+    echo "!!! bind mount /mnt/cdrom failed"
+    exec sh
+fi
+
+echo ">>> switch_root -> /sbin/init"
+exec switch_root "\$ROOT_MNT" /sbin/init
+
+# Unreachable unless switch_root fails (missing /sbin/init in squashfs, etc.)
+echo "!!! switch_root failed — fallback shell"
+exec sh
+EOF
+
+chmod +x "$WORKDIR/init"
+
+# ---------------------------------------------------------------------------
+# Pack into cpio + gzip
+# ---------------------------------------------------------------------------
+echo "🗜 Compressing initrd..."
+( cd "$WORKDIR" && find . | cpio -H newc -o ) | gzip -9 > "$OUT_INITRD"
+
+SIZE=$(du -sh "$OUT_INITRD" | cut -f1)
+echo "✅ Done: $OUT_INITRD ($SIZE)"

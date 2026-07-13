@@ -1,0 +1,17 @@
+#!/bin/bash
+
+[ ! -d /var/lib/containerd ] && mkdir /var/lib/containerd
+mountpoint -q /var/lib/containerd || mount --bind /home/tmp/containerd /var/lib/containerd
+[ ! -d /var/lib/docker ] && mkdir /var/lib/docker
+mountpoint -q /var/lib/docker || mount --bind /home/tmp/docker /var/lib/docker
+
+[ ! -d /var/tmp/portage ] && mkdir /var/tmp/portage
+mountpoint -q /var/tmp/portage || mount --bind /home/tmp/portage /var/tmp/portage
+[ ! -d /var/tmp/distfiles ] && mkdir /var/tmp/distfiles
+mountpoint -q /var/tmp/distfiles || mount --bind /home/tmp/distfiles /var/tmp/distfiles
+[ ! -d /var/tmp/.src64bit ] && mkdir /var/tmp/.src64bit
+mountpoint -q /var/tmp/.src64bit || mount --bind /home/tmp/.src64bit /var/tmp/.src64bit
+
+ln -sfn /home/tmp/.portage /var/tmp/.portage
+ln -sfn /home/tmp/.repos /var/tmp/.repos
+ln -sfn /home/tmp/iso /var/tmp/iso

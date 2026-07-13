@@ -1,0 +1,147 @@
+#!/bin/bash
+# Generates photo thumbnails in BW/GR/sepia variants with a hidden watermark (steghide)
+set -euo pipefail
+
+help() {
+  cat << EOF
+Photo thumbnailing with color variants and steganographic watermark
+Usage: watermark2jpgsep [options] <file.jpg> [file2.jpg ...]
+
+Processing stages (each can be skipped):
+  1. Color conversion:  original → _bw (monochrome) + _gr (grayscale)
+  2. Thumbnailing:      resize to <size>% with "min" prefix
+  3. Sepia effects:     _gr → _sp (sepia)  |  _bw → _ms (sepia-mono)
+  4. Watermark:         steghide hides author file in all 4 variants
+
+Options:
+  -r <percent>    Thumbnail size in % (default: 55)
+  -o <dir>        Output directory (default: current)
+  -w <file>       File to hide in watermark (default: /usr/local/bin/files/pwasiewi.txt)
+  -p <password>   steghide password (default: peterwhiskerson)
+  -s <stages>     Stages to execute, e.g. -s 1,2,3 (default: 1,2,3,4)
+  -2              Batch mode: process all *.jpg in the current directory
+  --no-steg       Skip steganography (stage 4)
+  --dry-run       Show what would be done without executing
+
+Output variants (prefix "min"):
+  _bw  black-and-white (1-bit monochrome)
+  _gr  grayscale (desaturation)
+  _sp  sepia from _gr
+  _ms  sepia from _bw
+
+Examples:
+  watermark2jpgsep photo.cr2.jpg
+  watermark2jpgsep -r 40 -o /mnt/web *.jpg
+  watermark2jpgsep -s 1,2 photo.jpg       → conversion and resize only, no sepia or watermark
+  watermark2jpgsep -2                     → batch all *.jpg
+  watermark2jpgsep --no-steg photo.jpg    → without steganography
+EOF
+}
+
+( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+# ── configuration ────────────────────────────────────────────────────────────
+RESIZE=55
+OUTDIR="."
+STEG_FILE="/usr/local/bin/files/pwasiewi.txt"
+STEG_PASS="peterwhiskerson"
+STAGES="1,2,3,4"
+BATCH=0
+NO_STEG=0
+DRY=0
+FILES=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -r) RESIZE=$2;     shift 2 ;;
+    -o) OUTDIR=$2;     shift 2 ;;
+    -w) STEG_FILE=$2;  shift 2 ;;
+    -p) STEG_PASS=$2;  shift 2 ;;
+    -s) STAGES=$2;     shift 2 ;;
+    -2) BATCH=1;       shift ;;
+    --no-steg) NO_STEG=1; shift ;;
+    --dry-run) DRY=1;  shift ;;
+    -*) echo "Error: unknown option '$1'"; help; exit 1 ;;
+    *)  FILES+=("$1"); shift ;;
+  esac
+done
+
+[ "$BATCH" -eq 1 ] && { shopt -s nullglob; FILES=(*.jpg *.cr2.jpg); shopt -u nullglob; }
+[ ${#FILES[@]} -eq 0 ] && { echo "Error: no files"; help; exit 1; }
+[ "$NO_STEG" -eq 1 ] && STAGES="${STAGES//,4/}"; STAGES="${STAGES%,}"
+
+has_stage() { [[ ",$STAGES," == *",$1,"* ]]; }
+
+run() {
+  if [ "$DRY" -eq 1 ]; then echo "  [dry] $*"; else "$@"; fi
+}
+
+[ -d "$OUTDIR" ] || mkdir -p "$OUTDIR"
+
+# ── file processing ──────────────────────────────────────────────────────────
+total=${#FILES[@]}
+n=0
+
+for SRC in "${FILES[@]}"; do
+  [ -f "$SRC" ] || { echo "Skipped (missing): $SRC"; continue; }
+  n=$((n+1))
+  echo ""
+  echo "[$n/$total] $SRC"
+
+  # Determine basename without extension (handles .cr2.jpg and .jpg)
+  base=$(basename "$SRC")
+  base="${base%.cr2.jpg}"; base="${base%.jpg}"
+  OUT="${OUTDIR}/min${base}"
+
+  # ── Stage 1: Color conversion ───────────────────────────────────────────────
+  if has_stage 1; then
+    echo "  [1] Color conversion: monochrome + grayscale"
+    run convert -monochrome              "$SRC" "${OUT}_bw.jpg"
+    run convert -modulate 100,0          "$SRC" "${OUT}_gr.jpg"
+  fi
+
+  # ── Stage 2: Thumbnailing ───────────────────────────────────────────────────
+  if has_stage 2; then
+    echo "  [2] Thumbnailing: ${RESIZE}%"
+    for variant in _bw _gr; do
+      f="${OUT}${variant}.jpg"
+      [ -f "$f" ] || { echo "  Skipped $f (missing — run stage 1 first)"; continue; }
+      run mogrify -resize "${RESIZE}%" -quality 85 -verbose "$f"
+    done
+  fi
+
+  # ── Stage 3: Sepia ──────────────────────────────────────────────────────────
+  if has_stage 3; then
+    echo "  [3] Sepia effects"
+    [ -f "${OUT}_gr.jpg" ] && run convert -sepia-tone 80% "${OUT}_gr.jpg" "${OUT}_sp.jpg"
+    [ -f "${OUT}_bw.jpg" ] && run convert -sepia-tone 80% "${OUT}_bw.jpg" "${OUT}_ms.jpg"
+  fi
+
+  # ── Stage 4: Steganographic watermark ───────────────────────────────────────
+  if has_stage 4; then
+    if ! command -v steghide &>/dev/null; then
+      echo "  [4] SKIPPED: steghide is not installed"
+    elif [ ! -f "$STEG_FILE" ]; then
+      echo "  [4] SKIPPED: watermark file '$STEG_FILE' not found"
+    else
+      echo "  [4] Steganographic watermark (steghide)"
+      for variant in _bw _gr _sp _ms; do
+        f="${OUT}${variant}.jpg"
+        [ -f "$f" ] || continue
+        run steghide embed -cf "$f" -ef "$STEG_FILE" -p "$STEG_PASS" -f
+      done
+    fi
+  fi
+
+  # Size summary
+  if [ "$DRY" -eq 0 ]; then
+    echo "  Results:"
+    for variant in _bw _gr _sp _ms; do
+      f="${OUT}${variant}.jpg"
+      [ -f "$f" ] && echo "    $(du -sh "$f" | cut -f1)  $f"
+    done
+  fi
+done
+
+echo ""
+echo "Done: $n/$total files processed."

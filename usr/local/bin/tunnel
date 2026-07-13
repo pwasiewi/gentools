@@ -1,0 +1,54 @@
+#!/bin/bash
+set -euo pipefail
+die() { echo "Error: $*" >&2; exit 1; }
+# tunnel - SSH port forwarding (default: ollama 11434)
+help() {
+  cat << 'EOF'
+Create an SSH tunnel for local port forwarding
+Usage: tunnel [options] [host]
+
+Options:
+  -p <port>   Port to tunnel (default: 11434 - ollama)
+  -r <port>   Remote port (default: same as local)
+  -u <user>   SSH user (default: tunnel)
+  -i <key>    SSH key (default: ~/.ssh/id_ed25519_tunnel)
+  -v          Verbose mode
+
+Examples:
+  tunnel                             → ollama on 192.168.0.88:11434
+  tunnel 192.168.1.100               → ollama on another host
+  tunnel -p 8080 192.168.0.88        → port 8080
+  tunnel -p 5432 -u admin server     → PostgreSQL
+EOF
+}
+
+( [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+
+HOST="192.168.0.88"
+LOCAL_PORT=11434
+REMOTE_PORT=""
+SSH_USER="tunnel"
+SSH_KEY="$HOME/.ssh/id_ed25519_tunnel"
+VERBOSE=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -p) LOCAL_PORT=$2;  shift 2 ;;
+    -r) REMOTE_PORT=$2; shift 2 ;;
+    -u) SSH_USER=$2;    shift 2 ;;
+    -i) SSH_KEY=$2;     shift 2 ;;
+    -v) VERBOSE="-v";   shift ;;
+    -*) help; die "unknown option '$1'" ;;
+    *)  HOST="$1"; shift ;;
+  esac
+done
+
+REMOTE_PORT="${REMOTE_PORT:-$LOCAL_PORT}"
+
+[ -f "$SSH_KEY" ] || die "SSH key not found: $SSH_KEY"
+
+echo "→ Tunnel: localhost:${LOCAL_PORT} → ${SSH_USER}@${HOST}:${REMOTE_PORT}"
+exec ssh -N -T $VERBOSE -4 \
+  -L "${LOCAL_PORT}:localhost:${REMOTE_PORT}" \
+  -i "$SSH_KEY" \
+  "${SSH_USER}@${HOST}"

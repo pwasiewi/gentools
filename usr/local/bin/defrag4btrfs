@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+if [[ -z "$1" ]]; then
+    echo "Usage: $0 <mountpoint>" >&2
+    exit 1
+fi
+
+if ! findmnt --noheadings --output FSTYPE "$1" 2>/dev/null | grep -q '^btrfs$'; then
+    echo "Error: '$1' is not a btrfs mountpoint" >&2
+    exit 1
+fi
+
+btrfs filesystem defragment -r -czstd:6 -v "$1"

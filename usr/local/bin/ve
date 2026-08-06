@@ -11,16 +11,21 @@ With value:    validates and appends to the section file
 Sections and required formats:
   conf      /etc/portage/make.conf
               VARIABLE=value   e.g. MAKEOPTS="-j8"
-  use       /etc/portage/package.use/moje.use
+  use       /etc/portage/package.use/host.use
               [operator]cat/pkg[-ver] flag [-flag]
-  kw        /etc/portage/package.accept_keywords/moje.keywords
+  kw        /etc/portage/package.accept_keywords/host.keywords
               [operator]cat/pkg[-ver] [** | ~arch]
-  mask      /etc/portage/package.mask/moje.mask
+  mask      /etc/portage/package.mask/host.mask
               [operator]cat/pkg[-ver]
-  env       /etc/portage/package.env/moje.env
+  env       /etc/portage/package.env/host.env
               [operator]cat/pkg[-ver] file.conf
   provided  /etc/portage/profile/package.provided
               =cat/pkg-version   (= and version required!)
+
+File convention (host and xstage live images alike): manual decisions go to
+host.*; emerge --autounmask-write appends to the file that SORTS LAST in the
+directory, which is zz-system.* by design — name nothing after it. Editing
+without a value opens every matching file in sorted order, zz-system.* last.
 
 Examples:
   ve kw "=dev-libs/foo-1.2.3 **"
@@ -29,7 +34,7 @@ Examples:
   ve mask "=dev-libs/foo-1.2"
   ve provided "=dev-libs/foo-1.2.3"
   ve conf 'MAKEOPTS="-j32"'
-  ve kw                           → opens vim moje.keywords
+  ve kw                           → opens vim on *.keywords (zz-system last)
 EOF
 }
 
@@ -134,6 +139,21 @@ validate_conf() {
 
 # ── dispatch ──────────────────────────────────────────────────────────────────
 
+# Appends always target host.* (manual decisions); zz-system.* is reserved for
+# emerge --autounmask-write, which picks the last-sorted file in the directory.
+_append() {  # _append <file> <line>  — the directory may not exist on a
+  mkdir -p "$(dirname "$1")"           # fresh image
+  echo "$2" >> "$1"
+}
+
+_edit() {  # _edit <dir> <ext>  — every matching file, sorted, zz-system last
+  shopt -s nullglob
+  local files=("$1"/*."$2")
+  shopt -u nullglob
+  [ ${#files[@]} -eq 0 ] && files=("$1/host.$2")
+  vim "${files[@]}"
+}
+
 SECTION=$1
 VALUE=${2:-}
 
@@ -141,34 +161,30 @@ case $SECTION in
   kw)
     if [ -n "$VALUE" ]; then
       validate_kw "$VALUE" || exit 1
-      echo "$VALUE" >> /etc/portage/package.accept_keywords/moje.keywords
+      _append /etc/portage/package.accept_keywords/host.keywords "$VALUE"
     else
-      vim /etc/portage/package.accept_keywords/moje.keywords \
-          /etc/portage/package.accept_keywords/systemowe.keywords
+      _edit /etc/portage/package.accept_keywords keywords
     fi ;;
   use)
     if [ -n "$VALUE" ]; then
       validate_use "$VALUE" || exit 1
-      echo "$VALUE" >> /etc/portage/package.use/moje.use
+      _append /etc/portage/package.use/host.use "$VALUE"
     else
-      vim /etc/portage/package.use/moje.use \
-          /etc/portage/package.use/systemowe.use
+      _edit /etc/portage/package.use use
     fi ;;
   mask)
     if [ -n "$VALUE" ]; then
       validate_mask "$VALUE" || exit 1
-      echo "$VALUE" >> /etc/portage/package.mask/moje.mask
+      _append /etc/portage/package.mask/host.mask "$VALUE"
     else
-      vim /etc/portage/package.mask/moje.mask \
-          /etc/portage/package.mask/systemowe.mask
+      _edit /etc/portage/package.mask mask
     fi ;;
   env)
     if [ -n "$VALUE" ]; then
       validate_env "$VALUE" || exit 1
-      echo "$VALUE" >> /etc/portage/package.env/moje.env
+      _append /etc/portage/package.env/host.env "$VALUE"
     else
-      vim /etc/portage/package.env/moje.env \
-          /etc/portage/package.env/systemowe.env
+      _edit /etc/portage/package.env env
     fi ;;
   provided)
     if [ -n "$VALUE" ]; then

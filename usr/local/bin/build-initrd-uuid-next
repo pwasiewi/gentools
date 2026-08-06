@@ -1,11 +1,31 @@
 #!/bin/bash
 # build-initrd-uuid-next — builds a minimal initrd that locates a squashfs
 # partition by UUID and bind-mounts writable dirs from tmpfs before switch_root.
-#
-# Usage: build-initrd-uuid-next [--force-rebuild-busybox]
 set -euo pipefail
 
-UUID="bc5b8875-5bb2-47f0-bbb5-d20ed538fdcd"
+die() { echo "❌ $*" >&2; exit 1; }
+
+help() {
+    cat <<'EOF'
+Usage: build-initrd-uuid-next --dev /dev/sdX | --uuid UUID [options]
+
+Builds initrd.uuid.cpio.gz in the current directory: a static-busybox
+initramfs whose /init waits for the filesystem with the given UUID, mounts
+livecd.squashfs from it, copies the writable dirs into tmpfs and
+switch_roots. Companion of build-usb: the stick's p1 (ESP/GRUB) carries
+kernel + this initrd, the squashfs lives on p2 (GENTOO_LIVE).
+
+  --dev DEV      take the UUID from the plugged stick: DEV's partition 2
+                 when DEV is a whole disk (e.g. /dev/sdb), DEV itself when
+                 it is already a partition
+  --uuid UUID    use this filesystem UUID directly
+  --init PATH    exec after switch_root (default /sbin/init)
+  --tmpfs-mb N   tmpfs size for the writable dirs (default 2048)
+  --force-rebuild-busybox   ignore the cached static busybox
+EOF
+    exit "${1:-0}"
+}
+
 SQUASHFS_NAME="livecd.squashfs"
 OUT_INITRD="initrd.uuid.cpio.gz"
 WORKDIR="initrd-root"
@@ -15,8 +35,41 @@ BUSYBOX_URL="https://busybox.net/downloads/${BUSYBOX_TAR}"
 BUSYBOX_DIR="busybox-${BUSYBOX_VER}"
 BUSYBOX_CACHE="busybox-${BUSYBOX_VER}.static"
 
+UUID=""
+DEV=""
+INIT_TARGET="/sbin/init"
+TMPFS_MB=2048
 FORCE_REBUILD=0
-[[ "${1:-}" == "--force-rebuild-busybox" ]] && FORCE_REBUILD=1
+
+[[ $# -gt 0 ]] || help
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)  help ;;
+        --dev)      DEV="${2:?--dev needs a device}"; shift ;;
+        --uuid)     UUID="${2:?--uuid needs a value}"; shift ;;
+        --init)     INIT_TARGET="${2:?--init needs a path}"; shift ;;
+        --tmpfs-mb) TMPFS_MB="${2:?--tmpfs-mb needs a number}"; shift ;;
+        --force-rebuild-busybox) FORCE_REBUILD=1 ;;
+        *)          die "Unknown option: $1 (see --help)" ;;
+    esac
+    shift
+done
+
+if [[ -n "$DEV" ]]; then
+    DEV="${DEV%/}"
+    [[ -b "$DEV" ]] || die "Block device not found: $DEV"
+    PART="$DEV"
+    if [[ ! "$DEV" =~ [0-9]$ ]]; then
+        PART="${DEV}2"
+        [[ "$DEV" == *mmcblk* || "$DEV" == *nvme* ]] && PART="${DEV}p2"
+    fi
+    [[ -b "$PART" ]] || die "No partition 2 on $DEV (run build-usb first?)"
+    # lsblk reads udev data, so this works without root (blkid does not)
+    UUID=$(lsblk -no UUID "$PART" | head -n1)
+    [[ -n "$UUID" ]] || die "No filesystem UUID on $PART — is it formatted?"
+    echo "🔑 UUID from $PART: $UUID"
+fi
+[[ -n "$UUID" ]] || die "No UUID: pass --dev /dev/sdX or --uuid UUID (see --help)"
 
 # ---------------------------------------------------------------------------
 # BusyBox: compile only when cache is missing or --force-rebuild-busybox passed
@@ -101,7 +154,7 @@ SQUASHFS_NAME="$SQUASHFS_NAME"
 TMP_WORK="/mnt/overlaytmp"
 
 mkdir -p "\$LIVE_MNT" "\$ROOT_MNT" "\$TMP_WORK"
-mount -t tmpfs -o size=2048M tmpfs "\$TMP_WORK"
+mount -t tmpfs -o size=${TMPFS_MB}M tmpfs "\$TMP_WORK"
 
 echo ">>> Searching for device UUID=\$LIVE_UUID"
 sleep 2
@@ -155,7 +208,7 @@ for dir in home var mnt etc tmp root; do
     mkdir -p "\$TMP_WORK/\$dir"
     if [ -d "\$ROOT_MNT/\$dir" ]; then
         cp -a "\$ROOT_MNT/\$dir/." "\$TMP_WORK/\$dir/"
-        echo "    copied /$dir (\$(ls \$TMP_WORK/\$dir | wc -l) entries)"
+        echo "    copied /\$dir (\$(ls \$TMP_WORK/\$dir | wc -l) entries)"
     else
         echo "    \$dir does not exist in squashfs — empty directory in RAM"
     fi
@@ -187,8 +240,8 @@ if ! grep -q "\$ROOT_MNT/mnt/cdrom" /proc/mounts 2>/dev/null; then
     exec sh
 fi
 
-echo ">>> switch_root -> /sbin/init"
-exec switch_root "\$ROOT_MNT" /sbin/init
+echo ">>> switch_root -> ${INIT_TARGET}"
+exec switch_root "\$ROOT_MNT" ${INIT_TARGET}
 
 # Unreachable unless switch_root fails (missing /sbin/init in squashfs, etc.)
 echo "!!! switch_root failed — fallback shell"

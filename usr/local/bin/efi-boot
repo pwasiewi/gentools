@@ -44,13 +44,22 @@
 #   all          All of the above
 #
 # Usage:
-#   sudo efi-boot [options]
+#   sudo efi-boot --disk /dev/sdX [options]
 #
 # Options:
-#   --disk     /dev/nvme0n1       target disk for efibootmgr (default: /dev/nvme0n1)
+#   --disk     /dev/nvme0n1       target disk for efibootmgr (REQUIRED — no
+#                                 default, so the wrong disk is never assumed)
 #   --part     1                  ESP partition number (default: 1)
 #   --method   stub-signed        boot method (default: all)
 #   --esp      /boot/efi          ESP mount point (default: /boot/efi)
+#   --name     NAME               stub methods only: install under EFI/NAME and
+#                                 suffix the boot label with (NAME) — lets one
+#                                 ESP hold several stub entries for different
+#                                 disks / mounted /mnt/gentoo installs
+#                                 (default: EFI/GentooEFISTUB, plain label)
+#   --root     PART|UUID=...      root device for the kernel cmdline (default:
+#                                 the RUNNING system's root — pass this when
+#                                 the stub is for another disk's install)
 #   --kernel   /boot/kernel-...   kernel path (auto-detected if omitted)
 #   --initrd   /boot/initramfs-.. initrd path (auto-detected, optional for stub-signed)
 #   --cmdline  "ro quiet splash"  kernel command line appended to CONFIG_CMDLINE
@@ -62,7 +71,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
-DISK="/dev/nvme0n1"
+DISK=""                      # REQUIRED — no default on purpose (see --disk)
 PARTITION="1"
 METHOD="all"
 ESP="/boot/efi"
@@ -71,6 +80,8 @@ KERNEL=""
 INITRD=""
 CMDLINE_EXTRA="ro quiet splash"
 LUKS_UUID=""
+NAME=""                      # optional stub entry name (EFI dir + label suffix)
+ROOT_ARG=""                  # optional root device/UUID for the cmdline
 
 GRUB_MODULES_FULL="part_gpt part_msdos ext2 fat configfile normal linux multiboot \
 efi_gop efi_uga all_video gfxterm font efi_signature verifiers lockdown"
@@ -81,13 +92,18 @@ efi_gop efi_uga all_video gfxterm font"
 # CLI parsing
 # ---------------------------------------------------------------------------
 usage() { cat << 'EOF'
-Usage: sudo efi-boot [options]
+Usage: sudo efi-boot --disk /dev/sdX [options]
 
 Options:
-  --disk     /dev/nvme0n1       target disk for efibootmgr (default: /dev/nvme0n1)
+  --disk     /dev/nvme0n1       target disk for efibootmgr (REQUIRED)
   --part     1                  ESP partition number (default: 1)
   --method   stub-signed        boot method (default: all)
   --esp      /boot/efi          ESP mount point (default: /boot/efi)
+  --name     NAME               stub methods: EFI/NAME dir + "(NAME)" label
+                                suffix — several stub entries can coexist
+                                (default: EFI/GentooEFISTUB, plain label)
+  --root     PART|UUID=...      root device for the cmdline (default: the
+                                RUNNING system's root — set for other disks)
   --kernel   /boot/kernel-...   kernel path (auto-detected if omitted)
   --initrd   /boot/initramfs-.. initrd path (auto-detected, optional for stub-signed)
   --cmdline  "ro quiet splash"  kernel cmdline appended to CONFIG_CMDLINE
@@ -105,10 +121,14 @@ Methods (security rank, best first):
   all          all of the above
 
 Examples:
-  sudo efi-boot --method stub-signed
-  sudo efi-boot --method stub-luks --luks-uuid 1234abcd-...
-  sudo efi-boot --method stub-luks                          # auto-detect LUKS UUID
-  sudo efi-boot --method grub --disk /dev/sda --part 1
+  sudo efi-boot --disk /dev/nvme0n1 --method stub-signed
+  sudo efi-boot --disk /dev/nvme0n1 --method stub-luks --luks-uuid 1234abcd-...
+  sudo efi-boot --disk /dev/sda --method grub --part 1
+
+  # Second stub for another install mounted at /mnt/gentoo, on its own disk:
+  # entry "Gentoo EFI Stub (sdb-gentoo)" loading EFI/sdb-gentoo/vmlinuz-signed.efi
+  sudo efi-boot --disk /dev/sdb --method stub-signed --name sdb-gentoo \
+       --root /dev/sdb3 --kernel /mnt/gentoo/boot/kernel-6.12.4
 EOF
 }
 
@@ -123,6 +143,8 @@ while [[ $# -gt 0 ]]; do
         --cmdline)   CMDLINE_EXTRA="$2"; shift 2 ;;
         --workdir)   WORKDIR="$2";      shift 2 ;;
         --luks-uuid) LUKS_UUID="$2";   shift 2 ;;
+        --name)      NAME="$2";        shift 2 ;;
+        --root)      ROOT_ARG="$2";    shift 2 ;;
         -h|--help)   usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
     esac
@@ -139,6 +161,18 @@ warn()    { echo "⚠️   $*"; }
 need_cmd(){ command -v "$1" &>/dev/null || die "Missing tool: $1"; }
 
 [[ $EUID -eq 0 ]] || die "Root required: sudo $0"
+
+# --disk is deliberately mandatory: a silent /dev/nvme0n1 default writes NVRAM
+# entries for a disk the user may not have meant at all.
+[[ -n "$DISK" ]] || { usage >&2; die "--disk is required (e.g. --disk /dev/nvme0n1)"; }
+[[ -b "$DISK" ]] || die "Not a block device: $DISK"
+
+# --name feeds a FAT directory name and an efibootmgr label — keep it to
+# characters safe for both (no spaces, slashes, backslashes).
+if [[ -n "$NAME" ]]; then
+    [[ "$NAME" =~ ^[A-Za-z0-9._-]+$ ]] \
+        || die "--name may only contain letters, digits, dot, dash, underscore: $NAME"
+fi
 
 # ---------------------------------------------------------------------------
 # Dependency check per method
@@ -197,10 +231,22 @@ fi
 # ---------------------------------------------------------------------------
 # Build cmdline with root UUID
 # ---------------------------------------------------------------------------
-ROOT_PART=$(findmnt -n -o SOURCE / 2>/dev/null || true)
 ROOT_UUID=""
-if [[ -n "$ROOT_PART" ]]; then
-    ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PART" 2>/dev/null || true)
+if [[ -n "$ROOT_ARG" ]]; then
+    # Explicit root for this entry — required when the kernel comes from
+    # another disk's install (auto-detection would embed the RUNNING root).
+    if [[ "$ROOT_ARG" == UUID=* ]]; then
+        ROOT_UUID="${ROOT_ARG#UUID=}"
+    else
+        [[ -b "$ROOT_ARG" ]] || die "--root: not a block device: $ROOT_ARG"
+        ROOT_UUID=$(blkid -o value -s UUID "$ROOT_ARG" 2>/dev/null || true)
+        [[ -n "$ROOT_UUID" ]] || die "--root: no filesystem UUID on $ROOT_ARG"
+    fi
+else
+    ROOT_PART=$(findmnt -n -o SOURCE / 2>/dev/null || true)
+    if [[ -n "$ROOT_PART" ]]; then
+        ROOT_UUID=$(blkid -o value -s UUID "$ROOT_PART" 2>/dev/null || true)
+    fi
 fi
 
 if [[ -n "$ROOT_UUID" ]]; then
@@ -219,28 +265,37 @@ mountpoint -q "$ESP" || die "ESP not mounted at $ESP"
 # ---------------------------------------------------------------------------
 # Directory structure on ESP
 # ---------------------------------------------------------------------------
+# --name overrides only the stub directory and label; grub/shim/shell always
+# use their fixed locations (one instance each makes sense per ESP), while
+# several named stub entries can coexist for different disks' installs.
+STUB_DIRNAME="${NAME:-GentooEFISTUB}"
+STUB_SUFFIX="${NAME:+ ($NAME)}"
+
 EFIDIR_GRUB="$ESP/EFI/Gentoo"
 EFIDIR_SHIM="$ESP/EFI/GentooShim"
-EFIDIR_STUB="$ESP/EFI/GentooEFISTUB"
+EFIDIR_STUB="$ESP/EFI/$STUB_DIRNAME"
 
 # FAT32 is case-insensitive — if a case variant of the directory already
 # exists, reuse it to avoid mixed-case duplicates on the ESP.
 # $ESP/EFI may not exist yet (fresh ESP) — find on a missing path returns
 # nonzero and with pipefail would kill the script, hence the guard and || true.
 if [[ -d "$ESP/EFI" ]]; then
-    for _target in Gentoo GentooShim GentooEFISTUB; do
+    for _target in Gentoo GentooShim "$STUB_DIRNAME"; do
         _dir="$ESP/EFI/$_target"
         [[ -d "$_dir" ]] && continue
         _existing=$(find "$ESP/EFI" -maxdepth 1 -iname "$_target" -type d 2>/dev/null | head -1) || true
         if [[ -n "$_existing" ]]; then
             case "$_target" in
-                Gentoo)        EFIDIR_GRUB="$_existing" ;;
-                GentooShim)    EFIDIR_SHIM="$_existing" ;;
-                GentooEFISTUB) EFIDIR_STUB="$_existing" ;;
+                Gentoo)          EFIDIR_GRUB="$_existing" ;;
+                GentooShim)      EFIDIR_SHIM="$_existing" ;;
+                "$STUB_DIRNAME") EFIDIR_STUB="$_existing" ;;
             esac
         fi
     done
 fi
+
+# Keep the loader path spelling in sync with whatever directory was reused
+STUB_DIRNAME=$(basename "$EFIDIR_STUB")
 
 mkdir -p "$EFIDIR_GRUB" "$EFIDIR_SHIM" "$EFIDIR_STUB"
 mkdir -p "$WORKDIR/grub" "$WORKDIR/shim-grub" "$WORKDIR/efistub"
@@ -249,13 +304,19 @@ mkdir -p "$WORKDIR/grub" "$WORKDIR/shim-grub" "$WORKDIR/efistub"
 # Helper: remove duplicate efibootmgr entry by label
 # ---------------------------------------------------------------------------
 remove_efi_entry() {
-    local label="$1"
-    local bootnum
-    bootnum=$(efibootmgr | grep "$label" | grep -oP '(?<=Boot)[0-9A-F]{4}' | head -1 || true)
-    if [[ -n "$bootnum" ]]; then
+    local label="$1" bootnum
+    # Exact-label match — a substring grep on "Gentoo EFI Stub" would also
+    # sweep up "Gentoo EFI Stub LUKS" and every named "(...)" variant.
+    while read -r bootnum; do
+        [[ -n "$bootnum" ]] || continue
         info "  Removing old entry Boot$bootnum ($label)"
-        efibootmgr -b "$bootnum" -B 2>/dev/null || true
-    fi
+        efibootmgr -b "$bootnum" -B >/dev/null 2>&1 || true
+    done < <(efibootmgr | awk -v l="$label" \
+        '/^Boot[0-9A-F][0-9A-F][0-9A-F][0-9A-F]/ {
+             s = $0
+             sub(/^Boot[0-9A-F][0-9A-F][0-9A-F][0-9A-F]\*? /, "", s)
+             if (s == l) print substr($0, 5, 4)
+         }')
 }
 
 # ---------------------------------------------------------------------------
@@ -369,11 +430,11 @@ setup_efistub_full() {
 
     sbverify --list "$EFIDIR_STUB/vmlinuz-signed.efi"
 
-    remove_efi_entry "Gentoo EFI Stub (initrd embedded)"
+    remove_efi_entry "Gentoo EFI Stub (initrd embedded)${STUB_SUFFIX}"
     efibootmgr --create \
         --disk "$DISK" --part "$PARTITION" \
-        --label "Gentoo EFI Stub (initrd embedded)" \
-        --loader '\EFI\GentooEFISTUB\vmlinuz-signed.efi'
+        --label "Gentoo EFI Stub (initrd embedded)${STUB_SUFFIX}" \
+        --loader "\\EFI\\${STUB_DIRNAME}\\vmlinuz-signed.efi"
 
     ok "EFI Stub objcopy → $EFIDIR_STUB/vmlinuz-signed.efi"
 }
@@ -399,11 +460,11 @@ setup_efistub_signed() {
 
     sbverify --list "$EFIDIR_STUB/vmlinuz-signed.efi"
 
-    remove_efi_entry "Gentoo EFI Stub"
+    remove_efi_entry "Gentoo EFI Stub${STUB_SUFFIX}"
     efibootmgr --create \
         --disk "$DISK" --part "$PARTITION" \
-        --label "Gentoo EFI Stub" \
-        --loader '\EFI\GentooEFISTUB\vmlinuz-signed.efi' \
+        --label "Gentoo EFI Stub${STUB_SUFFIX}" \
+        --loader "\\EFI\\${STUB_DIRNAME}\\vmlinuz-signed.efi" \
         --unicode "$CMDLINE"
 
     ok "EFI Stub signed → $EFIDIR_STUB/vmlinuz-signed.efi"
@@ -447,11 +508,11 @@ setup_efistub_luks() {
 
     sbverify --list "$EFIDIR_STUB/vmlinuz-signed-luks.efi"
 
-    remove_efi_entry "Gentoo EFI Stub LUKS"
+    remove_efi_entry "Gentoo EFI Stub LUKS${STUB_SUFFIX}"
     efibootmgr --create \
         --disk "$DISK" --part "$PARTITION" \
-        --label "Gentoo EFI Stub LUKS" \
-        --loader '\EFI\GentooEFISTUB\vmlinuz-signed-luks.efi' \
+        --label "Gentoo EFI Stub LUKS${STUB_SUFFIX}" \
+        --loader "\\EFI\\${STUB_DIRNAME}\\vmlinuz-signed-luks.efi" \
         --unicode "$LUKS_CMDLINE"
 
     ok "EFI Stub LUKS → $EFIDIR_STUB/vmlinuz-signed-luks.efi"
@@ -499,8 +560,8 @@ print_summary() {
     find "$ESP/EFI" -maxdepth 2 -type f | sort | sed "s|$ESP||"
     echo "════════════════════════════════════════════════════════════"
     echo ""
-    echo "After kernel update re-run:"
-    echo "  sudo efi-boot --method stub-signed  (lub odpowiednią metodę)"
+    echo "After kernel update re-run (same --disk/--name as the install):"
+    echo "  sudo efi-boot --disk $DISK --method stub-signed"
     echo ""
     echo "If Windows overwrites EFI/Boot/bootx64.efi:"
     echo "  cp $ESP/EFI/Microsoft/Boot/bootmgfw.efi $ESP/EFI/Boot/bootx64.efi"

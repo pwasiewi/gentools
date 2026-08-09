@@ -994,3 +994,20 @@ chroot-mount -u /mnt/gentoo    # unmount
 | `g` | Recursive grep in current directory (`grep -R "$@" .`) |
 | `rstudio` | Launch RStudio in background |
 | `luks` | LUKS2 disk management (see full section above) |
+
+---
+
+## License
+
+Copyright (C) 2016-2026 Piotr Wasiewicz
+
+This project is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either **version 2 of the License, or (at your
+option) any later version** (GPL-2.0-or-later). See [LICENCE.txt](LICENCE.txt)
+for the full text of version 2.
+
+Relicensed from GPL-3.0 to GPL-2.0-or-later in August 2026 by the sole
+copyright holder, to match the licensing conventions of the Gentoo tool
+ecosystem (portage, gentoolkit, catalyst, gemato). Versions distributed
+before this change remain available under GPL-3.0.

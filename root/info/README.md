@@ -2,6 +2,27 @@
 
 ### go to [README.txt](root/info/gentonubuntu.txt) for exemplary installation in virtualbox
 
+## Status & relationship to rpilinuxlab
+
+This repo is the **published install-time toolchain**: the scripts under
+`usr/local/bin/` you run while installing or administering a Gentoo machine
+(partitioning, LUKS, Secure Boot, chroot management, Portage helpers), plus
+this documentation and the `etc/liveusb` profiles for the legacy `v`
+pipeline. `v cfg` / `gentoolcfg` fetch this repo's master during fresh
+installs, so what is committed here is what new machines receive.
+
+**Live/SD image building has moved to
+[rpilinuxlab](https://github.com/pwasiewi/rpilinuxlab)** (the `xp` / `xstage`
+pipeline: catalyst stages, profile-driven live images, QEMU gates). `v` is
+now also a thin frontend for that pipeline — `v ah e` ⟷ `xp amdkdehard
+enter` — while its legacy verbs still drive the `/etc/liveusb` install track
+documented below.
+
+Sync policy: scripts are developed in a private host tree and refreshed here
+by `./sync-from-bin.sh` — **refresh-only**: files already published get
+updated, nothing is auto-added or deleted. New scripts are added
+deliberately; not every host tool belongs to the install toolchain.
+
 ## Overview
 
 Two scripts covering a complete UEFI Secure Boot setup for Gentoo.

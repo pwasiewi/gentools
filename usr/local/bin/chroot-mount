@@ -43,9 +43,26 @@ case $MODE in
     [ "$MODE" = "enter" ] && chroot "$DIR" || true
     ;;
   umount)
-    mountpoint -q "$DIR/dev"  && umount -R "$DIR/dev"
-    mountpoint -q "$DIR/sys"  && umount -R "$DIR/sys"
-    mountpoint -q "$DIR/proc" && umount -R "$DIR/proc"
+    # Try all three trees even if one fails, then diagnose the holdouts:
+    # fuser/lsof name the processes keeping the mount busy (usually a shell
+    # still chrooted in, or a daemon started inside the chroot).
+    failed=()
+    for sub in dev sys proc; do
+      mountpoint -q "$DIR/$sub" || continue
+      umount -R "$DIR/$sub" || failed+=("$DIR/$sub")
+    done
+    if [ "${#failed[@]}" -gt 0 ]; then
+      for m in "${failed[@]}"; do
+        echo "--- still mounted: $m — processes holding it:" >&2
+        if command -v fuser > /dev/null; then
+          fuser -vm "$m" >&2 || echo "(fuser: no process found — try again, or a submount is the holder)" >&2
+        fi
+        if command -v lsof > /dev/null; then
+          lsof +f -- "$m" >&2 || true
+        fi
+      done
+      die "could not unmount: ${failed[*]}"
+    fi
     echo "Unmounted $DIR"
     ;;
 esac

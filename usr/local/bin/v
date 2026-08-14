@@ -35,10 +35,24 @@
 
 usage() {
     cat <<EOF
-v: Gentoo Linux LiveUSB generation
+v: Gentoo Linux LiveUSB generation + frontend for the xp image pipeline
 Syntax: v <profile> <command> ...
 
-Commands:
+xp frontend — when <profile> is an alias below (or a full rpilinuxlab
+profile name), v execs 'xp <profile> <verb>'. Image building itself lives
+in rpilinuxlab (xp/xstage); the legacy commands further down drive the
+/etc/liveusb install pipeline only.
+
+  aliases: ah=amdkdehard  nh=nvidiahard  ih=intelhard  ak=amdkde
+           ig=intelgnome  a64=amd64  r4=rpi400  r4k=rpi400kde
+           r4h=rpi400hard r4o=rpi400openrc  r3=rpi3  z2=zero2w  z=zero
+  verbs:   e=enter  c=conf  p=pkgs  k=livekernel  s=squash  i=iso
+           g=gate   f=seed  x=unpack   (anything else passes through:
+           v ih restrict-run, v nh usb /dev/sdX, v ah log ...)
+  examples: v ah e  ==  xp amdkdehard enter
+            v nh p  ==  xp nvidiahard pkgs
+
+Legacy commands (profiles under /etc/liveusb):
   e      enter chroot (mounts /dev, /proc, /sys etc. from host)
   eb     enter already-mounted chroot from second console (no mount)
   u      umount /dev, /proc, /sys etc. from chroot
@@ -81,6 +95,65 @@ PROG=${0}
 CD_PROFILE=${1}
 
 ( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && usage && exit 1
+
+# ---------------------------------------------------------------------------
+# XP FRONTEND (rpilinuxlab image pipeline)
+# ---------------------------------------------------------------------------
+# When $1 names an xp profile — via the alias table below or as a full
+# profiles/<name>.conf name — v is a thin frontend: it translates the short
+# verbs and execs 'xp <profile> <verb>'. Everything else falls through to the
+# legacy /etc/liveusb pipeline further down, whose verbs keep their historic
+# meanings (there is no collision: the track is chosen by $1, not $2).
+# Root is NOT required here — xp enforces root per-verb (gate does not need it).
+
+xp_alias() {
+    case "$1" in
+        ah)  echo amdkdehard   ;;
+        nh)  echo nvidiahard   ;;
+        ih)  echo intelhard    ;;
+        ak)  echo amdkde       ;;
+        ig)  echo intelgnome   ;;
+        a64) echo amd64        ;;
+        r4)  echo rpi400       ;;
+        r4k) echo rpi400kde    ;;
+        r4h) echo rpi400hard   ;;
+        r4o) echo rpi400openrc ;;
+        r3)  echo rpi3         ;;
+        z2)  echo zero2w       ;;
+        z)   echo zero         ;;
+    esac
+}
+
+XP_TARGET=$(xp_alias "$1")
+if [ -z "$XP_TARGET" ]; then
+    # Full profile name? Resolve the lab dir the same way xp does.
+    [ -r /etc/xp.conf ] && . /etc/xp.conf
+    _xp_lab="${XP_LAB_DIR:-$HOME/Claude/rpilinuxlab}"
+    [ -e "${_xp_lab}/profiles/${1}.conf" ] && XP_TARGET="$1"
+fi
+
+if [ -n "$XP_TARGET" ]; then
+    command -v xp >/dev/null 2>&1 || die "xp not found in PATH (rpilinuxlab)"
+    XP_VERB="${2-}"
+    case "$XP_VERB" in
+        e) XP_VERB=enter      ;;
+        c) XP_VERB=conf       ;;
+        p) XP_VERB=pkgs       ;;
+        k) XP_VERB=livekernel ;;
+        s) XP_VERB=squash     ;;
+        i) XP_VERB=iso        ;;
+        g) XP_VERB=gate       ;;
+        f) XP_VERB=seed       ;;
+        x) XP_VERB=unpack     ;;
+        # any other verb passes through unchanged (restrict-run, usb, log, ...)
+    esac
+    [ $# -ge 2 ] && shift 2 || shift $#
+    if [ -n "$XP_VERB" ]; then
+        exec xp "$XP_TARGET" "$XP_VERB" "$@"
+    else
+        exec xp "$XP_TARGET"
+    fi
+fi
 
 [ "$(whoami)" != "root" ] && die "Zaloguj sie na roota"
 

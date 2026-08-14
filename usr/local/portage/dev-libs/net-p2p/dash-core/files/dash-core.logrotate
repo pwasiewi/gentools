@@ -1,8 +1,0 @@
-/var/lib/dash/debug.log {
-	missingok
-	weekly
-	sharedscripts
-	postrotate
-		killall -HUP dashd
-	endscript
-}

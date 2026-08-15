@@ -21,6 +21,13 @@ kernel + this initrd, the squashfs lives on p2 (GENTOO_LIVE).
   --uuid UUID    use this filesystem UUID directly
   --init PATH    exec after switch_root (default /sbin/init)
   --tmpfs-mb N   tmpfs size for the writable dirs (default 2048)
+  --busybox-bin FILE        use this static busybox instead of the cache /
+                 host compile. PREFER THIS: pass the image chroot's own
+                 genkernel-built busybox so the initrd's ISA floor matches
+                 the image's. A host build statically links the HOST's
+                 libc.a, whose -march leaks into the binary no matter what
+                 CFLAGS busybox itself gets (znver3 host glibc panicked an
+                 Ivy Bridge laptop at /init, 2026-08-15).
   --force-rebuild-busybox   ignore the cached static busybox
 EOF
     exit "${1:-0}"
@@ -40,6 +47,7 @@ DEV=""
 INIT_TARGET="/sbin/init"
 TMPFS_MB=2048
 FORCE_REBUILD=0
+BUSYBOX_BIN=""
 
 [[ $# -gt 0 ]] || help
 while [[ $# -gt 0 ]]; do
@@ -49,6 +57,7 @@ while [[ $# -gt 0 ]]; do
         --uuid)     UUID="${2:?--uuid needs a value}"; shift ;;
         --init)     INIT_TARGET="${2:?--init needs a path}"; shift ;;
         --tmpfs-mb) TMPFS_MB="${2:?--tmpfs-mb needs a number}"; shift ;;
+        --busybox-bin) BUSYBOX_BIN="${2:?--busybox-bin needs a file}"; shift ;;
         --force-rebuild-busybox) FORCE_REBUILD=1 ;;
         *)          die "Unknown option: $1 (see --help)" ;;
     esac
@@ -74,7 +83,10 @@ fi
 # ---------------------------------------------------------------------------
 # BusyBox: compile only when cache is missing or --force-rebuild-busybox passed
 # ---------------------------------------------------------------------------
-if [[ -f "$BUSYBOX_CACHE" && "$FORCE_REBUILD" -eq 0 ]]; then
+if [[ -n "$BUSYBOX_BIN" ]]; then
+    [[ -f "$BUSYBOX_BIN" ]] || die "--busybox-bin: no such file: $BUSYBOX_BIN"
+    echo "✅ Using supplied BusyBox: $BUSYBOX_BIN (image-chroot build — ISA matches the image)"
+elif [[ -f "$BUSYBOX_CACHE" && "$FORCE_REBUILD" -eq 0 ]]; then
     echo "✅ Using cached BusyBox: $BUSYBOX_CACHE (skip with --force-rebuild-busybox)"
 else
     echo "📥 Downloading BusyBox $BUSYBOX_VER..."
@@ -92,7 +104,21 @@ else
     sed -i 's/CONFIG_TC=y/# CONFIG_TC is not set/' .config
 
     echo "🔨 Compiling BusyBox..."
-    make -j"$(nproc)"
+    # Portable CFLAGS on purpose: busybox's Kbuild seeds its CFLAGS from the
+    # environment (+=), so an exported -march=native/znver3 from the calling
+    # shell lands in the binary UNDISPATCHED — and this busybox is the /init
+    # of every stick built on this host. A znver3-flagged cache built
+    # 2026-08-06 on the AMD host panicked an intelhard stick on Ivy Bridge:
+    # "trap invalid opcode in busybox" -> "Attempted to kill init!".
+    # KNOWN LIMIT (verified 2026-08-15, qemu -cpu Nehalem): these flags are
+    # NOT sufficient — static linking pulls the HOST's libc.a, whose own
+    # -march (znver3 on nvhard) stays in the binary. For a guaranteed match
+    # with the image's ISA floor pass --busybox-bin with the busybox the
+    # image's genkernel already built inside the chroot (xstage 'usb' does
+    # exactly that); this host-compile path is the fallback.
+    CFLAGS="-O2 -pipe -march=x86-64 -mtune=generic" \
+    CXXFLAGS="-O2 -pipe -march=x86-64 -mtune=generic" \
+        make -j"$(nproc)"
     cd ..
 
     cp "$BUSYBOX_DIR/busybox" "$BUSYBOX_CACHE"
@@ -106,7 +132,7 @@ echo "📦 Building initrd filesystem tree..."
 rm -rf "$WORKDIR"
 mkdir -p "$WORKDIR"/{bin,sbin,etc,proc,sys,dev,mnt/cdrom,mnt/root,mnt/overlaytmp}
 
-cp "$BUSYBOX_CACHE" "$WORKDIR/bin/busybox"
+cp "${BUSYBOX_BIN:-$BUSYBOX_CACHE}" "$WORKDIR/bin/busybox"
 chmod +x "$WORKDIR/bin/busybox"
 
 echo "🔗 Creating BusyBox symlinks..."

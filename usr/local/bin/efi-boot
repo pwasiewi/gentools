@@ -120,6 +120,11 @@ Methods (security rank, best first):
   shell        EFI Shell entry (diagnostic, unsigned)
   all          all of the above
 
+Early microcode: intel-uc.img / amd-uc.img sitting next to the kernel are
+picked up automatically — stub methods prepend initrd=\EFI\...\ entries to
+the NVRAM cmdline, the UKI gets them glued in front of its .initrd section.
+(grub/shim read the host's grub.cfg, where grub-mkconfig adds them itself.)
+
 Examples:
   sudo efi-boot --disk /dev/nvme0n1 --method stub-signed
   sudo efi-boot --disk /dev/nvme0n1 --method stub-luks --luks-uuid 1234abcd-...
@@ -275,6 +280,24 @@ fi
 info "cmdline: $CMDLINE"
 
 # ---------------------------------------------------------------------------
+# Early microcode images next to the kernel: intel-uc.img from
+# sys-firmware/intel-microcode[initramfs], amd-uc.img from
+# sys-kernel/linux-firmware[initramfs]. Microcode only takes effect when it
+# reaches the kernel BEFORE boot — as the front of the initrd chain — because
+# the bugs/mitigation decisions are made against the revision running at that
+# moment; nothing scans /boot afterwards, and late loading is restricted.
+# Each stub method therefore has to carry the images itself (grub/shim rely
+# on the host's grub.cfg, where grub-mkconfig adds them on its own).
+# ---------------------------------------------------------------------------
+UCODE_IMGS=()
+for _uc in "$(dirname "$KERNEL")"/intel-uc.img "$(dirname "$KERNEL")"/amd-uc.img; do
+    if [[ -f "$_uc" ]]; then
+        UCODE_IMGS+=("$_uc")
+    fi
+done
+[[ ${#UCODE_IMGS[@]} -eq 0 ]] || info "early microcode: ${UCODE_IMGS[*]}"
+
+# ---------------------------------------------------------------------------
 # ESP check
 # ---------------------------------------------------------------------------
 # The kernel file is copied under $ESP (a MOUNT POINT), the NVRAM entry is
@@ -378,6 +401,22 @@ remove_efi_entry() {
              sub(/\t.*/, "", s)
              if (s == l) print substr($0, 5, 4)
          }')
+}
+
+# ---------------------------------------------------------------------------
+# Helper: copy the microcode images into the stub dir and print the
+# "initrd=\..." cmdline prefix that makes the kernel's EFI stub load them.
+# The stub concatenates multiple initrd= files in the order given, so the
+# prefix goes BEFORE the rest of the cmdline and the microcode cpios end up
+# at the front of the blob, where the early loader looks for them.
+# ---------------------------------------------------------------------------
+stub_ucode_cmdline() {
+    local uc pre=""
+    for uc in "${UCODE_IMGS[@]}"; do
+        cp -f "$uc" "$EFIDIR_STUB/" || die "cp $uc -> $EFIDIR_STUB failed"
+        pre+="initrd=\\EFI\\${STUB_DIRNAME}\\$(basename "$uc") "
+    done
+    printf '%s' "$pre"
 }
 
 # ---------------------------------------------------------------------------
@@ -485,6 +524,18 @@ setup_efistub_full() {
     [[ -n "$INITRD" && -f "$INITRD" ]] \
         || die "No initrd — use --initrd or --method stub-signed for kernel with built-in initramfs"
 
+    # Early-microcode format: the uncompressed vendor cpio(s) glued in FRONT
+    # of the real initramfs, in one blob — the kernel peels them off before
+    # unpacking the rest. A UKI has a single .initrd section, so the gluing
+    # happens here rather than via a second initrd= entry.
+    local UKI_INITRD="$INITRD"
+    if [[ ${#UCODE_IMGS[@]} -gt 0 ]]; then
+        cat "${UCODE_IMGS[@]}" "$INITRD" > "$WORKDIR/efistub/initrd-with-ucode.img" \
+            || die "microcode+initrd concatenation failed"
+        UKI_INITRD="$WORKDIR/efistub/initrd-with-ucode.img"
+        info "UKI initrd: microcode prepended (${UCODE_IMGS[*]})"
+    fi
+
     local SD_STUB=""
     for _s in /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
               /usr/lib/systemd-boot/linuxx64.efi.stub; do
@@ -495,7 +546,7 @@ setup_efistub_full() {
         # ukify computes section offsets correctly for any kernel/initrd size
         ukify build \
             --linux "$KERNEL" \
-            --initrd "$INITRD" \
+            --initrd "$UKI_INITRD" \
             --cmdline "$CMDLINE" \
             --output "$WORKDIR/efistub/vmlinuz-efistub.efi" \
             || die "ukify build failed"
@@ -514,11 +565,11 @@ setup_efistub_full() {
         local _v_cmd _v_linux _v_initrd
         _v_cmd=$(_next_vma "$_cmdfile")
         _v_linux=$(_next_vma "$KERNEL")
-        _v_initrd=$(_next_vma "$INITRD")
+        _v_initrd=$(_next_vma "$UKI_INITRD")
         objcopy \
             --add-section .cmdline="$_cmdfile"   --change-section-vma .cmdline="$_v_cmd" \
             --add-section .linux="$KERNEL"       --change-section-vma .linux="$_v_linux" \
-            --add-section .initrd="$INITRD"      --change-section-vma .initrd="$_v_initrd" \
+            --add-section .initrd="$UKI_INITRD"  --change-section-vma .initrd="$_v_initrd" \
             "$SD_STUB" \
             "$WORKDIR/efistub/vmlinuz-efistub.efi"
     else
@@ -569,12 +620,15 @@ setup_efistub_signed() {
 
     sbverify --list "$EFIDIR_STUB/vmlinuz-signed.efi"
 
+    local _uc_pre
+    _uc_pre=$(stub_ucode_cmdline)
+
     remove_efi_entry "Gentoo EFI Stub${STUB_SUFFIX}"
     efibootmgr --create \
         --disk "$DISK" --part "$PARTITION" \
         --label "Gentoo EFI Stub${STUB_SUFFIX}" \
         --loader "\\EFI\\${STUB_DIRNAME}\\vmlinuz-signed.efi" \
-        --unicode "$CMDLINE"
+        --unicode "${_uc_pre}${CMDLINE}"
 
     ok "EFI Stub signed → $EFIDIR_STUB/vmlinuz-signed.efi"
 }
@@ -624,12 +678,15 @@ setup_efistub_luks() {
 
     sbverify --list "$EFIDIR_STUB/vmlinuz-signed-luks.efi"
 
+    local _uc_pre
+    _uc_pre=$(stub_ucode_cmdline)
+
     remove_efi_entry "Gentoo EFI Stub LUKS${STUB_SUFFIX}"
     efibootmgr --create \
         --disk "$DISK" --part "$PARTITION" \
         --label "Gentoo EFI Stub LUKS${STUB_SUFFIX}" \
         --loader "\\EFI\\${STUB_DIRNAME}\\vmlinuz-signed-luks.efi" \
-        --unicode "$LUKS_CMDLINE"
+        --unicode "${_uc_pre}${LUKS_CMDLINE}"
 
     ok "EFI Stub LUKS → $EFIDIR_STUB/vmlinuz-signed-luks.efi"
     echo ""

@@ -1,4 +1,239 @@
 #!/bin/bash
-# nv - NVIDIA GPU status (memory, temperature, load, power)
-nvidia-smi --query-gpu=memory.used,memory.total,temperature.gpu,utilization.gpu,power.draw \
-  --format=csv,noheader | column -t -s ','
+# nv - GPU and CPU status side by side: memory, temperature, load, power.
+#
+# The GPU row is nvidia-smi. The CPU row mirrors the same five fields so the
+# two are readable as one table — which is the point: the shader/bench work
+# judges by power.draw on the GPU, and the CPU half was the missing column.
+#
+# No 'set -e': every reading degrades to 'n/a' on its own. A status tool that
+# aborts because one sensor is missing is worse than one that says so, and
+# each fallback below is visible in the output rather than silent.
+set -uo pipefail
+
+WINDOW=0.25   # one sampling window serves BOTH the utilisation and RAPL deltas
+
+# --- REAL row: what the machine actually pulls from the wall -----------------
+# RAPL reports the CPU *package* and nvidia-smi the GPU board. Together they
+# accounted for only ~78 W of a measured ~189 W on nvhard at idle (2026-08-27),
+# so reading either as "system power" is wrong by roughly half. The rest is
+# PSU conversion loss, chipset, RAM, VRMs, fans and the drives — none of which
+# any of these counters can see.
+#
+# Two ways to fill the gap, both overridable from the environment:
+#   * NV_WALL_HOST — a Shelly Gen2+ plug. Measured, not modelled. Subtract
+#     NV_WALL_BASELINE for anything else sharing that plug.
+#   * otherwise a model: (cpu + gpu) * NV_PSU_FACTOR + NV_FIXED_W.
+#
+# NV_PSU_FACTOR and NV_FIXED_W are two free parameters fitted to ONE equation
+# (the meter total), so they are degenerate: neither is separately meaningful,
+# and NV_PSU_FACTOR is NOT this host's PSU efficiency. That cannot be measured
+# here at all — it needs DC-side power, and nothing on this machine reports it
+# (no PMBus/corsairpsu hwmon device). A differential test on 2026-08-27 gave
+# ΔAC 183.6 W against ΔDC 181.2 W from RAPL+GPU, i.e. 98.7% "efficiency", which
+# is impossible: AMD RAPL over-reports the package delta by roughly 8-16% on
+# this Zen 3 part, so it cannot serve as DC ground truth. Only the pair matters;
+# tune them together against the meter.
+# Set NV_REAL=off to drop the row.
+NV_REAL="${NV_REAL:-on}"
+NV_WALL_HOST="${NV_WALL_HOST:-}"      # set by -w/--wall, or from the environment
+NV_WALL_DEFAULT="${NV_WALL_DEFAULT:-192.168.0.113}"  # plug used when -w is given bare
+NV_WALL_BASELINE="${NV_WALL_BASELINE:-33}"  # W drawn by the routers etc. with the host off
+NV_PSU_FACTOR="${NV_PSU_FACTOR:-1.15}"      # NOT a measured PSU efficiency — see below
+NV_FIXED_W="${NV_FIXED_W:-76}"              # board + RAM + drives + fans; fitted so the model
+                                            # matches the meter within a few % at idle
+
+help() {
+    cat <<-EOF
+	Usage: nv [-w|--wall [IP]] [-h]
+
+	Prints one row per device:
+	  memory used | memory total | temperature C | utilisation % | power W
+
+	  -w, --wall [IP]  read whole-machine power from a Shelly plug instead of
+	                   modelling it. IP is optional and defaults to
+	                   ${NV_WALL_DEFAULT}.
+
+	CPU power comes from the first source this kernel offers:
+	  1. /sys/class/powercap/*/energy_uj   (needs CONFIG_POWERCAP)
+	  2. ryzen_smu PM table via ryzen_monitor (AMD only, needs root)
+	Utilisation is a ${WINDOW}s delta of /proc/stat, so nv takes that long.
+
+	The REAL row estimates whole-machine wall draw. CPU+GPU counters see only
+	about half of it: measured ~78 W of ~189 W on nvhard at idle. Env overrides:
+	  NV_WALL_HOST=IP        read a Shelly plug instead of modelling (measured)
+	  NV_WALL_BASELINE=${NV_WALL_BASELINE}       W on that plug that is NOT this host
+	  NV_PSU_FACTOR=${NV_PSU_FACTOR}       model gain — NOT a measured PSU efficiency
+	  NV_FIXED_W=${NV_FIXED_W}            board+RAM+drives+fans, used by the model
+	  NV_REAL=off            hide the row
+	EOF
+}
+# Hand-rolled rather than getopts: -w takes an OPTIONAL argument and there is a
+# long form, neither of which getopts does. The next word is consumed as the IP
+# only if it exists and is not itself a flag, so bare 'nv -w' falls back to the
+# default plug and 'nv -w -h' still means help.
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help) help; exit 0 ;;
+        -w|--wall)
+            if [[ -n ${2:-} && ${2} != -* ]]; then
+                NV_WALL_HOST="$2"; shift 2
+            else
+                NV_WALL_HOST="${NV_WALL_HOST:-${NV_WALL_DEFAULT}}"; shift
+            fi
+            ;;
+        -w=*|--wall=*) NV_WALL_HOST="${1#*=}"; shift ;;
+        *) echo "nv: unknown argument: $1" >&2; help >&2; exit 1 ;;
+    esac
+done
+
+# hwmon numbering is assigned in probe order and is NOT stable across boots —
+# resolve by the driver's name file, never by a hardcoded hwmonN path.
+hwmon_by_name() {
+    local h
+    for h in /sys/class/hwmon/hwmon*; do
+        [[ $(cat "$h/name" 2>/dev/null) == "$1" ]] && { echo "$h"; return 0; }
+    done
+    return 1
+}
+
+# energy_uj is created 0400 on purpose (powercap_sys.c: S_IRUSR) — the PLATYPUS
+# side channel made the counter root-only. A plain user therefore needs sudo,
+# and -n so a machine without NOPASSWD prints n/a instead of hanging on a
+# password prompt. This is what makes the RAPL path work on Intel at all: there
+# is no ryzen_monitor to fall back to there.
+rapl_energy() {
+    cat "$1" 2>/dev/null || sudo -n cat "$1" 2>/dev/null
+}
+
+# The powercap package domain, if the kernel exposes one. CONFIG_INTEL_RAPL is
+# a misnomer: the same driver serves AMD fam 17h/19h/1Ah. Returns the dir.
+rapl_pkg_dir() {
+    local d
+    for d in /sys/class/powercap/*/; do
+        [[ -f ${d}energy_uj && $(cat "${d}name" 2>/dev/null) == package* ]] &&
+            { echo "${d}"; return 0; }
+    done
+    return 1
+}
+
+# Active power in W from a Shelly Gen2+ plug: Switch:0 on relay models, PM1:0
+# on metering-only ones. Silent and empty on any failure — a status tool must
+# not block or print a stack trace because a smart plug rebooted.
+nv_wall_watts() {
+    [[ -n ${NV_WALL_HOST} ]] || return 0
+    local j comp
+    for comp in "Switch.GetStatus?id=0" "PM1.GetStatus?id=0"; do
+        j=$(curl -sf --max-time 2 "http://${NV_WALL_HOST}/rpc/${comp}" 2>/dev/null) || continue
+        [[ ${j} == *'"apower"'* ]] || continue
+        sed -n 's/.*"apower":\([-0-9.]*\).*/\1/p' <<<"${j}"
+        return 0
+    done
+    return 0
+}
+
+# /proc/stat: busy = total - (idle + iowait), differenced over the window.
+cpu_busy_total() {
+    local _ a b c idle iowait rest sum
+    read -r _ a b c idle iowait rest < /proc/stat
+    sum=$(( a + b + c + idle + iowait ))
+    for _ in ${rest}; do sum=$(( sum + _ )); done
+    echo "${sum} $(( sum - idle - iowait ))"
+}
+
+read -r tot1 busy1 <<< "$(cpu_busy_total)"
+rapl_dir=$(rapl_pkg_dir) || rapl_dir=""
+[[ -n ${rapl_dir} ]] && e1=$(rapl_energy "${rapl_dir}energy_uj")
+
+sleep "${WINDOW}"
+
+read -r tot2 busy2 <<< "$(cpu_busy_total)"
+
+# --- utilisation -------------------------------------------------------------
+util="n/a"
+if (( tot2 > tot1 )); then
+    util=$(awk -v b=$(( busy2 - busy1 )) -v t=$(( tot2 - tot1 )) \
+              'BEGIN { printf "%.0f %%", 100 * b / t }')
+fi
+
+# --- power -------------------------------------------------------------------
+power="n/a"
+if [[ -n ${rapl_dir} && -n ${e1:-} ]]; then
+    e2=$(rapl_energy "${rapl_dir}energy_uj")
+    # the counter is 32/64-bit and wraps; a negative delta means it did
+    [[ -n ${e2} ]] && (( e2 > e1 )) &&
+        power=$(awk -v d=$(( e2 - e1 )) -v w="${WINDOW}" \
+                   'BEGIN { printf "%.2f W", d / 1e6 / w }')
+elif command -v ryzen_monitor >/dev/null; then
+    # PPT = the package power the SMU itself reports. -n so a machine without
+    # NOPASSWD sudo prints n/a instead of blocking on a password prompt.
+    # normalised to 2 decimals so the column lines up with nvidia-smi's format
+    power=$(sudo -n timeout 3 ryzen_monitor 2>/dev/null |
+            grep -m1 'PPT' | grep -oEm1 '[0-9]+\.[0-9]+' |
+            awk 'NR==1 { printf "%.2f W", $1 }')
+    [[ -n ${power} ]] || power="n/a"
+fi
+
+# --- memory and temperature --------------------------------------------------
+read -r memused memtotal <<< "$(awk '
+    /^MemTotal:/     { t = $2 }
+    /^MemAvailable:/ { a = $2 }
+    END { printf "%d %d", (t - a) / 1024, t / 1024 }' /proc/meminfo)"
+
+temp="n/a"
+# k10temp on AMD, coretemp on Intel — Tctl/Package id 0 is temp1_input on both
+for drv in k10temp coretemp; do
+    h=$(hwmon_by_name "${drv}") || continue
+    raw=$(cat "${h}/temp1_input" 2>/dev/null) || continue
+    temp=$(awk -v r="${raw}" 'BEGIN { printf "%.1f", r / 1000 }')
+    break
+done
+
+gpu_row=""
+gpu_w=""
+if command -v nvidia-smi >/dev/null; then
+    # the GPU row is optional: the Intel laptops in this fleet have no NVIDIA
+    # card, and an unguarded nvidia-smi would print an error into the table
+    gpu_row=$(nvidia-smi --query-gpu=memory.used,memory.total,temperature.gpu,utilization.gpu,power.draw \
+        --format=csv,noheader 2>/dev/null | sed 's/^/GPU, /')
+    gpu_w=$(nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits 2>/dev/null | head -1)
+fi
+
+# --- REAL: whole-machine wall draw -------------------------------------------
+# Measured if a plug is configured, modelled otherwise, and the row says which.
+# Never silently mixes the two: a fabricated number that looks measured is
+# worse than no number at all.
+real_row=""
+if [[ ${NV_REAL} != off ]]; then
+    cpu_w=${power% W}
+    [[ ${cpu_w} == n/a ]] && cpu_w=""
+    wall=$(nv_wall_watts)
+
+    if [[ -n ${wall} ]]; then
+        # NV_WALL_BASELINE belongs to ONE meter — the one this host shares with
+        # the routers. Point -w at a different plug and subtracting it is
+        # nonsense: aiming at the Bitaxe's plug gave "1.10 W" for a machine
+        # whose CPU alone was drawing 40 W. A host cannot pull less at the wall
+        # than its own silicon, so use that as the floor and say so.
+        real_row=$(awk -v w="${wall}" -v b="${NV_WALL_BASELINE}" \
+                       -v c="${cpu_w:-0}" -v g="${gpu_w:-0}" '
+            BEGIN {
+                r = w - b
+                if (c + g > 0 && r < c + g)
+                    printf "REAL, -, -, -, -, ?? %.2f W  (meter %.1f - %.0f baseline < cpu+gpu %.1f W — wrong plug or baseline), ", r, w, b, c + g
+                else
+                    printf "REAL, -, -, -, -, %.2f W  (meter %.1f - %.0f baseline), ", r, w, b
+            }')
+    elif [[ -n ${cpu_w} ]]; then
+        real_row=$(awk -v c="${cpu_w}" -v g="${gpu_w:-0}" -v f="${NV_PSU_FACTOR}" -v k="${NV_FIXED_W}" \
+            'BEGIN { printf "REAL, -, -, -, -, ~%.2f W  (modelled: (%.1f+%.1f)*%.2f+%.0f), ", (c + g) * f + k, c, g, f, k }')
+    fi
+fi
+
+# `if` rather than `[[ ... ]] && echo`: a trailing false test would be the
+# compound's exit status, and with pipefail that makes the whole script exit 1
+# whenever a row is absent — e.g. NV_REAL=off, or a machine with no GPU.
+{
+    if [[ -n ${gpu_row} ]];  then echo "${gpu_row}";  fi
+    echo "CPU, ${memused} MiB, ${memtotal} MiB, ${temp}, ${util}, ${power}"
+    if [[ -n ${real_row} ]]; then echo "${real_row}"; fi
+} | column -t -s ','

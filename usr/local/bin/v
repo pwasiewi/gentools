@@ -536,11 +536,11 @@ config() {
 # ---------------------------------------------------------------------------
 
 build_kernel() {
+    # genkernel's default CDROOT=0 stays: live mode comes from the 'cdroot'
+    # boot parameter, so the same initrd also boots an installed root=…
     chroot_script genkernel-build << EOF
-sed -i 's/CDROOT="0"/CDROOT="1"/g' /usr/share/genkernel/defaults/initrd.defaults
 time MAKEOPTS="-j16 -l32" genkernel --makeopts=-j8 \
     --kernel-config=/usr/src/linux/.config --luks --lvm --no-clean all
-sed -i 's/CDROOT="1"/CDROOT="0"/g' /usr/share/genkernel/defaults/initrd.defaults
 EOF
 
     mv "${CHROOT}/boot/initr"*"-genkernel"* "${PROFILE}/initrd"

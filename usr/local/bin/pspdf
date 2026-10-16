@@ -1,9 +1,14 @@
 #!/bin/bash
 # pspdf - converts PostScript to PDF (landscape A4)
+set -euo pipefail
+
 help() {
   cat << 'EOF'
 Convert a PostScript file to PDF in landscape orientation (A4)
 Usage: pspdf <file.ps> [output_file.pdf]
+
+The default output is <name>.pdf in the current directory. An existing
+output file is never overwritten. The page spec assumes A4 input.
 
 Examples:
   pspdf document.ps
@@ -11,16 +16,37 @@ Examples:
 EOF
 }
 
-( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 0
+die() { echo "pspdf: $*" >&2; exit 1; }
 
-IN="$1"
-BASE=$(basename "$IN" .ps)
-TMP="${BASE}_rotated.ps"
-OUT="${2:-${BASE}.pdf}"
+case "${1:-}" in
+  -h|--help) help; exit 0 ;;
+  "")        help; exit 1 ;;
+esac
+[[ $# -le 2 ]] || die "too many arguments (see pspdf --help)"
 
-[ ! -f "$IN" ] && { echo "Error: '$IN' not found"; exit 1; }
+command -v pstops >/dev/null || die "pstops not found (app-text/psutils)"
+command -v gs >/dev/null || die "gs not found (app-text/ghostscript-gpl)"
 
-pstops '1:0L(29.7cm,0)' "$IN" "$TMP"
-gs -dNOPAUSE -sDEVICE=pdfwrite -dBATCH -sOutputFile="$OUT" -sPAPERSIZE=a4 "$TMP"
-rm -f "$TMP"
+IN=$1
+[[ -f $IN && -r $IN ]] || die "'$IN' not found or unreadable"
+BASE=${IN##*/}
+BASE=${BASE%.[pP][sS]}
+OUT=${2:-${BASE}.pdf}
+[[ -e $OUT ]] && die "output exists, not overwriting: $OUT"
+
+# Private temp files: never clobber a user's <name>_rotated.ps, and no
+# truncated PDF under the final name when gs fails
+TMP=$(mktemp --suffix=.ps) || die "mktemp failed"
+TMPOUT=$(mktemp --suffix=.pdf) || die "mktemp failed"
+trap 'rm -f -- "$TMP" "$TMPOUT"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+[[ $IN == -* ]] && IN=./$IN
+pstops '1:0L(29.7cm,0)' "$IN" "$TMP" || die "pstops failed"
+gs -q -dSAFER -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sPAPERSIZE=a4 \
+  -sOutputFile="$TMPOUT" "$TMP" || die "gs failed"
+[[ -s $TMPOUT ]] || die "gs produced an empty PDF"
+chmod "$(printf '%04o' $(( 0666 & ~0$(umask) )))" "$TMPOUT"   # mktemp is 0600; honour umask
+mv -f -- "$TMPOUT" "$OUT"
 echo "→ $OUT"

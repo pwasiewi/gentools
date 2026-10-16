@@ -3,42 +3,107 @@
 # Run inside the virtual machine as root
 set -euo pipefail
 
+help() {
+  cat << 'EOF2'
+CentOS 7 Vagrant VM provisioning (run INSIDE the VM, as root)
+Usage: update_vmcentos run [--yes]
+
+Does: disables SELinux, adds epel/ceph/puppet repos, yum update + tools,
+ntp sync, installs ix, creates group 'admin' with passwordless sudo
+(/etc/sudoers.d/admin), sets enp0s3 ONBOOT=yes, installs the Vagrant
+insecure public key for user vagrant, then mounts /dev/sr0 and runs
+VBoxLinuxAdditions.run.
+
+Options:
+  --yes   skip the interactive confirmation (unattended provisioning)
+EOF2
+}
+
+die() { echo "Error: $*" >&2; exit 1; }
+
+confirm() {
+  local ans
+  read -r -p "$1 Type 'yes' to continue: " ans
+  [[ $ans == yes ]] || die "Aborted."
+}
+
+case "${1:-}" in
+  run) ;;
+  -h|--help) help; exit 0 ;;
+  "") help; exit 1 ;;
+  *) help; exit 1 ;;
+esac
+[[ $EUID -eq 0 ]] || die "Root required."
+grep -qs 'release 7' /etc/redhat-release || die "Not a CentOS/RHEL 7 guest (/etc/redhat-release) - refusing to touch this host."
+[[ "${2:-}" == --yes ]] || confirm "This rewrites SELinux, sudoers and network config of THIS machine."
+
 sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+grep -q '^SELINUX=disabled' /etc/selinux/config || die "SELinux not disabled in /etc/selinux/config"
 yum install -y epel-release
-rpm -Uvh http://download.ceph.com/rpm-jewel/el7/noarch/ceph-release-1-1.el7.noarch.rpm
+# rpm -Uvh exits 1 when the package is already installed; check first so reruns work
+rpm -q ceph-release >/dev/null 2>&1 \
+  || rpm -Uvh http://download.ceph.com/rpm-jewel/el7/noarch/ceph-release-1-1.el7.noarch.rpm
 #https://apt.puppetlabs.com/
 #https://www.digitalocean.com/community/tutorials/how-to-install-puppet-4-in-a-master-agent-setup-on-centos-7
-rpm -Uvh https://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm
+rpm -q puppetlabs-release-pc1 >/dev/null 2>&1 \
+  || rpm -Uvh https://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm
 #http://www.itzgeek.com/how-tos/linux/centos-how-tos/setup-chef-12-centos-7-rhel-7.html
 #http://linoxide.com/linux-how-to/chef-workstation-server-node-centos-7/
-yum update -y && yum upgrade -y
+yum update -y
+yum upgrade -y
 yum install -y vim ansible nmap sg3_utils wget nano bash-completion
 yum install -y ceph-deploy puppetserver puppet
-yum install -y sysbench iperf bonnie++ 
-yum install -y gcc bzip2 make kernel-devel-`uname -r`  net-tools
+yum install -y sysbench iperf bonnie++
+yum install -y gcc bzip2 make "kernel-devel-$(uname -r)" net-tools
 yum install -y ntp ntpdate ntp-doc
 ntpdate 0.us.pool.ntp.org
 hwclock --systohc
-systemctl enable ntpd && systemctl start ntpd
-curl ix.io/client > /usr/local/bin/ix
-chmod +x /usr/local/bin/ix
-groupadd admin
-usermod -G admin vagrant
-echo 'Defaults    env_keep += "SSH_AUTH_SOCK"' >> /etc/sudoers
-echo '%admin ALL=NOPASSWD: ALL' >> /etc/sudoers
-sed -i 's/ONBOOT=no/ONBOOT=yes/g' /etc/sysconfig/network-scripts/ifcfg-enp0s3
-echo NM_CONTROLLED=yes >> /etc/sysconfig/network-scripts/ifcfg-enp0s3
-su - vagrant
-#ssh-keygen -t rsa -b 2048 -N '' -f ~/.ssh/id_rsa
-[ ! -d ~/.ssh ] && mkdir ~/.ssh
-wget https://raw.githubusercontent.com/mitchellh/vagrant/master/keys/vagrant.pub -O ~/.ssh/authorized_keys
-chmod 700 ~/.ssh
-chmod 600 ~/.ssh/authorized_keys
-chown -R vagrant:vagrant ~/.ssh
-sudo yum clean all
-exit
+systemctl enable ntpd
+systemctl start ntpd
+
+# -f: an HTTP error page must not land in /usr/local/bin as an "executable"
+curl -fsSL -o /usr/local/bin/ix.new ix.io/client
+chmod +x /usr/local/bin/ix.new
+mv -f /usr/local/bin/ix.new /usr/local/bin/ix
+
+getent group admin >/dev/null || groupadd admin
+usermod -aG admin vagrant   # -a: append, do not drop vagrant's other groups
+
+# Drop-in instead of appending to /etc/sudoers: idempotent, and validated
+# before it goes live (a broken sudoers locks sudo out completely)
+SUDO_TMP=$(mktemp)
+printf '%s\n' 'Defaults    env_keep += "SSH_AUTH_SOCK"' '%admin ALL=NOPASSWD: ALL' > "$SUDO_TMP"
+visudo -cf "$SUDO_TMP" || { rm -f "$SUDO_TMP"; die "sudoers drop-in failed visudo check"; }
+install -o root -g root -m 0440 "$SUDO_TMP" /etc/sudoers.d/admin
+rm -f "$SUDO_TMP"
+
+IFCFG=/etc/sysconfig/network-scripts/ifcfg-enp0s3
+[[ -f $IFCFG ]] || die "$IFCFG not found"
+sed -i 's/ONBOOT=no/ONBOOT=yes/g' "$IFCFG"
+grep -q '^ONBOOT=yes' "$IFCFG" || die "ONBOOT=yes not set in $IFCFG"
+grep -q '^NM_CONTROLLED=yes' "$IFCFG" || echo NM_CONTROLLED=yes >> "$IFCFG"
+
+# Vagrant user's SSH key. The old version ran an interactive `su - vagrant`
+# here, so the rest ran as root on /root/.ssh and the final `exit` ended the
+# script before the VirtualBox step. Operate on the vagrant home explicitly.
+VHOME=$(getent passwd vagrant | cut -d: -f6)
+[[ -n $VHOME && -d $VHOME ]] || die "home directory of user vagrant not found"
+#ssh-keygen -t rsa -b 2048 -N '' -f "$VHOME/.ssh/id_rsa"
+mkdir -p "$VHOME/.ssh"
+curl -fsSL -o "$VHOME/.ssh/authorized_keys" \
+  https://raw.githubusercontent.com/hashicorp/vagrant/main/keys/vagrant.pub
+[[ -s $VHOME/.ssh/authorized_keys ]] || die "vagrant.pub download is empty"
+chmod 700 "$VHOME/.ssh"
+chmod 600 "$VHOME/.ssh/authorized_keys"
+chown -R vagrant:vagrant "$VHOME/.ssh"
+yum clean all
+
 #Install VirtualBox drivers
-[ ! -d /mnt/dvd ] && mkdir /mnt/dvd
-mount -t iso9660 -o ro /dev/sr0 /mnt/dvd
+mkdir -p /mnt/dvd
+mountpoint -q /mnt/dvd || mount -t iso9660 -o ro /dev/sr0 /mnt/dvd
+[[ -x /mnt/dvd/VBoxLinuxAdditions.run ]] || die "VBoxLinuxAdditions.run not on /dev/sr0 (insert the Guest Additions CD)"
 cd /mnt/dvd
-./VBoxLinuxAdditions.run
+./VBoxLinuxAdditions.run || die "VBoxLinuxAdditions.run failed - see /var/log/vboxadd-setup.log"
+cd /
+umount /mnt/dvd
+echo "Done. Reboot to load the Guest Additions modules."

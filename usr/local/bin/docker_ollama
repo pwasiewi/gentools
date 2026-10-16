@@ -9,120 +9,162 @@ IMAGE="ollama/ollama"
 MODELS_DIR="/mnt/db1/ollama"
 PORT="11434"
 
+die() { echo "docker_ollama: $*" >&2; exit 1; }
+
+confirm() {
+    local ans
+    read -r -p "$1 Type 'yes' to continue: " ans
+    [[ $ans == yes ]] || die "Aborted."
+}
+
+# No `docker ps | grep -q .`: under pipefail an early grep exit can turn a
+# match into 141, and a docker failure (daemon down) would read as "absent".
 _is_running() {
-    docker ps --filter "name=^${CONTAINER}$" --filter "status=running" -q | grep -q .
+    local out
+    out=$(docker ps --filter "name=^${CONTAINER}$" --filter "status=running" -q) \
+        || die "docker ps failed (daemon down or no permission?)"
+    [[ -n $out ]]
 }
 
 _exists() {
-    docker ps -a --filter "name=^${CONTAINER}$" -q | grep -q .
+    local out
+    out=$(docker ps -a --filter "name=^${CONTAINER}$" -q) \
+        || die "docker ps failed (daemon down or no permission?)"
+    [[ -n $out ]]
+}
+
+_need_running() {
+    _is_running || die "container '$CONTAINER' is not running (docker_ollama start)"
+}
+
+# Without the bind source docker creates an empty root-owned dir and the
+# models look lost.
+_run_container() {
+    [[ -d $MODELS_DIR ]] || die "models dir $MODELS_DIR missing (is /mnt/db1 mounted?)"
+    docker run -d --gpus=all \
+        -e OLLAMA_HOST=0.0.0.0:11434 \
+        -e 'OLLAMA_ORIGINS=*' \
+        -v "${MODELS_DIR}:/root/.ollama/models" \
+        -p "${PORT}:11434" \
+        --name "$CONTAINER" \
+        "$IMAGE" >/dev/null || die "docker run failed"
+}
+
+# A --gpus container can exit right after start (BPF device filter error).
+_check_up() {
+    sleep 2
+    _is_running || die "container exited right after start - see: docker logs $CONTAINER"
+}
+
+_remove_container() {
+    if _exists; then
+        docker rm -f "$CONTAINER" >/dev/null || die "docker rm -f $CONTAINER failed"
+    fi
 }
 
 cmd_start() {
     if _is_running; then
         echo "Already running."
-        return
+        return 0
     fi
     if _exists; then
-        if ! docker start "$CONTAINER" 2>/dev/null; then
-            if docker start "$CONTAINER" 2>&1 | grep -q "RWLayer.*nil"; then
-                echo "Corrupted RWLayer detected. Run: docker_ollama repair" >&2
-                exit 1
+        local out
+        if ! out=$(docker start "$CONTAINER" 2>&1); then
+            if grep -q "RWLayer.*nil" <<<"$out"; then
+                die "Corrupted RWLayer detected. Run: docker_ollama repair"
             fi
-            docker start "$CONTAINER"
+            printf '%s\n' "$out" >&2
+            die "docker start failed"
         fi
     else
-        docker run -d --gpus=all \
-    	    -e OLLAMA_HOST=0.0.0.0:11434 \
-            -e OLLAMA_ORIGINS=* \
-            -v "${MODELS_DIR}:/root/.ollama/models" \
-            -p "${PORT}:11434" \
-            --name "$CONTAINER" \
-            "$IMAGE"
+        _run_container
     fi
+    _check_up
     echo "Started."
 }
 
 cmd_stop() {
     if ! _exists; then
         echo "Container does not exist."
-        return
+        return 0
     fi
-    docker stop "$CONTAINER"
+    docker stop "$CONTAINER" >/dev/null || die "docker stop failed"
     echo "Stopped."
 }
 
 cmd_restart() {
-    cmd_stop || true
+    cmd_stop
     cmd_start
 }
 
 cmd_update() {
-    # Pull latest image, remove container, recreate — models are safe on bind mount
+    # Pull latest image, remove container, recreate - models are safe on bind mount
+    [[ ${1:-} == -y ]] || confirm "Remove and recreate container '$CONTAINER' from the latest $IMAGE?"
     echo "Pulling latest image: $IMAGE"
-    docker pull "$IMAGE"
+    docker pull "$IMAGE" || die "docker pull failed - old container left untouched"
     echo "Removing container..."
-    docker rm -f "$CONTAINER" 2>/dev/null || true
+    _remove_container
     echo "Recreating container..."
-    docker run -d --gpus=all \
-    	-e OLLAMA_HOST=0.0.0.0:11434 \
-        -e OLLAMA_ORIGINS=* \
-        -v "${MODELS_DIR}:/root/.ollama/models" \
-        -p "${PORT}:11434" \
-        --name "$CONTAINER" \
-        "$IMAGE"
+    _run_container
+    _check_up
     echo "Updated and started."
 }
 
 cmd_repair() {
-    # Remove container and image, re-pull, recreate — fixes corrupted RWLayer
+    # Remove container and image, re-pull, recreate - fixes corrupted RWLayer
+    [[ ${1:-} == -y ]] || confirm "Remove container '$CONTAINER' AND image $IMAGE, then re-pull?"
     echo "Removing container..."
-    docker rm -f "$CONTAINER" 2>/dev/null || true
+    _remove_container
     echo "Removing image: $IMAGE"
-    docker rmi -f "$IMAGE" 2>/dev/null || true
+    if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+        docker rmi -f "$IMAGE" >/dev/null || die "docker rmi $IMAGE failed"
+    fi
     echo "Pulling fresh image..."
-    docker pull "$IMAGE"
+    docker pull "$IMAGE" || die "docker pull failed - container and image are gone, rerun 'repair' when online"
     echo "Recreating container..."
-    docker run -d --gpus=all \
-    	-e OLLAMA_HOST=0.0.0.0:11434 \
-        -e OLLAMA_ORIGINS=* \
-        -v "${MODELS_DIR}:/root/.ollama/models" \
-        -p "${PORT}:11434" \
-        --name "$CONTAINER" \
-        "$IMAGE"
+    _run_container
+    _check_up
     echo "Repaired and started."
 }
 
 cmd_list() {
+    _need_running
     docker exec "$CONTAINER" ollama list
 }
 
 cmd_pull() {
-    [[ $# -lt 1 ]] && { echo "Usage: docker_ollama pull <model>"; exit 1; }
+    [[ $# -ge 1 ]] || die "Usage: docker_ollama pull <model>"
+    _need_running
     docker exec "$CONTAINER" ollama pull "$@"
 }
 
 cmd_run() {
-    [[ $# -lt 1 ]] && { echo "Usage: docker_ollama run <model> [prompt]"; exit 1; }
+    [[ $# -ge 1 ]] || die "Usage: docker_ollama run <model> [prompt]"
+    _need_running
     docker exec -it "$CONTAINER" ollama run "$@"
 }
 
 cmd_rm() {
-    [[ $# -lt 1 ]] && { echo "Usage: docker_ollama rm <model>"; exit 1; }
+    [[ $# -ge 1 ]] || die "Usage: docker_ollama rm <model>"
+    _need_running
     docker exec "$CONTAINER" ollama rm "$@"
 }
 
 cmd_logs() {
-    docker logs --tail "${1:-50}" -f "$CONTAINER"
+    [[ $1 =~ ^[0-9]+$ ]] || die "logs: line count must be a number, got '$1'"
+    _exists || die "container '$CONTAINER' does not exist"
+    docker logs --tail "$1" -f "$CONTAINER"
 }
 
 cmd_ps() {
+    _need_running
     docker exec "$CONTAINER" ollama ps
 }
 
 cmd_status() {
     if _is_running; then
         echo "Running"
-        docker exec "$CONTAINER" ollama ps
+        docker exec "$CONTAINER" ollama ps || echo "(ollama inside the container is not responding yet)" >&2
     elif _exists; then
         echo "Stopped"
     else
@@ -130,7 +172,7 @@ cmd_status() {
     fi
 }
 
-usage() {
+help() {
     cat <<EOF
 Usage: docker_ollama <command> [args]
 
@@ -139,9 +181,10 @@ Container management:
   stop              Stop the container
   restart           Stop and start
   status            Show container and loaded models status
-  logs [n]          Tail logs (default: 50 lines)
-  update            Pull latest image and recreate container (models preserved)
-  repair            Remove container + image, re-pull, recreate (fixes RWLayer corruption)
+  logs [n]          Follow logs, starting with the last n lines (default: 50)
+  update [-y]       Pull latest image and recreate container (models preserved)
+  repair [-y]       Remove container + image, re-pull, recreate (fixes RWLayer corruption)
+                    (-y skips the 'yes' confirmation)
 
 Model management:
   list              List available models
@@ -149,10 +192,17 @@ Model management:
   run <model>       Interactive chat with a model
   rm <model>        Remove a model
   ps                Show running models
+
+Note: the API is published on all interfaces (0.0.0.0:${PORT}), unauthenticated.
 EOF
 }
 
-[[ $# -lt 1 ]] && { usage; exit 1; }
+case "${1:-}" in
+    -h|--help) help; exit 0 ;;
+    "")        help; exit 1 ;;
+esac
+
+command -v docker >/dev/null || die "docker not found in PATH"
 
 case "$1" in
     start)   cmd_start ;;
@@ -160,12 +210,12 @@ case "$1" in
     restart) cmd_restart ;;
     status)  cmd_status ;;
     logs)    cmd_logs "${2:-50}" ;;
-    update)  cmd_update ;;
-    repair)  cmd_repair ;;
+    update)  cmd_update "${2:-}" ;;
+    repair)  cmd_repair "${2:-}" ;;
     list)    cmd_list ;;
     pull)    shift; cmd_pull "$@" ;;
     run)     shift; cmd_run "$@" ;;
     rm)      shift; cmd_rm "$@" ;;
     ps)      cmd_ps ;;
-    *)       usage; exit 1 ;;
+    *)       echo "docker_ollama: unknown command '$1'" >&2; help >&2; exit 1 ;;
 esac

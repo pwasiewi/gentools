@@ -1,15 +1,22 @@
 #!/bin/bash
+set -euo pipefail
+
 help() {
   cat << EOF
 Compile LaTeX to PDF
-Usage: tex2pdf [-m <mode>] <file.tex|basename>
+Usage: tex2pdf [-m <mode>] <file.tex|file.Rnw|basename>
 
 Modes (-m):
   pdflatex  (default): pdflatex → evince
   latex:    latex + bibtex + dvips + ps2pdf → evince
   sweave:   R Sweave + pdflatex + bibtex → evince
   gtx:      latex + dvips → gv (ghostview)
-  lualatex: lualatex + asy + lualatex → qpdfview
+  lualatex: lualatex + asy + lualatex → qpdfview  (--shell-escape: the .tex
+            can run commands as you - only for documents you trust)
+
+The build runs in the directory of the input file. bibtex runs only when the
+.aux file has \\citation/\\bibdata entries. Any failed step stops the script,
+so a stale PDF is never opened as if it were fresh.
 
 Examples:
   tex2pdf thesis.tex
@@ -21,53 +28,90 @@ Examples:
 EOF
 }
 
-( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+die() { echo "tex2pdf: $*" >&2; exit 1; }
+
+case "${1:-}" in
+  -h|--help) help; exit 0 ;;
+  "")        help; exit 1 ;;
+esac
 
 MODE="pdflatex"
-if [ "$1" = "-m" ]; then
-  [ -z "$2" ] && { echo "Error: no mode specified after -m"; help; exit 1; }
+if [[ $1 == -m ]]; then
+  [[ -n ${2:-} ]] || { help >&2; die "no mode specified after -m"; }
   MODE=$2
   shift 2
 fi
+case $MODE in
+  pdflatex|latex|sweave|gtx|lualatex) ;;
+  *) help >&2; die "unknown mode '$MODE'" ;;
+esac
 
-[ $# -eq 0 ] && { echo "Error: provide a .tex file"; help; exit 1; }
-
+[[ $# -gt 0 ]] || { help >&2; die "provide a .tex file"; }
 FILE=$1
-if [ -f "$FILE" ]; then
-  j=$(basename "$FILE" .tex)
-  j=$(basename "$j" .Rnw)
+
+# Strip the extension but keep the directory, then build inside it
+j=${FILE%.tex}
+j=${j%.Rnw}
+DIR=$(dirname -- "$j")
+j=$(basename -- "$j")
+cd -- "$DIR" || die "cannot cd to $DIR"
+if [[ $MODE == sweave ]]; then
+  [[ -f ${j}.Rnw ]] || die "not found: $DIR/${j}.Rnw"
 else
-  j=$FILE
+  [[ -f ${j}.tex ]] || die "not found: $DIR/${j}.tex"
 fi
+
+run() { "$@" || die "$1 failed (see ${j}.log)"; }
+
+# bibtex exits 1 for a document without citations - run it only when needed
+maybe_bibtex() {
+  if grep -qs -e '\\citation' -e '\\bibdata' "${j}.aux"; then
+    run bibtex "$j"
+  fi
+}
+
+need_pdf() { [[ -s ${j}.pdf ]] || die "no PDF produced: ${j}.pdf"; }
 
 case $MODE in
   pdflatex)
-    pdflatex "${j}.tex" && evince "${j}.pdf"
+    run pdflatex "${j}.tex"
+    need_pdf
+    evince "${j}.pdf"
     ;;
   latex)
-    latex "${j}.tex" && bibtex "$j" && latex "${j}.tex" && latex "${j}.tex"
-    dvips "${j}.dvi" -o "${j}.ps"
-    ps2pdf -sPAPERSIZE=a4 "${j}.ps" "${j}.pdf"
+    run latex "${j}.tex"
+    maybe_bibtex
+    run latex "${j}.tex"
+    run latex "${j}.tex"
+    run dvips "${j}.dvi" -o "${j}.ps"
+    run ps2pdf -sPAPERSIZE=a4 "${j}.ps" "${j}.pdf"
+    need_pdf
     evince "${j}.pdf"
     ;;
   sweave)
-    R CMD Sweave "${j}.Rnw"
-    pdflatex "${j}.tex" && bibtex "$j"
-    pdflatex "${j}.tex" && pdflatex "${j}.tex"
+    run R CMD Sweave "${j}.Rnw"
+    run pdflatex "${j}.tex"
+    maybe_bibtex
+    run pdflatex "${j}.tex"
+    run pdflatex "${j}.tex"
+    need_pdf
     evince "${j}.pdf"
     ;;
   gtx)
-    latex "${j}.tex" && dvips "${j}.dvi" -o "${j}.ps" && gv "${j}.ps"
+    run latex "${j}.tex"
+    run dvips "${j}.dvi" -o "${j}.ps"
+    gv "${j}.ps"
     ;;
   lualatex)
-    lualatex --shell-escape "${j}.tex"
-    asy --tex lualatex "$(basename "${j}" .tex)"*.asy
-    lualatex --shell-escape "${j}.tex"
+    run lualatex --shell-escape "${j}.tex"
+    shopt -s nullglob
+    asyfiles=("${j}"*.asy)
+    shopt -u nullglob
+    if [[ ${#asyfiles[@]} -gt 0 ]]; then
+      run asy --tex lualatex "${asyfiles[@]}"
+    fi
+    run lualatex --shell-escape "${j}.tex"
+    need_pdf
     qpdfview "${j}.pdf"
-    ;;
-  *)
-    echo "Error: unknown mode '$MODE'"
-    help
-    exit 1
     ;;
 esac

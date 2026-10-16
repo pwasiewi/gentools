@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+
 help() {
   cat << EOF
 Audio conversion - convert files to another format
@@ -10,12 +12,15 @@ Formats:
   mp3-320     WAV → MP3 320kbps (lame -b 320)
   ogg         WAV → OGG (oggenc -q 0)
   ogg-96      WAV → OGG 96kbps (oggenc -m 96)
-  cdda2mp3    CDDA raw → MP3 (lame -h, files track??.cdda.*)
+  cdda2mp3    CDDA rip → MP3 (lame -h, files track??.cdda.*)
   flac2mp3    FLAC → MP3 (ffmpeg parallel, all *.flac in directory)
 
 Arguments:
   basename    Common name for output files
   start_num   Start numbering from (default 0, first file = _01)
+
+Existing output files are never overwritten (skipped and reported).
+A failed file is reported, the rest continue; exit status 1 if any failed.
 
 Examples:
   wav2x flac grozanocy        → grozanocy_01.flac, grozanocy_02.flac, ...
@@ -27,58 +32,83 @@ Examples:
 EOF
 }
 
-( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+die() { echo "wav2x: $*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null || die "missing tool: $1"; }
+
+case "${1:-}" in
+  -h|--help) help; exit 0 ;;
+  "")        help; exit 1 ;;
+esac
 
 FORMAT=$1
 shift
 
+shopt -s nullglob
+
 case $FORMAT in
   flac2mp3)
-    parallel ffmpeg -i {} -qscale:a 0 {.}.mp3 ::: ./*.flac
-    exit $?
+    need parallel; need ffmpeg
+    flacs=(./*.flac)
+    [[ ${#flacs[@]} -gt 0 ]] || die "no *.flac files in $PWD"
+    # -n: never overwrite an existing .mp3; parallel exits with the number of failed jobs
+    parallel --halt never ffmpeg -nostdin -n -loglevel error -i {} -map 0:a -qscale:a 0 {.}.mp3 ::: "${flacs[@]}" \
+      || die "ffmpeg failed for some files (exit $?) - see messages above"
+    exit 0
     ;;
-  flac|mp3|mp3-320|ogg|ogg-96|cdda2mp3)
-    ;;
+  flac)          need sox ;;
+  mp3|mp3-320|cdda2mp3) need lame ;;
+  ogg|ogg-96)    need oggenc ;;
   *)
-    echo "Error: unknown format '$FORMAT'"
-    help
-    exit 1
+    help >&2
+    die "unknown format '$FORMAT'"
     ;;
 esac
 
-( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && { echo "Error: provide basename for output files"; help; exit 1; }
+case "${1:-}" in
+  ""|-h|--help) help >&2; die "provide basename for output files" ;;
+esac
 
 BASENAME=$1
 j=${2:-0}
+[[ $j =~ ^[0-9]+$ ]] || die "start_num must be a non-negative integer, got '$j'"
+[[ $BASENAME != -* ]] || die "basename must not start with '-': $BASENAME"
+[[ -d $(dirname -- "$BASENAME") ]] || die "directory of '$BASENAME' does not exist"
 
 case $FORMAT in
-  cdda2mp3)
-    for i in track??.cdda.*; do
-      [ -f "$i" ] || continue
-      j=$((j+1))
-      if [ "$j" -lt 10 ]; then
-        lame -h "$i" "${BASENAME}_0${j}.mp3"
-      else
-        lame -h "$i" "${BASENAME}_${j}.mp3"
-      fi
-    done
-    ;;
-  *)
-    for i in *.wav; do
-      [ -f "$i" ] || continue
-      j=$((j+1))
-      if [ "$j" -lt 10 ]; then
-        out="${BASENAME}_0${j}"
-      else
-        out="${BASENAME}_${j}"
-      fi
-      case $FORMAT in
-        flac)    sox -V3 "$i" "${out}.flac" ;;
-        mp3)     lame -h "$i" -o "${out}.mp3" ;;
-        mp3-320) lame -b 320 "$i" -o "${out}.mp3" ;;
-        ogg)     oggenc -q 0 "$i" -o "${out}.ogg" ;;
-        ogg-96)  oggenc -m 96 "$i" -o "${out}.ogg" ;;
-      esac
-    done
-    ;;
+  cdda2mp3) inputs=(track??.cdda.*); EXT=mp3 ;;
+  flac)     inputs=(./*.wav); EXT=flac ;;
+  mp3|mp3-320) inputs=(./*.wav); EXT=mp3 ;;
+  ogg|ogg-96)  inputs=(./*.wav); EXT=ogg ;;
 esac
+[[ ${#inputs[@]} -gt 0 ]] || die "no input files for '$FORMAT' in $PWD"
+
+ok=0 failed=0 skipped=0
+for i in "${inputs[@]}"; do
+  [[ -f $i ]] || continue
+  j=$((j+1))
+  printf -v out '%s_%02d.%s' "$BASENAME" "$j" "$EXT"
+  if [[ -e $out ]]; then
+    echo "SKIP (exists): $out" >&2
+    skipped=$((skipped+1))
+    continue
+  fi
+  rc=0
+  case $FORMAT in
+    cdda2mp3) lame -h "$i" "$out" || rc=$? ;;
+    flac)     sox -V3 "$i" "$out" || rc=$? ;;
+    mp3)      lame -h "$i" "$out" || rc=$? ;;
+    mp3-320)  lame -b 320 "$i" "$out" || rc=$? ;;
+    ogg)      oggenc -q 0 "$i" -o "$out" || rc=$? ;;
+    ogg-96)   oggenc -m 96 "$i" -o "$out" || rc=$? ;;
+  esac
+  if [[ $rc -ne 0 ]]; then
+    echo "FAILED ($rc): $i -> $out" >&2
+    command rm -f -- "$out"   # no partial output left behind
+    failed=$((failed+1))
+  else
+    ok=$((ok+1))
+  fi
+done
+
+echo "Converted: $ok, failed: $failed, skipped (output exists): $skipped"
+[[ $failed -eq 0 ]]

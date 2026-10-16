@@ -1,32 +1,75 @@
 #!/bin/bash
+set -euo pipefail
+
+DEV=${DVD_DEV:-/dev/sr0}
+ISO_DIR=${DVD_ISO_DIR:-/mnt/db4}
+
 help() {
   cat << EOF
 DVD burning
 Usage: dvd [-d] <file_or_directory>
 
 Options:
-  (none)  Create ISO from directory and burn to /dev/sr0 (xorriso + growisofs)
+  (none)  Create ISO from directory and burn to $DEV (xorriso + growisofs)
   -d      Burn an ISO file or image directly (growisofs)
 
+Both modes ask for a literal 'yes' before writing to the disc.
+The temporary ISO goes to $ISO_DIR (must be a mounted volume) and is removed
+afterwards. Env: DVD_DEV (default /dev/sr0), DVD_ISO_DIR (default /mnt/db4).
+
 Examples:
-  dvd /path/to/directory      → creates ISO in /mnt/db4/image123456, burns
-  dvd -d image.iso            → burns image directly to /dev/sr0
+  dvd /path/to/directory      → builds a temporary ISO in $ISO_DIR, burns it
+  dvd -d image.iso            → burns image directly to $DEV
 EOF
 }
 
-( [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] ) && help && exit 1
+die() { echo "dvd: $*" >&2; exit 1; }
+
+confirm() {
+  local ans
+  read -r -p "$1 Type 'yes' to continue: " ans
+  [[ $ans == yes ]] || die "Aborted."
+}
+
+case "${1:-}" in
+  -h|--help) help; exit 0 ;;
+  "")        help; exit 1 ;;
+esac
 
 DIRECT=0
-if [ "$1" = "-d" ]; then
+if [[ $1 == -d ]]; then
   DIRECT=1
   shift
-  [ $# -eq 0 ] && { echo "Error: provide ISO file or image"; help; exit 1; }
+  [[ $# -gt 0 ]] || { help >&2; die "provide ISO file or image"; }
+fi
+SRC=$1
+
+[[ -b $DEV ]] || die "$DEV is not a block device"
+[[ -r $DEV && -w $DEV ]] || die "no read/write access to $DEV (group cdrom?)"
+command -v growisofs >/dev/null || die "growisofs not found (app-cdr/dvd+rw-tools)"
+
+if [[ $DIRECT -eq 1 ]]; then
+  [[ -f $SRC && -s $SRC ]] || die "not a non-empty file: $SRC"
+  ISO=$SRC
+else
+  [[ -d $SRC ]] || die "not a directory: $SRC"
+  command -v xorriso >/dev/null || die "xorriso not found (dev-libs/libisoburn)"
+  # Unmounted target dir = a multi-GB ISO on the root fs
+  mountpoint -q "$ISO_DIR" || die "$ISO_DIR is not mounted"
+  # A unique temp name: a stale ISO from an earlier run can never be burned
+  ISO=$(mktemp -p "$ISO_DIR" dvd.XXXXXX.iso) || die "mktemp in $ISO_DIR failed"
+  trap 'rm -f -- "$ISO"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  [[ $SRC == -* ]] && SRC=./$SRC
+  xorriso -as mkisofs -iso-level 3 -r -J -joliet-long -rock -input-charset utf-8 \
+    -o "$ISO" "$SRC" || die "xorriso failed - nothing burned"
+  [[ -s $ISO ]] || die "xorriso produced an empty ISO - nothing burned"
 fi
 
-if [ "$DIRECT" -eq 1 ]; then
-  growisofs -Z /dev/sr0="$1"
-else
-  ISO=/mnt/db4/image123456
-  xorriso -as mkisofs -iso-level 3 -r -J -joliet-long -rock -input-charset utf-8 "$1" -o "$ISO"
-  growisofs -Z /dev/sr0="$ISO"
-fi
+SIZE=$(stat -c %s "$ISO")
+echo "Source: $SRC"
+echo "Image:  $ISO ($((SIZE / 1024 / 1024)) MiB)"
+confirm "Burn it to $DEV (growisofs -Z overwrites the disc)?"
+growisofs -Z "$DEV=$ISO" || die "growisofs failed"
+echo "Burned $ISO to $DEV."
